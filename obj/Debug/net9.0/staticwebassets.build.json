@@ -1,0 +1,12 @@
+{
+  "Version": 1,
+  "Hash": "hjnRDuRuhVA3UmY4AfGuUF8st4d2aA3x1LBBxjpgYQc=",
+  "Source": "LedgerCore",
+  "BasePath": "_content/LedgerCore",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": [],
+  "Endpoints": []
+}

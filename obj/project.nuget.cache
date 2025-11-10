@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "/TDUmejoFAQ=",
+  "success": true,
+  "projectFilePath": "/Users/greedydev/Desktop/WORKS/GreedyDev/LedgerCore/LedgerCore.csproj",
+  "expectedPackageFiles": [
+    "/Users/greedydev/.nuget/packages/microsoft.aspnetcore.openapi/9.0.3/microsoft.aspnetcore.openapi.9.0.3.nupkg.sha512",
+    "/Users/greedydev/.nuget/packages/microsoft.openapi/1.6.17/microsoft.openapi.1.6.17.nupkg.sha512"
+  ],
+  "logs": []
+}
