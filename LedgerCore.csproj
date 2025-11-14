@@ -10,4 +10,30 @@
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.3"/>
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="Auth\" />
+      <Folder Include="Core\Interfaces\Repositories\" />
+      <Folder Include="Core\Interfaces\Services\" />
+      <Folder Include="Core\Models\Accounting\" />
+      <Folder Include="Core\Models\Assets\" />
+      <Folder Include="Core\Models\Documents\" />
+      <Folder Include="Core\Models\Enums\" />
+      <Folder Include="Core\Models\Inventory\" />
+      <Folder Include="Core\Models\Master\" />
+      <Folder Include="Core\Models\Payroll\" />
+      <Folder Include="Core\Models\Security\" />
+      <Folder Include="Core\Models\Settings\" />
+      <Folder Include="Core\Models\Workflow\" />
+      <Folder Include="Core\Storage\" />
+      <Folder Include="Core\ViewModels\Common\" />
+      <Folder Include="Core\ViewModels\Dashboard\" />
+      <Folder Include="Core\ViewModels\Reports\" />
+      <Folder Include="Extentions\" />
+      <Folder Include="Helpers\" />
+      <Folder Include="Mapping\" />
+      <Folder Include="Migrations\" />
+      <Folder Include="Persistence\Configuration\" />
+      <Folder Include="Persistence\Repository\" />
+    </ItemGroup>
+
 </Project>
