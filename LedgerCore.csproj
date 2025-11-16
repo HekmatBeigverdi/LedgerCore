@@ -16,7 +16,6 @@
       <Folder Include="Core\Interfaces\Services\" />
       <Folder Include="Core\Models\Assets\" />
       <Folder Include="Core\Models\Documents\" />
-      <Folder Include="Core\Models\Inventory\" />
       <Folder Include="Core\Models\Payroll\" />
       <Folder Include="Core\Models\Security\" />
       <Folder Include="Core\Models\Settings\" />
