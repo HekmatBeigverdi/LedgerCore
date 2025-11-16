@@ -14,7 +14,6 @@
       <Folder Include="Auth\" />
       <Folder Include="Core\Interfaces\Repositories\" />
       <Folder Include="Core\Interfaces\Services\" />
-      <Folder Include="Core\Models\Assets\" />
       <Folder Include="Core\Models\Payroll\" />
       <Folder Include="Core\Models\Security\" />
       <Folder Include="Core\Models\Settings\" />
