@@ -13,7 +13,6 @@
     <ItemGroup>
       <Folder Include="Auth\" />
       <Folder Include="Core\Interfaces\Services\" />
-      <Folder Include="Core\Models\Settings\" />
       <Folder Include="Core\Storage\" />
       <Folder Include="Core\ViewModels\Common\" />
       <Folder Include="Core\ViewModels\Dashboard\" />
