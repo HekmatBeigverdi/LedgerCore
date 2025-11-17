@@ -16,7 +16,6 @@
       <Folder Include="Core\Interfaces\Services\" />
       <Folder Include="Core\Models\Security\" />
       <Folder Include="Core\Models\Settings\" />
-      <Folder Include="Core\Models\Workflow\" />
       <Folder Include="Core\Storage\" />
       <Folder Include="Core\ViewModels\Common\" />
       <Folder Include="Core\ViewModels\Dashboard\" />
