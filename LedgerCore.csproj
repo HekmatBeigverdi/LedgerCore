@@ -44,7 +44,6 @@
       <Folder Include="Helpers\" />
       <Folder Include="Mapping\" />
       <Folder Include="Migrations\" />
-      <Folder Include="Persistence\Repository\" />
     </ItemGroup>
 
 </Project>
