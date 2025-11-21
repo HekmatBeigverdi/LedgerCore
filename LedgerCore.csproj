@@ -33,6 +33,7 @@
         <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="6.32.1" />
         <PackageReference Include="System.IO.Compression" Version="4.3.0" />
         <PackageReference Include="System.Net.FtpClient" Version="1.0.5824.34026" />
+        <PackageReference Include="System.Linq.Dynamic.Core" Version="1.7.0" />
     </ItemGroup>
     <ItemGroup>
       <Folder Include="Auth\" />

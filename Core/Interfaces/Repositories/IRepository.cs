@@ -2,6 +2,9 @@ using LedgerCore.Core.Models.Common;
 
 namespace LedgerCore.Core.Interfaces.Repositories;
 
+/// <summary>
+/// Full CRUD repository interface (read/write) built on top of IReadOnlyRepository.
+/// </summary>
 public interface IRepository<TEntity> : IReadOnlyRepository<TEntity>
     where TEntity : BaseEntity
 {

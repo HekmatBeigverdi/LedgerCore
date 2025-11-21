@@ -4,6 +4,9 @@ using LedgerCore.Core.Models.Documents;
 
 namespace LedgerCore.Core.Interfaces.Repositories;
 
+/// <summary>
+/// Invoice repository covers both Sales & Purchase invoices.
+/// </summary>
 public interface IInvoiceRepository
 {
     Task<SalesInvoice?> GetSalesInvoiceWithLinesAsync(int id, CancellationToken cancellationToken = default);
@@ -15,12 +18,11 @@ public interface IInvoiceRepository
     void UpdateSalesInvoice(SalesInvoice invoice);
     void UpdatePurchaseInvoice(PurchaseInvoice invoice);
 
-    // Queries
-    Task<PagedResult<SalesInvoice>> QuerySalesAsync(PagingParams? paging = null, 
+    Task<PagedResult<SalesInvoice>> QuerySalesAsync(PagingParams? paging = null,
         Expression<Func<SalesInvoice, bool>>? predicate = null,
         CancellationToken cancellationToken = default);
 
-    Task<PagedResult<PurchaseInvoice>> QueryPurchaseAsync(PagingParams? paging = null, 
+    Task<PagedResult<PurchaseInvoice>> QueryPurchaseAsync(PagingParams? paging = null,
         Expression<Func<PurchaseInvoice, bool>>? predicate = null,
         CancellationToken cancellationToken = default);
 }

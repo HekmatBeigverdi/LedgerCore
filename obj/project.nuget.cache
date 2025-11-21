@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "dRGEF/2IHUU=",
+  "dgSpecHash": "kzP6nLBGV24=",
   "success": true,
   "projectFilePath": "C:\\Users\\Hekmat\\Desktop\\Works\\GreedyDev\\LedgerCore\\LedgerCore.csproj",
   "expectedPackageFiles": [
@@ -96,6 +96,7 @@
     "C:\\Users\\Hekmat\\.nuget\\packages\\system.io.filesystem\\4.3.0\\system.io.filesystem.4.3.0.nupkg.sha512",
     "C:\\Users\\Hekmat\\.nuget\\packages\\system.io.filesystem.primitives\\4.3.0\\system.io.filesystem.primitives.4.3.0.nupkg.sha512",
     "C:\\Users\\Hekmat\\.nuget\\packages\\system.linq\\4.3.0\\system.linq.4.3.0.nupkg.sha512",
+    "C:\\Users\\Hekmat\\.nuget\\packages\\system.linq.dynamic.core\\1.7.0\\system.linq.dynamic.core.1.7.0.nupkg.sha512",
     "C:\\Users\\Hekmat\\.nuget\\packages\\system.linq.expressions\\4.1.0\\system.linq.expressions.4.1.0.nupkg.sha512",
     "C:\\Users\\Hekmat\\.nuget\\packages\\system.net.ftpclient\\1.0.5824.34026\\system.net.ftpclient.1.0.5824.34026.nupkg.sha512",
     "C:\\Users\\Hekmat\\.nuget\\packages\\system.net.http\\4.1.0\\system.net.http.4.1.0.nupkg.sha512",

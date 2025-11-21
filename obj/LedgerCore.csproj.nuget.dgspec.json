@@ -129,6 +129,10 @@
               "target": "Package",
               "version": "[6.32.1, )"
             },
+            "System.Linq.Dynamic.Core": {
+              "target": "Package",
+              "version": "[1.7.0, )"
+            },
             "System.Net.FtpClient": {
               "target": "Package",
               "version": "[1.0.5824.34026, )"

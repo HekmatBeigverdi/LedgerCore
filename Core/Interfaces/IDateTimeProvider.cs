@@ -1,6 +1,10 @@
 namespace LedgerCore.Core.Interfaces;
 
-public class IDateTimeProvider
+/// <summary>
+/// Abstraction over current time for testability.
+/// </summary>
+public interface IDateTimeProvider
 {
-    
+    DateTime UtcNow { get; }
+    DateTime Today { get; }
 }
