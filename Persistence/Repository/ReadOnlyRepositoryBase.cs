@@ -16,18 +16,20 @@ public class ReadOnlyRepositoryBase<TEntity>(LedgerCoreDbContext context) : IRea
         return await DbSet.FindAsync([id], cancellationToken);
     }
 
-    public virtual async Task<IReadOnlyList<TEntity>> GetAllAsync(CancellationToken cancellationToken = default)
-    {
-        return await DbSet.AsNoTracking().ToListAsync(cancellationToken);
-    }
-
-    public virtual async Task<IReadOnlyList<TEntity>> FindAsync(
-        Expression<Func<TEntity, bool>> predicate,
+    public virtual async Task<PagedResult<TEntity>> GetAllAsync(PagingParams? pagingParams = null,
         CancellationToken cancellationToken = default)
     {
-        return await DbSet.AsNoTracking()
-            .Where(predicate)
-            .ToListAsync(cancellationToken);
+        IQueryable<TEntity> query = DbSet.AsNoTracking();
+        return await QueryHelpers.ApplyPagingAsync(query, pagingParams, cancellationToken);
+    }
+
+    public virtual async Task<PagedResult<TEntity>> FindAsync(
+        Expression<Func<TEntity, bool>> predicate,
+        PagingParams? pagingParams = null,
+        CancellationToken cancellationToken = default)
+    {
+        IQueryable<TEntity> query = DbSet.AsNoTracking().Where(predicate);
+        return await QueryHelpers.ApplyPagingAsync(query, pagingParams, cancellationToken);
     }
 
     public virtual async Task<bool> AnyAsync(
