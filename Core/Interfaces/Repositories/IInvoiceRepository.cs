@@ -1,3 +1,5 @@
+using System.Linq.Expressions;
+using LedgerCore.Core.Models.Common;
 using LedgerCore.Core.Models.Documents;
 
 namespace LedgerCore.Core.Interfaces.Repositories;
@@ -12,4 +14,13 @@ public interface IInvoiceRepository
 
     void UpdateSalesInvoice(SalesInvoice invoice);
     void UpdatePurchaseInvoice(PurchaseInvoice invoice);
+
+    // Queries
+    Task<PagedResult<SalesInvoice>> QuerySalesAsync(PagingParams? paging = null, 
+        Expression<Func<SalesInvoice, bool>>? predicate = null,
+        CancellationToken cancellationToken = default);
+
+    Task<PagedResult<PurchaseInvoice>> QueryPurchaseAsync(PagingParams? paging = null, 
+        Expression<Func<PurchaseInvoice, bool>>? predicate = null,
+        CancellationToken cancellationToken = default);
 }
