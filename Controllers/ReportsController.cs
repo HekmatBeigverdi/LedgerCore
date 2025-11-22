@@ -64,4 +64,77 @@ public class ReportsController(IReportingService reportingService) : ControllerB
 
         return Ok(report);
     }
+    // GET api/v1/reports/stock-balance?asOfDate=2025-01-31&warehouseId=&productId=&branchId=
+    [HttpGet("stock-balance")]
+    public async Task<ActionResult<IReadOnlyList<StockBalanceRowDto>>> GetStockBalance(
+        [FromQuery] DateTime asOfDate,
+        [FromQuery] int? warehouseId,
+        [FromQuery] int? productId,
+        [FromQuery] int? branchId,
+        CancellationToken cancellationToken)
+    {
+        var data = await reportingService.GetStockBalanceAsync(
+            asOfDate, warehouseId, productId, branchId, cancellationToken);
+
+        return Ok(data);
+    }
+
+    // GET api/v1/reports/stock-card?productId=1&warehouseId=&fromDate=...&toDate=...&branchId=
+    [HttpGet("stock-card")]
+    public async Task<ActionResult<IReadOnlyList<StockCardRowDto>>> GetStockCard(
+        [FromQuery] int productId,
+        [FromQuery] int? warehouseId,
+        [FromQuery] DateTime fromDate,
+        [FromQuery] DateTime toDate,
+        [FromQuery] int? branchId,
+        CancellationToken cancellationToken)
+    {
+        var data = await reportingService.GetStockCardAsync(
+            productId, warehouseId, fromDate, toDate, branchId, cancellationToken);
+
+        return Ok(data);
+    }
+
+    // GET api/v1/reports/sales-by-item?fromDate=...&toDate=...&branchId=
+    [HttpGet("sales-by-item")]
+    public async Task<ActionResult<IReadOnlyList<SalesByItemRowDto>>> GetSalesByItem(
+        [FromQuery] DateTime fromDate,
+        [FromQuery] DateTime toDate,
+        [FromQuery] int? branchId,
+        CancellationToken cancellationToken)
+    {
+        var data = await reportingService.GetSalesByItemAsync(
+            fromDate, toDate, branchId, cancellationToken);
+
+        return Ok(data);
+    }
+
+    // GET api/v1/reports/sales-by-party?fromDate=...&toDate=...&branchId=
+    // [HttpGet("sales-by-party")]
+    // public async Task<ActionResult<IReadOnlyList<SalesByPartyRowDto>>> GetSalesByParty(
+    //     [FromQuery] DateTime fromDate,
+    //     [FromQuery] DateTime toDate,
+    //     [FromQuery] int? branchId,
+    //     CancellationToken cancellationToken)
+    // {
+    //     var data = await reportingService.GetSalesByPartyAsync(
+    //         fromDate, toDate, branchId, cancellationToken);
+    //
+    //     return Ok(data);
+    // }
+
+    // GET api/v1/reports/purchases-by-item?fromDate=...&toDate=...&branchId=
+    [HttpGet("purchases-by-item")]
+    public async Task<ActionResult<IReadOnlyList<PurchaseByItemRowDto>>> GetPurchasesByItem(
+        [FromQuery] DateTime fromDate,
+        [FromQuery] DateTime toDate,
+        [FromQuery] int? branchId,
+        CancellationToken cancellationToken)
+    {
+        var data = await reportingService.GetPurchasesByItemAsync(
+            fromDate, toDate, branchId, cancellationToken);
+
+        return Ok(data);
+    }
+    
 }
