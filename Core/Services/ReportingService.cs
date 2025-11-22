@@ -7,8 +7,14 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LedgerCore.Core.Services;
 
-public class ReportingService(LedgerCoreDbContext db) : IReportingService
+public class ReportingService: IReportingService
 {
+    private readonly LedgerCoreDbContext _db;
+
+    public ReportingService(LedgerCoreDbContext db)
+    {
+        _db = db ?? throw new ArgumentNullException(nameof(db));
+    }
     #region Trial Balance
 
     public async Task<IReadOnlyList<TrialBalanceRow>> GetTrialBalanceAsync(
@@ -17,7 +23,7 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
         int? branchId,
         CancellationToken cancellationToken = default)
     {
-        var baseLines = db.JournalLines
+        var baseLines = _db.JournalLines
             .Include(l => l.Account)
             .Include(l => l.JournalVoucher)
             .Where(l => l.JournalVoucher != null &&
@@ -126,7 +132,7 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
         int? branchId,
         CancellationToken cancellationToken = default)
     {
-        var baseLines = db.JournalLines
+        var baseLines = _db.JournalLines
             .Include(l => l.Account)
             .Include(l => l.JournalVoucher)
             .Where(l => l.JournalVoucher != null &&
@@ -229,7 +235,7 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
         int? branchId,
         CancellationToken cancellationToken = default)
     {
-        var baseLines = db.JournalLines
+        var baseLines = _db.JournalLines
             .Include(l => l.Account)
             .Include(l => l.JournalVoucher)
             .Where(l => l.JournalVoucher != null &&
@@ -316,7 +322,7 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
         int? branchId,
         CancellationToken cancellationToken = default)
     {
-        var baseLines = db.JournalLines
+        var baseLines = _db.JournalLines
             .Include(l => l.Account)
             .Include(l => l.JournalVoucher)
             .Where(l => l.JournalVoucher != null &&
@@ -411,5 +417,185 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
         };
     }
 
+    #endregion
+    
+    #region Stock Balance
+
+    public async Task<IReadOnlyList<StockBalanceRowDto>> GetStockBalanceAsync(
+        DateTime asOfDate,
+        int? warehouseId,
+        int? productId,
+        int? branchId,
+        CancellationToken cancellationToken = default)
+    {
+        var moves = _db.StockMoves
+            .Include(m => m.Product)
+            .Include(m => m.Warehouse)
+            .Where(m => m.Date <= asOfDate);
+
+        if (warehouseId.HasValue)
+            moves = moves.Where(m => m.WarehouseId == warehouseId.Value);
+
+        if (productId.HasValue)
+            moves = moves.Where(m => m.ProductId == productId.Value);
+        
+
+        // فرض: StockMoveType.In, StockMoveType.Out
+        var grouped = await moves
+            .GroupBy(m => new
+            {
+                m.ProductId,
+                m.Product!.Code,
+                m.Product!.Name,
+                m.WarehouseId,
+                WarehouseName = m.Warehouse != null ? m.Warehouse.Name : null
+            })
+            .Select(g => new
+            {
+                g.Key.ProductId,
+                g.Key.Code,
+                g.Key.Name,
+                g.Key.WarehouseId,
+                g.Key.WarehouseName,
+                InQty = g.Where(x => x.MoveType == StockMoveType.Inbound).Sum(x => x.Quantity),
+                OutQty = g.Where(x => x.MoveType == StockMoveType.Outbound).Sum(x => x.Quantity)
+            })
+            .ToListAsync(cancellationToken);
+
+        var result = grouped
+            .Select(g => new StockBalanceRowDto
+            {
+                ProductId = g.ProductId,
+                ProductCode = g.Code,
+                ProductName = g.Name,
+                WarehouseId = g.WarehouseId,
+                WarehouseName = g.WarehouseName,
+                QuantityOnHand = g.InQty - g.OutQty
+            })
+            .Where(x => x.QuantityOnHand != 0)
+            .OrderBy(x => x.ProductCode)
+            .ThenBy(x => x.WarehouseName)
+            .ToList();
+
+        return result;
+    }
+
+    #endregion
+    
+    #region Stock Card
+
+    public async Task<IReadOnlyList<StockCardRowDto>> GetStockCardAsync(
+        int productId,
+        int? warehouseId,
+        DateTime fromDate,
+        DateTime toDate,
+        int? branchId,
+        CancellationToken cancellationToken = default)
+    {
+        var moves = _db.StockMoves
+            .Include(m => m.Warehouse)
+            .Include(m => m.Product)
+            .Where(m => m.ProductId == productId &&
+                        m.Date >= fromDate &&
+                        m.Date <= toDate);
+
+        if (warehouseId.HasValue)
+            moves = moves.Where(m => m.WarehouseId == warehouseId.Value);
+        
+
+        var list = await moves
+            .OrderBy(m => m.Date)
+            .ThenBy(m => m.Id)
+            .Select(m => new
+            {
+                m.Date,
+                m.MoveType,
+                m.Quantity,
+                m.WarehouseId,
+                WarehouseName = m.Warehouse != null ? m.Warehouse.Name : null,
+                m.RefDocumentType,
+            })
+            .ToListAsync(cancellationToken);
+
+        var result = new List<StockCardRowDto>();
+        decimal runningQty = 0;
+
+        foreach (var m in list)
+        {
+            decimal inQty = 0;
+            decimal outQty = 0;
+
+            if (m.MoveType == StockMoveType.Inbound)
+                inQty = m.Quantity;
+            else if (m.MoveType == StockMoveType.Outbound)
+                outQty = m.Quantity;
+
+            runningQty += inQty - outQty;
+
+            result.Add(new StockCardRowDto
+            {
+                Date = m.Date,
+                DocumentType = m.RefDocumentType ?? string.Empty,
+                WarehouseId = m.WarehouseId,
+                WarehouseName = m.WarehouseName,
+                InQuantity = inQty,
+                OutQuantity = outQty,
+                BalanceQuantity = runningQty,
+            });
+        }
+
+        return result;
+    }
+
+    #endregion
+    
+    #region Sales & Purchases
+
+    public async Task<IReadOnlyList<SalesByItemRowDto>> GetSalesByItemAsync(
+        DateTime fromDate,
+        DateTime toDate,
+        int? branchId,
+        CancellationToken cancellationToken = default)
+    {
+        var invoices = _db.SalesInvoices
+            .Include(i => i.Lines)
+            .ThenInclude(l => l.Product)
+            .Where(i => i.Date >= fromDate &&
+                        i.Date <= toDate &&
+                        i.Status == DocumentStatus.Posted);
+
+        if (branchId.HasValue)
+            invoices = invoices.Where(i => i.BranchId == branchId.Value);
+
+        var grouped = await invoices
+            .SelectMany(i => i.Lines)
+            .GroupBy(l => new
+            {
+                l.ProductId,
+                l.Product!.Code,
+                l.Product!.Name,
+            })
+            .Select(g => new
+            {
+                g.Key.ProductId,
+                g.Key.Code,
+                g.Key.Name,
+                Quantity = g.Sum(x => x.Quantity),
+                Amount = g.Sum(x => x.TotalAmount) // اگر نام فیلد مبلغ متفاوت است، اینجا اصلاح کن
+            })
+            .ToListAsync(cancellationToken);
+
+        return grouped
+            .Select(g => new SalesByItemRowDto
+            {
+                ProductId = g.ProductId,
+                ProductCode = g.Code,
+                ProductName = g.Name,
+                Quantity = g.Quantity,
+                TotalAmount = g.Amount
+            })
+            .OrderBy(x => x.ProductCode)
+            .ToList();
+    }
     #endregion
 }
