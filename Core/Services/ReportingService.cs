@@ -598,4 +598,55 @@ public class ReportingService: IReportingService
             .ToList();
     }
     #endregion
+    
+    #region Purchases By Item
+
+    public async Task<IReadOnlyList<PurchaseByItemRowDto>> GetPurchasesByItemAsync(
+        DateTime fromDate,
+        DateTime toDate,
+        int? branchId,
+        CancellationToken cancellationToken = default)
+    {
+        var invoices = _db.PurchaseInvoices
+            .Include(i => i.Lines)
+            .ThenInclude(l => l.Product)
+            .Where(i => i.Date >= fromDate &&
+                        i.Date <= toDate &&
+                        i.Status == DocumentStatus.Posted);
+
+        if (branchId.HasValue)
+            invoices = invoices.Where(i => i.BranchId == branchId.Value);
+
+        var grouped = await invoices
+            .SelectMany(i => i.Lines)
+            .GroupBy(l => new
+            {
+                l.ProductId,
+                l.Product!.Code,
+                l.Product!.Name
+            })
+            .Select(g => new
+            {
+                g.Key.ProductId,
+                g.Key.Code,
+                g.Key.Name,
+                Quantity = g.Sum(x => x.Quantity),
+                Amount = g.Sum(x => x.TotalAmount)
+            })
+            .ToListAsync(cancellationToken);
+
+        return grouped
+            .Select(g => new PurchaseByItemRowDto
+            {
+                ProductId = g.ProductId,
+                ProductCode = g.Code,
+                ProductName = g.Name,
+                Quantity = g.Quantity,
+                TotalAmount = g.Amount
+            })
+            .OrderBy(x => x.ProductCode)
+            .ToList();
+    }
+    #endregion
+    
 }

@@ -78,11 +78,11 @@ public interface IReportingService
     /// <summary>
     /// فروش به تفکیک طرف حساب در بازه زمانی.
     /// </summary>
-    Task<IReadOnlyList<SalesByPartyRowDto>> GetSalesByPartyAsync(
-        DateTime fromDate,
-        DateTime toDate,
-        int? branchId,
-        CancellationToken cancellationToken = default);
+    // Task<IReadOnlyList<SalesByPartyRowDto>> GetSalesByPartyAsync(
+    //     DateTime fromDate,
+    //     DateTime toDate,
+    //     int? branchId,
+    //     CancellationToken cancellationToken = default);
 
     /// <summary>
     /// خرید به تفکیک کالا در بازه زمانی.
