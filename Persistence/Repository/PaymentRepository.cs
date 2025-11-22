@@ -5,12 +5,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LedgerCore.Persistence.Repository;
 
-public class ReceiptRepository(LedgerCoreDbContext context) : RepositoryBase<Receipt>(context), IReceiptRepository
+public class PaymentRepository(LedgerCoreDbContext context) : RepositoryBase<Payment>(context), IPaymentRepository
 {
-    public async Task<PagedResult<Receipt>> QueryAsync(PagingParams? paging = null,
+    public async Task<PagedResult<Payment>> QueryAsync(PagingParams? paging = null,
         CancellationToken cancellationToken = default)
     {
-        IQueryable<Receipt> query = DbSet
+        IQueryable<Payment> query = DbSet
             .Include(x => x.Party)
             .Include(x => x.BankAccount)
             .AsNoTracking();

@@ -15,7 +15,16 @@ public class UnitOfWork(
     IFixedAssetRepository fixedAssets,
     IPayrollRepository payrolls,
     IUserRepository users,
-    IRoleRepository roles)
+    IRoleRepository roles,
+    IBranchRepository branches,
+    ICostCenterRepository costCenters,
+    IProjectRepository projects,
+    ICurrencyRepository currencies,
+    ITaxRateRepository taxRates,
+    IWarehouseRepository warehouses,
+    IReceiptRepository receipts,
+    IPaymentRepository payments,
+    IAccountRepository accounts)
     : IUnitOfWork
 {
     private IDbContextTransaction? _currentTransaction;
@@ -31,11 +40,20 @@ public class UnitOfWork(
     public IUserRepository Users { get; } = users;
     public IRoleRepository Roles { get; } = roles;
 
-    public IRepository<T> Repository<T>() where T : BaseEntity           
+    public IBranchRepository Branches { get; } = branches;
+    public ICostCenterRepository CostCenters { get; } = costCenters;
+    public IProjectRepository Projects { get; } = projects;
+    public ICurrencyRepository Currencies { get; } = currencies;
+    public ITaxRateRepository TaxRates { get; } = taxRates;
+    public IWarehouseRepository Warehouses { get; } = warehouses;
+    public IReceiptRepository Receipts { get; } = receipts;
+    public IPaymentRepository Payments { get; } = payments;
+    public IAccountRepository Accounts { get; } = accounts;
+
+    public IRepository<T> Repository<T>() where T : BaseEntity
     {
-        // برای سادگی، می‌توانیم از سرویس DI استفاده کنیم؛
-        // اما در اینجا فرض می‌کنیم هرکس نیاز دارد، مستقیم از DI می‌گیرد.
-        throw new NotImplementedException("Generic repository resolution is not implemented here.");
+        // اگر بعداً از ServiceProvider استفاده کنی، می‌توانی این را پیاده‌سازی کنی
+        throw new NotImplementedException("Generic repository resolution is not implemented.");
     }
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

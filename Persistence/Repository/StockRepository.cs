@@ -1,4 +1,5 @@
 using LedgerCore.Core.Interfaces.Repositories;
+using LedgerCore.Core.Models.Common;
 using LedgerCore.Core.Models.Inventory;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,23 +13,22 @@ public class StockRepository(LedgerCoreDbContext context) : IStockRepository
             .FirstOrDefaultAsync(x => x.WarehouseId == warehouseId && x.ProductId == productId, cancellationToken);
     }
 
-    public Task<IReadOnlyList<StockMove>> GetStockMovesAsync(
-        int productId,
-        int? warehouseId = null,
+    public async Task<PagedResult<StockMove>> GetStockMovesAsync(int productId, int? warehouseId = null,
+        PagingParams? paging = null,
         CancellationToken cancellationToken = default)
     {
-        var query = context.StockMoves.AsQueryable()
-            .Where(x => x.ProductId == productId);
+        IQueryable<StockMove> query = context.StockMoves
+            .Include(x => x.Product)
+            .Include(x => x.Warehouse)
+            .Where(x => x.ProductId == productId)
+            .AsNoTracking();
 
         if (warehouseId.HasValue)
             query = query.Where(x => x.WarehouseId == warehouseId.Value);
 
-        return query
-            .OrderBy(x => x.Date)
-            .ThenBy(x => x.Id)
-            .AsNoTracking()
-            .ToListAsync(cancellationToken)
-            .ContinueWith<IReadOnlyList<StockMove>>(t => t.Result, cancellationToken);
+        query = query.OrderByDescending(x => x.Date).ThenByDescending(x => x.Id);
+
+        return await QueryHelpers.ApplyPagingAsync(query, paging, cancellationToken);
     }
 
     public async Task AddStockMoveAsync(StockMove move, CancellationToken cancellationToken = default)

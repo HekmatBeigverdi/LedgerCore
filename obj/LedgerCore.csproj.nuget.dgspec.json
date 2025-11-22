@@ -1,23 +1,23 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\Hekmat\\Desktop\\Works\\GreedyDev\\LedgerCore\\LedgerCore.csproj": {}
+    "/Users/hekmat/Desktop/WORKS/GreedyDev/LedgerCore/LedgerCore.csproj": {}
   },
   "projects": {
-    "C:\\Users\\Hekmat\\Desktop\\Works\\GreedyDev\\LedgerCore\\LedgerCore.csproj": {
+    "/Users/hekmat/Desktop/WORKS/GreedyDev/LedgerCore/LedgerCore.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\Hekmat\\Desktop\\Works\\GreedyDev\\LedgerCore\\LedgerCore.csproj",
+        "projectUniqueName": "/Users/hekmat/Desktop/WORKS/GreedyDev/LedgerCore/LedgerCore.csproj",
         "projectName": "LedgerCore",
-        "projectPath": "C:\\Users\\Hekmat\\Desktop\\Works\\GreedyDev\\LedgerCore\\LedgerCore.csproj",
-        "packagesPath": "C:\\Users\\Hekmat\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\Hekmat\\Desktop\\Works\\GreedyDev\\LedgerCore\\obj\\",
+        "projectPath": "/Users/hekmat/Desktop/WORKS/GreedyDev/LedgerCore/LedgerCore.csproj",
+        "packagesPath": "/Users/hekmat/.nuget/packages/",
+        "outputPath": "/Users/hekmat/Desktop/WORKS/GreedyDev/LedgerCore/obj/",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
-          "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder"
+          "/usr/local/share/dotnet/sdk/NuGetFallbackFolder"
         ],
         "configFilePaths": [
-          "C:\\Users\\Hekmat\\AppData\\Roaming\\NuGet\\NuGet.Config"
+          "/Users/hekmat/.nuget/NuGet/NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net9.0"
@@ -157,7 +157,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.307/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "/usr/local/share/dotnet/sdk/9.0.308/PortableRuntimeIdentifierGraph.json"
         }
       }
     }
