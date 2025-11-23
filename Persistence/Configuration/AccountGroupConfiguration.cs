@@ -1,14 +1,14 @@
-using LedgerCore.Core.Models.Master;
+using LedgerCore.Core.Models.Accounting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace LedgerCore.Persistence.Configuration;
 
-public class ProductCategoryConfiguration : IEntityTypeConfiguration<ProductCategory>
+public class AccountGroupConfiguration : IEntityTypeConfiguration<AccountGroup>
 {
-    public void Configure(EntityTypeBuilder<ProductCategory> builder)
+    public void Configure(EntityTypeBuilder<AccountGroup> builder)
     {
-        builder.ToTable("ProductCategories");
+        builder.ToTable("AccountGroups");
 
         builder.Property(x => x.Code)
             .HasMaxLength(50)

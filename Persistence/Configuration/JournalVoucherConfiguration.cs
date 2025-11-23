@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace LedgerCore.Persistence.Configuration;
 
-public class JournalVoucherConfiguration: IEntityTypeConfiguration<JournalVoucher>
+public class JournalVoucherConfiguration : IEntityTypeConfiguration<JournalVoucher>
 {
     public void Configure(EntityTypeBuilder<JournalVoucher> builder)
     {
@@ -14,8 +14,10 @@ public class JournalVoucherConfiguration: IEntityTypeConfiguration<JournalVouche
             .HasMaxLength(50)
             .IsRequired();
 
-        builder.HasIndex(x => x.Number)
-            .IsUnique();
+        builder.Property(x => x.Description)
+            .HasMaxLength(500);
+
+        builder.HasIndex(x => x.Number).IsUnique();
 
         builder.HasMany(x => x.Lines)
             .WithOne(x => x.JournalVoucher!)

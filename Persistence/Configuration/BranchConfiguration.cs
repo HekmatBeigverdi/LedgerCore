@@ -4,11 +4,11 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace LedgerCore.Persistence.Configuration;
 
-public class ProductCategoryConfiguration : IEntityTypeConfiguration<ProductCategory>
+public class BranchConfiguration : IEntityTypeConfiguration<Branch>
 {
-    public void Configure(EntityTypeBuilder<ProductCategory> builder)
+    public void Configure(EntityTypeBuilder<Branch> builder)
     {
-        builder.ToTable("ProductCategories");
+        builder.ToTable("Branches");
 
         builder.Property(x => x.Code)
             .HasMaxLength(50)

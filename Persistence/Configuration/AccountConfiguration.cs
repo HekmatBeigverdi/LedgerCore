@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace LedgerCore.Persistence.Configuration;
 
-public class AccountConfiguration: IEntityTypeConfiguration<Account>
+public class AccountConfiguration : IEntityTypeConfiguration<Account>
 {
     public void Configure(EntityTypeBuilder<Account> builder)
     {
@@ -18,8 +18,8 @@ public class AccountConfiguration: IEntityTypeConfiguration<Account>
             .HasMaxLength(200)
             .IsRequired();
 
-        builder.HasIndex(x => x.Code)
-            .IsUnique();
+        builder.HasIndex(x => x.Code).IsUnique();
+        builder.HasIndex(x => x.Name);
 
         builder.HasOne(x => x.ParentAccount)
             .WithMany()

@@ -4,18 +4,18 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace LedgerCore.Persistence.Configuration;
 
-public class ProductCategoryConfiguration : IEntityTypeConfiguration<ProductCategory>
+public class CurrencyConfiguration : IEntityTypeConfiguration<Currency>
 {
-    public void Configure(EntityTypeBuilder<ProductCategory> builder)
+    public void Configure(EntityTypeBuilder<Currency> builder)
     {
-        builder.ToTable("ProductCategories");
+        builder.ToTable("Currencies");
 
         builder.Property(x => x.Code)
-            .HasMaxLength(50)
+            .HasMaxLength(10)
             .IsRequired();
 
         builder.Property(x => x.Name)
-            .HasMaxLength(200)
+            .HasMaxLength(100)
             .IsRequired();
 
         builder.HasIndex(x => x.Code).IsUnique();

@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace LedgerCore.Persistence.Configuration;
 
-public class ProductConfiguration: IEntityTypeConfiguration<Product>
+public class ProductConfiguration : IEntityTypeConfiguration<Product>
 {
     public void Configure(EntityTypeBuilder<Product> builder)
     {
@@ -18,8 +18,12 @@ public class ProductConfiguration: IEntityTypeConfiguration<Product>
             .HasMaxLength(200)
             .IsRequired();
 
-        builder.HasIndex(x => x.Code)
-            .IsUnique();
+        builder.Property(x => x.Barcode)
+            .HasMaxLength(100);
+
+        builder.HasIndex(x => x.Code).IsUnique();
+        builder.HasIndex(x => x.Name);
+        builder.HasIndex(x => x.Barcode);
 
         builder.HasOne(x => x.Category)
             .WithMany()
@@ -30,5 +34,7 @@ public class ProductConfiguration: IEntityTypeConfiguration<Product>
             .WithMany()
             .HasForeignKey(x => x.DefaultTaxRateId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasQueryFilter(p => !p.IsDeleted);
     }
 }
