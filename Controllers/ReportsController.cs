@@ -197,4 +197,51 @@ public class ReportsController(IReportingService reportingService) : ControllerB
 
         return Ok(data);
     }
+    
+    // ==========================
+    //  گزارش‌های حقوق و دستمزد
+    // ==========================
+
+    /// <summary>
+    /// لیست حقوق به تفکیک پرسنل.
+    /// GET api/reports/payroll-by-employee?fromDate=...&toDate=...&branchId=&costCenterId=
+    /// </summary>
+    [HttpGet("payroll-by-employee")]
+    public async Task<ActionResult<IReadOnlyList<PayrollByEmployeeRowDto>>> GetPayrollByEmployee(
+        [FromQuery] DateTime fromDate,
+        [FromQuery] DateTime toDate,
+        [FromQuery] int? branchId,
+        [FromQuery] int? costCenterId,
+        CancellationToken cancellationToken)
+    {
+        if (fromDate > toDate)
+            return BadRequest("fromDate cannot be greater than toDate.");
+
+        var data = await reportingService.GetPayrollByEmployeeAsync(
+            fromDate, toDate, branchId, costCenterId, cancellationToken);
+
+        return Ok(data);
+    }
+
+    /// <summary>
+    /// خلاصه هزینه حقوق به تفکیک شعبه و مرکز هزینه.
+    /// GET api/reports/payroll-summary?fromDate=...&toDate=...&branchId=&costCenterId=
+    /// </summary>
+    [HttpGet("payroll-summary")]
+    public async Task<ActionResult<IReadOnlyList<PayrollSummaryRowDto>>> GetPayrollSummary(
+        [FromQuery] DateTime fromDate,
+        [FromQuery] DateTime toDate,
+        [FromQuery] int? branchId,
+        [FromQuery] int? costCenterId,
+        CancellationToken cancellationToken)
+    {
+        if (fromDate > toDate)
+            return BadRequest("fromDate cannot be greater than toDate.");
+
+        var data = await reportingService.GetPayrollSummaryByBranchAndCostCenterAsync(
+            fromDate, toDate, branchId, costCenterId, cancellationToken);
+
+        return Ok(data);
+    }
+
 }

@@ -76,6 +76,7 @@ builder.Services.AddScoped<IChequeService, ChequeService>();
 builder.Services.AddScoped<IPayrollService, PayrollService>();
 builder.Services.AddScoped<IPurchaseService, PurchaseService>();
 builder.Services.AddScoped<IReportingService, ReportingService>();
+builder.Services.AddScoped<IAssetService, AssetService>();
 
 
 // AutoMapper

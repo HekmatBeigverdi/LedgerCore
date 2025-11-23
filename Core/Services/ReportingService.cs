@@ -675,4 +675,149 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
     } 
     #endregion
     
+    #region Payroll Reports
+
+    public async Task<IReadOnlyList<PayrollByEmployeeRowDto>> GetPayrollByEmployeeAsync(
+        DateTime fromDate,
+        DateTime toDate,
+        int? branchId,
+        int? costCenterId,
+        CancellationToken cancellationToken = default)
+    {
+        // فقط اسناد حقوقی پست شده یا پرداخت شده
+        var docsQuery = _db.PayrollDocuments
+            .Where(d =>
+                d.Date >= fromDate &&
+                d.Date <= toDate &&
+                (d.Status == PayrollStatus.Posted || d.Status == PayrollStatus.Paid));
+
+        // فیلتر شعبه/مرکز هزینه روی Employee
+        // برای کارایی، هم روی سند و هم روی سطر اعمال می‌کنیم
+        if (branchId.HasValue || costCenterId.HasValue)
+        {
+            docsQuery = docsQuery.Where(d =>
+                d.Lines.Any(l =>
+                    (!branchId.HasValue || l.Employee!.BranchId == branchId.Value) &&
+                    (!costCenterId.HasValue || l.Employee!.CostCenterId == costCenterId.Value)));
+        }
+
+        var grouped = await docsQuery
+            .SelectMany(d => d.Lines.Select(l => new
+            {
+                Document = d,
+                Line = l,
+                Employee = l.Employee!
+            }))
+            .Where(x =>
+                !branchId.HasValue || x.Employee.BranchId == branchId.Value)
+            .Where(x =>
+                !costCenterId.HasValue || x.Employee.CostCenterId == costCenterId.Value)
+            .GroupBy(x => new
+            {
+                x.Employee.Id,
+                x.Employee.PersonnelCode,
+                x.Employee.FullName,
+                x.Employee.BranchId,
+                BranchCode = x.Employee.Branch != null ? x.Employee.Branch.Code : null,
+                BranchName = x.Employee.Branch != null ? x.Employee.Branch.Name : null,
+                x.Employee.CostCenterId,
+                CostCenterCode = x.Employee.CostCenter != null ? x.Employee.CostCenter.Code : null,
+                CostCenterName = x.Employee.CostCenter != null ? x.Employee.CostCenter.Name : null,
+            })
+            .Select(g => new PayrollByEmployeeRowDto
+            {
+                EmployeeId = g.Key.Id,
+                PersonnelCode = g.Key.PersonnelCode,
+                FullName = g.Key.FullName,
+                BranchId = g.Key.BranchId,
+                BranchCode = g.Key.BranchCode,
+                BranchName = g.Key.BranchName,
+                CostCenterId = g.Key.CostCenterId,
+                CostCenterCode = g.Key.CostCenterCode,
+                CostCenterName = g.Key.CostCenterName,
+                TotalGross = g.Sum(x => x.Line.GrossAmount),
+                TotalDeductions = g.Sum(x => x.Line.Deductions),
+                TotalNet = g.Sum(x => x.Line.NetAmount),
+                PayrollDocumentCount = g
+                    .Select(x => x.Document.Id)
+                    .Distinct()
+                    .Count()
+            })
+            .OrderBy(r => r.PersonnelCode)
+            .ThenBy(r => r.FullName)
+            .ToListAsync(cancellationToken);
+
+        return grouped;
+    }
+
+    public async Task<IReadOnlyList<PayrollSummaryRowDto>> GetPayrollSummaryByBranchAndCostCenterAsync(
+        DateTime fromDate,
+        DateTime toDate,
+        int? branchId,
+        int? costCenterId,
+        CancellationToken cancellationToken = default)
+    {
+        var docsQuery = _db.PayrollDocuments
+            .Where(d =>
+                d.Date >= fromDate &&
+                d.Date <= toDate &&
+                (d.Status == PayrollStatus.Posted || d.Status == PayrollStatus.Paid));
+
+        if (branchId.HasValue || costCenterId.HasValue)
+        {
+            docsQuery = docsQuery.Where(d =>
+                d.Lines.Any(l =>
+                    (!branchId.HasValue || l.Employee!.BranchId == branchId.Value) &&
+                    (!costCenterId.HasValue || l.Employee!.CostCenterId == costCenterId.Value)));
+        }
+
+        var grouped = await docsQuery
+            .SelectMany(d => d.Lines.Select(l => new
+            {
+                Document = d,
+                Line = l,
+                Employee = l.Employee!
+            }))
+            .Where(x =>
+                !branchId.HasValue || x.Employee.BranchId == branchId.Value)
+            .Where(x =>
+                !costCenterId.HasValue || x.Employee.CostCenterId == costCenterId.Value)
+            .GroupBy(x => new
+            {
+                x.Employee.BranchId,
+                BranchCode = x.Employee.Branch != null ? x.Employee.Branch.Code : null,
+                BranchName = x.Employee.Branch != null ? x.Employee.Branch.Name : null,
+                x.Employee.CostCenterId,
+                CostCenterCode = x.Employee.CostCenter != null ? x.Employee.CostCenter.Code : null,
+                CostCenterName = x.Employee.CostCenter != null ? x.Employee.CostCenter.Name : null,
+            })
+            .Select(g => new PayrollSummaryRowDto
+            {
+                BranchId = g.Key.BranchId,
+                BranchCode = g.Key.BranchCode,
+                BranchName = g.Key.BranchName,
+                CostCenterId = g.Key.CostCenterId,
+                CostCenterCode = g.Key.CostCenterCode,
+                CostCenterName = g.Key.CostCenterName,
+                TotalGross = g.Sum(x => x.Line.GrossAmount),
+                TotalDeductions = g.Sum(x => x.Line.Deductions),
+                TotalNet = g.Sum(x => x.Line.NetAmount),
+                EmployeeCount = g
+                    .Select(x => x.Employee.Id)
+                    .Distinct()
+                    .Count(),
+                PayrollDocumentCount = g
+                    .Select(x => x.Document.Id)
+                    .Distinct()
+                    .Count()
+            })
+            .OrderBy(r => r.BranchCode)
+            .ThenBy(r => r.CostCenterCode)
+            .ToListAsync(cancellationToken);
+
+        return grouped;
+    }
+
+    #endregion
+
 }

@@ -94,4 +94,27 @@ public interface IReportingService
         DateTime toDate,
         int? branchId,
         CancellationToken cancellationToken = default);
+    
+
+    // ===== گزارش‌های حقوق و دستمزد =====
+
+    /// <summary>
+    /// لیست حقوق به تفکیک پرسنل در بازه زمانی.
+    /// </summary>
+    Task<IReadOnlyList<PayrollByEmployeeRowDto>> GetPayrollByEmployeeAsync(
+        DateTime fromDate,
+        DateTime toDate,
+        int? branchId,
+        int? costCenterId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// خلاصه هزینه حقوق به تفکیک شعبه و مرکز هزینه در بازه زمانی.
+    /// </summary>
+    Task<IReadOnlyList<PayrollSummaryRowDto>> GetPayrollSummaryByBranchAndCostCenterAsync(
+        DateTime fromDate,
+        DateTime toDate,
+        int? branchId,
+        int? costCenterId,
+        CancellationToken cancellationToken = default);    
 }
