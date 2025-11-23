@@ -35,6 +35,7 @@ public class LedgerCoreDbContext(DbContextOptions<LedgerCoreDbContext> options) 
     public DbSet<JournalVoucher> JournalVouchers => Set<JournalVoucher>();
     public DbSet<JournalLine> JournalLines => Set<JournalLine>();
     public DbSet<PostingRule> PostingRules => Set<PostingRule>();
+    public DbSet<TrialBalanceRow> TrialBalanceRows => Set<TrialBalanceRow>();
 
     // Inventory
     public DbSet<Warehouse> Warehouses => Set<Warehouse>();
@@ -106,3 +107,5 @@ public class LedgerCoreDbContext(DbContextOptions<LedgerCoreDbContext> options) 
             .IsUnique();
     }
 }
+
+

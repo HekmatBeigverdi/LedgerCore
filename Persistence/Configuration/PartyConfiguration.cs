@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace LedgerCore.Persistence.Configuration;
 
-public class PartyConfiguration: IEntityTypeConfiguration<Party>
+public class PartyConfiguration : IEntityTypeConfiguration<Party>
 {
     public void Configure(EntityTypeBuilder<Party> builder)
     {
@@ -18,8 +18,20 @@ public class PartyConfiguration: IEntityTypeConfiguration<Party>
             .HasMaxLength(200)
             .IsRequired();
 
-        builder.HasIndex(x => x.Code)
-            .IsUnique();
+        builder.Property(x => x.NationalId)
+            .HasMaxLength(50);
+
+        builder.Property(x => x.Phone)
+            .HasMaxLength(50);
+
+        builder.Property(x => x.Mobile)
+            .HasMaxLength(50);
+
+        builder.Property(x => x.Email)
+            .HasMaxLength(200);
+
+        builder.HasIndex(x => x.Code).IsUnique();
+        builder.HasIndex(x => x.Name);
 
         builder.HasOne(x => x.Category)
             .WithMany()
@@ -30,5 +42,7 @@ public class PartyConfiguration: IEntityTypeConfiguration<Party>
             .WithMany()
             .HasForeignKey(x => x.DefaultCurrencyId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasQueryFilter(p => !p.IsDeleted);
     }
 }
