@@ -7,14 +7,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LedgerCore.Core.Services;
 
-public class ReportingService: IReportingService
+public class ReportingService(LedgerCoreDbContext db) : IReportingService
 {
-    private readonly LedgerCoreDbContext _db;
+    private readonly LedgerCoreDbContext _db = db ?? throw new ArgumentNullException(nameof(db));
 
-    public ReportingService(LedgerCoreDbContext db)
-    {
-        _db = db ?? throw new ArgumentNullException(nameof(db));
-    }
     #region Trial Balance
 
     public async Task<IReadOnlyList<TrialBalanceRow>> GetTrialBalanceAsync(
@@ -34,10 +30,8 @@ public class ReportingService: IReportingService
             baseLines = baseLines.Where(l => l.JournalVoucher!.BranchId == branchId.Value);
         }
 
-        // مانده تا قبل از ابتدای دوره = مانده اول دوره
         var openingQuery = baseLines.Where(l => l.JournalVoucher!.Date < fromDate);
 
-        // گردش داخل دوره
         var periodQuery = baseLines.Where(l =>
             l.JournalVoucher!.Date >= fromDate &&
             l.JournalVoucher!.Date <= toDate);
@@ -84,36 +78,26 @@ public class ReportingService: IReportingService
             return row;
         }
 
-        // Opening
         foreach (var o in opening)
         {
             var row = GetOrCreate(o.AccountId, o.Code, o.Name);
-            var net = o.Debit - o.Credit; // مانده = بدهکار - بستانکار
+            var net = o.Debit - o.Credit;
 
             if (net > 0)
-            {
                 row.OpeningDebit = net;
-            }
             else if (net < 0)
-            {
                 row.OpeningCredit = Math.Abs(net);
-            }
         }
 
-        // Period
         foreach (var p in period)
         {
             var row = GetOrCreate(p.AccountId, p.Code, p.Name);
             var net = p.Debit - p.Credit;
 
             if (net > 0)
-            {
                 row.PeriodDebit = net;
-            }
             else if (net < 0)
-            {
                 row.PeriodCredit = Math.Abs(net);
-            }
         }
 
         return result.Values
@@ -161,7 +145,7 @@ public class ReportingService: IReportingService
 
         var openingDict = opening.ToDictionary(
             x => x.AccountId,
-            x => x.Debit - x.Credit); // مانده اول دوره (بدهکار - بستانکار)
+            x => x.Debit - x.Credit);
 
         var lines = await periodQuery
             .Select(l => new
@@ -277,14 +261,12 @@ public class ReportingService: IReportingService
 
             if (g.Type == AccountType.Expense)
             {
-                // هزینه‌ها: مانده بدهکار مثبت
                 amount = g.Debit - g.Credit;
                 if (amount < 0) amount = 0;
                 totalExpense += amount;
             }
             else // Revenue
             {
-                // درآمدها: مانده بستانکار مثبت
                 amount = g.Credit - g.Debit;
                 if (amount < 0) amount = 0;
                 totalRevenue += amount;
@@ -300,7 +282,7 @@ public class ReportingService: IReportingService
             });
         }
 
-        var report = new ProfitAndLossReportDto
+        return new ProfitAndLossReportDto
         {
             FromDate = fromDate,
             ToDate = toDate,
@@ -309,8 +291,6 @@ public class ReportingService: IReportingService
             NetProfitOrLoss = totalRevenue - totalExpense,
             Lines = lines
         };
-
-        return report;
     }
 
     #endregion
@@ -332,7 +312,6 @@ public class ReportingService: IReportingService
         if (branchId.HasValue)
             baseLines = baseLines.Where(l => l.JournalVoucher!.BranchId == branchId.Value);
 
-        // فقط حساب‌های ترازنامه‌ای (دارایی، بدهی، حقوق صاحبان سهام)
         var grouped = await baseLines
             .Where(l =>
                 l.Account!.Type == AccountType.Asset ||
@@ -364,7 +343,7 @@ public class ReportingService: IReportingService
 
         foreach (var g in grouped)
         {
-            var net = g.Debit - g.Credit; // مانده = بدهکار - بستانکار
+            var net = g.Debit - g.Credit;
 
             decimal debit = 0;
             decimal credit = 0;
@@ -388,19 +367,16 @@ public class ReportingService: IReportingService
             switch (g.Type)
             {
                 case AccountType.Asset:
-                    // دارایی‌ها طبیعی بدهکار
                     amount = debit - credit;
                     totalAssets += amount;
                     break;
 
                 case AccountType.Liability:
-                    // بدهی‌ها طبیعی بستانکار
                     amount = credit - debit;
                     totalLiabilities += amount;
                     break;
 
                 case AccountType.Equity:
-                    // حقوق صاحبان سهام هم طبیعی بستانکار
                     amount = credit - debit;
                     totalEquity += amount;
                     break;
@@ -438,9 +414,10 @@ public class ReportingService: IReportingService
 
         if (productId.HasValue)
             moves = moves.Where(m => m.ProductId == productId.Value);
-        
 
-        // فرض: StockMoveType.In, StockMoveType.Out
+        if (branchId.HasValue)
+            moves = moves.Where(m => m.Warehouse!.BranchId == branchId.Value);
+
         var grouped = await moves
             .GroupBy(m => new
             {
@@ -458,11 +435,12 @@ public class ReportingService: IReportingService
                 g.Key.WarehouseId,
                 g.Key.WarehouseName,
                 InQty = g.Where(x => x.MoveType == StockMoveType.Inbound).Sum(x => x.Quantity),
-                OutQty = g.Where(x => x.MoveType == StockMoveType.Outbound).Sum(x => x.Quantity)
+                OutQty = g.Where(x => x.MoveType == StockMoveType.Outbound).Sum(x => x.Quantity),
+                AdjQty = g.Where(x => x.MoveType == StockMoveType.Adjustment).Sum(x => x.Quantity)
             })
             .ToListAsync(cancellationToken);
 
-        var result = grouped
+        return grouped
             .Select(g => new StockBalanceRowDto
             {
                 ProductId = g.ProductId,
@@ -470,20 +448,17 @@ public class ReportingService: IReportingService
                 ProductName = g.Name,
                 WarehouseId = g.WarehouseId,
                 WarehouseName = g.WarehouseName,
-                QuantityOnHand = g.InQty - g.OutQty
+                QuantityOnHand = g.InQty - g.OutQty + g.AdjQty
             })
             .Where(x => x.QuantityOnHand != 0)
             .OrderBy(x => x.ProductCode)
             .ThenBy(x => x.WarehouseName)
             .ToList();
-
-        return result;
     }
 
     #endregion
     
     #region Stock Card
-
     public async Task<IReadOnlyList<StockCardRowDto>> GetStockCardAsync(
         int productId,
         int? warehouseId,
@@ -494,27 +469,19 @@ public class ReportingService: IReportingService
     {
         var moves = _db.StockMoves
             .Include(m => m.Warehouse)
-            .Include(m => m.Product)
             .Where(m => m.ProductId == productId &&
                         m.Date >= fromDate &&
                         m.Date <= toDate);
 
         if (warehouseId.HasValue)
             moves = moves.Where(m => m.WarehouseId == warehouseId.Value);
-        
+
+        if (branchId.HasValue)
+            moves = moves.Where(m => m.Warehouse!.BranchId == branchId.Value);
 
         var list = await moves
             .OrderBy(m => m.Date)
             .ThenBy(m => m.Id)
-            .Select(m => new
-            {
-                m.Date,
-                m.MoveType,
-                m.Quantity,
-                m.WarehouseId,
-                WarehouseName = m.Warehouse != null ? m.Warehouse.Name : null,
-                m.RefDocumentType,
-            })
             .ToListAsync(cancellationToken);
 
         var result = new List<StockCardRowDto>();
@@ -529,18 +496,32 @@ public class ReportingService: IReportingService
                 inQty = m.Quantity;
             else if (m.MoveType == StockMoveType.Outbound)
                 outQty = m.Quantity;
+            else if (m.MoveType == StockMoveType.Adjustment)
+            {
+                if (m.Quantity >= 0)
+                    inQty = m.Quantity;
+                else
+                    outQty = Math.Abs(m.Quantity);
+            }
 
             runningQty += inQty - outQty;
+
+            decimal? unitCost = m.UnitCost;
+            decimal? totalAmount = unitCost.HasValue ? unitCost.Value * m.Quantity : null;
 
             result.Add(new StockCardRowDto
             {
                 Date = m.Date,
                 DocumentType = m.RefDocumentType ?? string.Empty,
+                DocumentNumber = m.RefDocumentId.HasValue ? m.RefDocumentId.Value.ToString() : string.Empty,
+                Description = null,
                 WarehouseId = m.WarehouseId,
-                WarehouseName = m.WarehouseName,
+                WarehouseName = m.Warehouse?.Name,
                 InQuantity = inQty,
                 OutQuantity = outQty,
                 BalanceQuantity = runningQty,
+                UnitCost = unitCost,
+                TotalAmount = totalAmount
             });
         }
 
@@ -581,7 +562,7 @@ public class ReportingService: IReportingService
                 g.Key.Code,
                 g.Key.Name,
                 Quantity = g.Sum(x => x.Quantity),
-                Amount = g.Sum(x => x.TotalAmount) // اگر نام فیلد مبلغ متفاوت است، اینجا اصلاح کن
+                Amount = g.Sum(x => x.TotalAmount)
             })
             .ToListAsync(cancellationToken);
 
@@ -599,8 +580,53 @@ public class ReportingService: IReportingService
     }
     #endregion
     
-    #region Purchases By Item
+    #region Sales by Party
+    public async Task<IReadOnlyList<SalesByPartyRowDto>> GetSalesByPartyAsync(
+        DateTime fromDate,
+        DateTime toDate,
+        int? branchId,
+        CancellationToken cancellationToken = default)
+    {
+        var invoices = _db.SalesInvoices
+            .Include(i => i.Customer)
+            .Where(i => i.Date >= fromDate &&
+                        i.Date <= toDate &&
+                        i.Status == DocumentStatus.Posted);
 
+        if (branchId.HasValue)
+            invoices = invoices.Where(i => i.BranchId == branchId.Value);
+
+        var grouped = await invoices
+            .GroupBy(i => new
+            {
+                i.CustomerId,
+                i.Customer!.Code,
+                i.Customer!.Name
+            })
+            .Select(g => new
+            {
+                g.Key.CustomerId,
+                g.Key.Code,
+                g.Key.Name,
+                Amount = g.Sum(x => x.TotalAmount)
+            })
+            .ToListAsync(cancellationToken);
+
+        return grouped
+            .Select(g => new SalesByPartyRowDto
+            {
+                PartyId = g.CustomerId,
+                PartyCode = g.Code,
+                PartyName = g.Name,
+                TotalAmount = g.Amount
+            })
+            .OrderBy(x => x.PartyCode)
+            .ToList();
+    }
+    
+    #endregion
+    
+    #region Purchases By Item
     public async Task<IReadOnlyList<PurchaseByItemRowDto>> GetPurchasesByItemAsync(
         DateTime fromDate,
         DateTime toDate,
@@ -646,7 +672,7 @@ public class ReportingService: IReportingService
             })
             .OrderBy(x => x.ProductCode)
             .ToList();
-    }
+    } 
     #endregion
     
 }

@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("LedgerCore")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c5ee67745d98b8afbeded8fd86aafc2788bd5e3e")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+2310832d92215525799651c94cd8f5739ba3cc61")]
 [assembly: System.Reflection.AssemblyProductAttribute("LedgerCore")]
 [assembly: System.Reflection.AssemblyTitleAttribute("LedgerCore")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

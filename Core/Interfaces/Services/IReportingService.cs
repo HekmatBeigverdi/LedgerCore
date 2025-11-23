@@ -5,6 +5,8 @@ namespace LedgerCore.Core.Interfaces.Services;
 
 public interface IReportingService
 {
+    // ===== گزارش‌های مالی =====
+
     /// <summary>
     /// تراز آزمایشی بین دو تاریخ (بر اساس سندهای پست شده)
     /// </summary>
@@ -40,7 +42,7 @@ public interface IReportingService
         DateTime asOfDate,
         int? branchId,
         CancellationToken cancellationToken = default);
-    
+
     // ===== گزارش‌های انبار =====
 
     /// <summary>
@@ -78,11 +80,11 @@ public interface IReportingService
     /// <summary>
     /// فروش به تفکیک طرف حساب در بازه زمانی.
     /// </summary>
-    // Task<IReadOnlyList<SalesByPartyRowDto>> GetSalesByPartyAsync(
-    //     DateTime fromDate,
-    //     DateTime toDate,
-    //     int? branchId,
-    //     CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<SalesByPartyRowDto>> GetSalesByPartyAsync(
+        DateTime fromDate,
+        DateTime toDate,
+        int? branchId,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// خرید به تفکیک کالا در بازه زمانی.
@@ -91,5 +93,5 @@ public interface IReportingService
         DateTime fromDate,
         DateTime toDate,
         int? branchId,
-        CancellationToken cancellationToken = default);    
+        CancellationToken cancellationToken = default);
 }

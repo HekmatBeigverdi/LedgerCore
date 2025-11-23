@@ -12,9 +12,8 @@ public class StockCardRowDto
 
     public decimal InQuantity { get; set; }
     public decimal OutQuantity { get; set; }
-
     public decimal BalanceQuantity { get; set; }
 
-    public decimal? UnitPrice { get; set; }
+    public decimal? UnitCost  { get; set; }
     public decimal? TotalAmount { get; set; }
 }
