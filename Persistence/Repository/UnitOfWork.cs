@@ -1,3 +1,4 @@
+using LedgerCore.Core.Interfaces;
 using LedgerCore.Core.Interfaces.Repositories;
 using LedgerCore.Core.Models.Common;
 using Microsoft.EntityFrameworkCore.Storage;

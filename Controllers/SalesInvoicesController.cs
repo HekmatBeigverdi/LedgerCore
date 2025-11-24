@@ -1,4 +1,5 @@
 using AutoMapper;
+using LedgerCore.Core.Interfaces;
 using LedgerCore.Core.Interfaces.Repositories;
 using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Documents;
