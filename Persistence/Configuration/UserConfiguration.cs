@@ -1,3 +1,4 @@
+using LedgerCore.Core.Models.Enums;
 using LedgerCore.Core.Models.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -21,5 +22,10 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(x => x.DisplayName)
             .HasMaxLength(200)
             .IsRequired();
+
+        builder.HasIndex(x => x.UserName).IsUnique();
+        builder.HasIndex(x => x.Email).IsUnique();
+
+        builder.HasQueryFilter(u => u.Status == UserStatus.Active && !u.IsDeleted);
     }
 }

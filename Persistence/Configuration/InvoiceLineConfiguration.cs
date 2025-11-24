@@ -10,8 +10,8 @@ public class InvoiceLineConfiguration : IEntityTypeConfiguration<InvoiceLine>
     {
         builder.ToTable("InvoiceLines");
 
-        builder.Property(x => x.LineNumber)
-            .IsRequired();
+        builder.Property(x => x.Description)
+            .HasMaxLength(500);
 
         builder.HasIndex(x => new { x.SalesInvoiceId, x.LineNumber });
         builder.HasIndex(x => new { x.PurchaseInvoiceId, x.LineNumber });

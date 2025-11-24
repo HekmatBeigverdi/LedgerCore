@@ -6,6 +6,7 @@ namespace LedgerCore.Core.Models.Documents;
 public class InvoiceLine: BaseEntity
 {
     public int LineNumber { get; set; }             // شماره ردیف برای مرتب‌سازی
+    public string? Description { get; set; }
 
     public int ProductId { get; set; }
     public Product? Product { get; set; }
