@@ -7,12 +7,12 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.3"/>
+        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.3" />
         <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
     </ItemGroup>
     <ItemGroup>
         <PackageReference Include="40-System.IO.Compression.FileSystem" Version="1.0.0.2" />
-        <PackageReference Include="AutoMapper" Version="12.0.1" />
+        <PackageReference Include="AutoMapper" Version="15.1.0" />
         <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" Version="12.0.1" />
         <PackageReference Include="BouncyCastle" Version="1.8.9" />
         <PackageReference Include="CoreFtp" Version="1.4.0" />
@@ -43,7 +43,6 @@
       <Folder Include="Core\ViewModels\Reports\" />
       <Folder Include="Extentions\" />
       <Folder Include="Helpers\" />
-      <Folder Include="Mapping\" />
       <Folder Include="Migrations\" />
     </ItemGroup>
 

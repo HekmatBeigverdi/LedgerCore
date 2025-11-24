@@ -1,0 +1,44 @@
+using AutoMapper;
+using LedgerCore.Core.Models.Documents;
+using LedgerCore.Core.ViewModels.Documents;
+
+namespace LedgerCore.Mapping;
+
+public class DomainMappingProfile : Profile
+{
+    public DomainMappingProfile()
+    {
+        // SalesInvoice → SalesInvoiceDto
+        CreateMap<SalesInvoice, SalesInvoiceDto>()
+            .ForMember(d => d.CustomerCode, m => m.MapFrom(s => s.Customer!.Code))
+            .ForMember(d => d.CustomerName, m => m.MapFrom(s => s.Customer!.Name))
+            .ForMember(d => d.BranchName, m => m.MapFrom(s => s.Branch!.Name))
+            .ForMember(d => d.WarehouseName, m => m.MapFrom(s => s.Warehouse!.Name))
+            .ForMember(d => d.CurrencyCode, m => m.MapFrom(s => s.Currency!.Code));
+
+        // InvoiceLine → InvoiceLineDto
+        CreateMap<InvoiceLine, InvoiceLineDto>()
+            .ForMember(d => d.ProductCode, m => m.MapFrom(s => s.Product!.Code))
+            .ForMember(d => d.ProductName, m => m.MapFrom(s => s.Product!.Name))
+            .ForMember(d => d.TaxRateName, m => m.MapFrom(s => s.TaxRate!.Name));
+
+        // CreateSalesInvoiceRequest → SalesInvoice (ساخت Entity از Request)
+        CreateMap<CreateSalesInvoiceRequest, SalesInvoice>()
+            .ForMember(d => d.Number, m => m.Ignore())   // بعداً از NumberSeries می‌گیریم
+            .ForMember(d => d.Lines, m => m.Ignore());   // جداگانه مپ می‌کنیم
+
+        CreateMap<CreateSalesInvoiceLineRequest, InvoiceLine>()
+            .ForMember(d => d.Id, m => m.Ignore())
+            .ForMember(d => d.SalesInvoiceId, m => m.Ignore())
+            .ForMember(d => d.PurchaseInvoiceId, m => m.Ignore());
+
+        // UpdateSalesInvoiceRequest → SalesInvoice
+        CreateMap<UpdateSalesInvoiceRequest, SalesInvoice>()
+            .ForMember(d => d.Number, m => m.Ignore())
+            .ForMember(d => d.Lines, m => m.Ignore());
+
+        CreateMap<UpdateSalesInvoiceLineRequest, InvoiceLine>()
+            .ForMember(d => d.SalesInvoiceId, m => m.Ignore())
+            .ForMember(d => d.PurchaseInvoiceId, m => m.Ignore());
+    }
+}

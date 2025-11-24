@@ -1,5 +1,6 @@
 
 using System.Text;
+using LedgerCore.Mapping;
 using LedgerCore.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -29,6 +30,9 @@ builder.Services.AddDbContext<LedgerCoreDbContext>(
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+
+builder.Services.AddAutoMapper(typeof(DomainMappingProfile));
+
 
 var app = builder.Build();
 
