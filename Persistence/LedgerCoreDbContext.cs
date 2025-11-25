@@ -105,6 +105,12 @@ public class LedgerCoreDbContext(DbContextOptions<LedgerCoreDbContext> options) 
         modelBuilder.Entity<User>()
             .HasIndex(x => x.Email)
             .IsUnique();
+        
+        modelBuilder.Entity<TrialBalanceRow>(eb =>
+        {
+            eb.HasNoKey();
+            eb.ToView("vw_TrialBalanceRows"); // adjust view name or remove if not a view
+        });
     }
 }
 
