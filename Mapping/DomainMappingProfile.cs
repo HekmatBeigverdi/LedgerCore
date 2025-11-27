@@ -1,6 +1,7 @@
 using AutoMapper;
 using LedgerCore.Core.Models.Documents;
 using LedgerCore.Core.ViewModels.Documents;
+using LedgerCore.Core.ViewModels.ReceiptsPayments;
 
 namespace LedgerCore.Mapping;
 
@@ -65,5 +66,82 @@ public class DomainMappingProfile : Profile
         CreateMap<UpdatePurchaseInvoiceLineRequest, InvoiceLine>()
             .ForMember(d => d.SalesInvoiceId, m => m.Ignore())
             .ForMember(d => d.PurchaseInvoiceId, m => m.Ignore());
+        
+        // -------------------------
+        // Receipt -> ReceiptDto
+        // -------------------------
+        CreateMap<Receipt, ReceiptDto>()
+            // ساده‌ها رو AutoMapper خودش مپ می‌کند (Number, Date, Amount, FxRate, CashDeskCode, ReferenceNo, Description, Status)
+            .ForMember(d => d.PartyCode,
+                opt => opt.MapFrom(s => s.Party != null ? s.Party.Code : null))
+            .ForMember(d => d.PartyName,
+                opt => opt.MapFrom(s => s.Party != null ? s.Party.Name : null))
+
+            .ForMember(d => d.BranchCode,
+                opt => opt.MapFrom(s => s.Branch != null ? s.Branch.Code : null))
+            .ForMember(d => d.BranchName,
+                opt => opt.MapFrom(s => s.Branch != null ? s.Branch.Name : null))
+
+            .ForMember(d => d.CurrencyCode,
+                opt => opt.MapFrom(s => s.Currency != null ? s.Currency.Code : null))
+            .ForMember(d => d.CurrencyName,
+                opt => opt.MapFrom(s => s.Currency != null ? s.Currency.Name : null))
+
+            .ForMember(d => d.BankAccountNumber,
+                opt => opt.MapFrom(s => s.BankAccount != null ? s.BankAccount.AccountNumber : null))
+            .ForMember(d => d.BankAccountTitle,
+                opt => opt.MapFrom(s => s.BankAccount != null ? s.BankAccount.Title : null))
+            .ForMember(d => d.BankId,
+                opt => opt.MapFrom(s => s.BankAccount != null ? s.BankAccount.BankId : null))
+            .ForMember(d => d.BankName,
+                opt => opt.MapFrom(s => s.BankAccount != null && s.BankAccount.Bank != null
+                    ? s.BankAccount.Bank.Name
+                    : null))
+
+            .ForMember(d => d.MethodName,
+                opt => opt.MapFrom(s => s.Method.ToString()))
+            .ForMember(d => d.StatusName,
+                opt => opt.MapFrom(s => s.Status.ToString()))
+
+            .ForMember(d => d.JournalVoucherNumber,
+                opt => opt.MapFrom(s => s.JournalVoucher != null ? s.JournalVoucher.Number : null));
+
+        // -------------------------
+        // Payment -> PaymentDto
+        // -------------------------
+        CreateMap<Payment, PaymentDto>()
+            .ForMember(d => d.PartyCode,
+                opt => opt.MapFrom(s => s.Party != null ? s.Party.Code : null))
+            .ForMember(d => d.PartyName,
+                opt => opt.MapFrom(s => s.Party != null ? s.Party.Name : null))
+
+            .ForMember(d => d.BranchCode,
+                opt => opt.MapFrom(s => s.Branch != null ? s.Branch.Code : null))
+            .ForMember(d => d.BranchName,
+                opt => opt.MapFrom(s => s.Branch != null ? s.Branch.Name : null))
+
+            .ForMember(d => d.CurrencyCode,
+                opt => opt.MapFrom(s => s.Currency != null ? s.Currency.Code : null))
+            .ForMember(d => d.CurrencyName,
+                opt => opt.MapFrom(s => s.Currency != null ? s.Currency.Name : null))
+
+            .ForMember(d => d.BankAccountNumber,
+                opt => opt.MapFrom(s => s.BankAccount != null ? s.BankAccount.AccountNumber : null))
+            .ForMember(d => d.BankAccountTitle,
+                opt => opt.MapFrom(s => s.BankAccount != null ? s.BankAccount.Title : null))
+            .ForMember(d => d.BankId,
+                opt => opt.MapFrom(s => s.BankAccount != null ? s.BankAccount.BankId : null))
+            .ForMember(d => d.BankName,
+                opt => opt.MapFrom(s => s.BankAccount != null && s.BankAccount.Bank != null
+                    ? s.BankAccount.Bank.Name
+                    : null))
+
+            .ForMember(d => d.MethodName,
+                opt => opt.MapFrom(s => s.Method.ToString()))
+            .ForMember(d => d.StatusName,
+                opt => opt.MapFrom(s => s.Status.ToString()))
+
+            .ForMember(d => d.JournalVoucherNumber,
+                opt => opt.MapFrom(s => s.JournalVoucher != null ? s.JournalVoucher.Number : null));
     }
 }

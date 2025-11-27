@@ -63,10 +63,14 @@ builder.Services.AddScoped<IWarehouseRepository, WarehouseRepository>();
 builder.Services.AddScoped<IReceiptRepository, ReceiptRepository>();
 builder.Services.AddScoped<ISalesService, SalesService>();
 builder.Services.AddScoped<IPurchaseService, PurchaseService>();
+builder.Services.AddScoped<IReceiptRepository, ReceiptRepository>();
+builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
+builder.Services.AddScoped<IChequeRepository, ChequeRepository>();
 
 
 // Services
 builder.Services.AddScoped<ISalesService, SalesService>();
+builder.Services.AddScoped<IAccountingService, AccountingService>();
 
 // AutoMapper
 builder.Services.AddAutoMapper(typeof(DomainMappingProfile));
