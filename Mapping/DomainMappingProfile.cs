@@ -40,5 +40,30 @@ public class DomainMappingProfile : Profile
         CreateMap<UpdateSalesInvoiceLineRequest, InvoiceLine>()
             .ForMember(d => d.SalesInvoiceId, m => m.Ignore())
             .ForMember(d => d.PurchaseInvoiceId, m => m.Ignore());
+        
+        // ===== PurchaseInvoice =====
+        CreateMap<PurchaseInvoice, PurchaseInvoiceDto>()
+            .ForMember(d => d.SupplierCode, m => m.MapFrom(s => s.Supplier!.Code))
+            .ForMember(d => d.SupplierName, m => m.MapFrom(s => s.Supplier!.Name))
+            .ForMember(d => d.BranchName, m => m.MapFrom(s => s.Branch!.Name))
+            .ForMember(d => d.WarehouseName, m => m.MapFrom(s => s.Warehouse!.Name))
+            .ForMember(d => d.CurrencyCode, m => m.MapFrom(s => s.Currency!.Code));
+
+        CreateMap<CreatePurchaseInvoiceRequest, PurchaseInvoice>()
+            .ForMember(d => d.Number, m => m.Ignore())
+            .ForMember(d => d.Lines, m => m.Ignore());
+
+        CreateMap<CreatePurchaseInvoiceLineRequest, InvoiceLine>()
+            .ForMember(d => d.Id, m => m.Ignore())
+            .ForMember(d => d.SalesInvoiceId, m => m.Ignore())
+            .ForMember(d => d.PurchaseInvoiceId, m => m.Ignore());
+
+        CreateMap<UpdatePurchaseInvoiceRequest, PurchaseInvoice>()
+            .ForMember(d => d.Number, m => m.Ignore())
+            .ForMember(d => d.Lines, m => m.Ignore());
+
+        CreateMap<UpdatePurchaseInvoiceLineRequest, InvoiceLine>()
+            .ForMember(d => d.SalesInvoiceId, m => m.Ignore())
+            .ForMember(d => d.PurchaseInvoiceId, m => m.Ignore());
     }
 }

@@ -1,20 +1,23 @@
 {
   "format": 1,
   "restore": {
-    "/Users/greedydev/Desktop/WORKS/GreedyDev/LedgerCore/LedgerCore.csproj": {}
+    "/Users/hekmat/Desktop/WORKS/GreedyDev/LedgerCore/LedgerCore.csproj": {}
   },
   "projects": {
-    "/Users/greedydev/Desktop/WORKS/GreedyDev/LedgerCore/LedgerCore.csproj": {
+    "/Users/hekmat/Desktop/WORKS/GreedyDev/LedgerCore/LedgerCore.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/Users/greedydev/Desktop/WORKS/GreedyDev/LedgerCore/LedgerCore.csproj",
+        "projectUniqueName": "/Users/hekmat/Desktop/WORKS/GreedyDev/LedgerCore/LedgerCore.csproj",
         "projectName": "LedgerCore",
-        "projectPath": "/Users/greedydev/Desktop/WORKS/GreedyDev/LedgerCore/LedgerCore.csproj",
-        "packagesPath": "/Users/greedydev/.nuget/packages/",
-        "outputPath": "/Users/greedydev/Desktop/WORKS/GreedyDev/LedgerCore/obj/",
+        "projectPath": "/Users/hekmat/Desktop/WORKS/GreedyDev/LedgerCore/LedgerCore.csproj",
+        "packagesPath": "/Users/hekmat/.nuget/packages/",
+        "outputPath": "/Users/hekmat/Desktop/WORKS/GreedyDev/LedgerCore/obj/",
         "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "/usr/local/share/dotnet/sdk/NuGetFallbackFolder"
+        ],
         "configFilePaths": [
-          "/Users/greedydev/.nuget/NuGet/NuGet.Config"
+          "/Users/hekmat/.nuget/NuGet/NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net9.0"
@@ -38,7 +41,7 @@
           "auditLevel": "low",
           "auditMode": "direct"
         },
-        "SdkAnalysisLevel": "9.0.200"
+        "SdkAnalysisLevel": "9.0.300"
       },
       "frameworks": {
         "net9.0": {
@@ -154,7 +157,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "/usr/local/share/dotnet/sdk/9.0.202/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "/usr/local/share/dotnet/sdk/9.0.308/PortableRuntimeIdentifierGraph.json"
         }
       }
     }
