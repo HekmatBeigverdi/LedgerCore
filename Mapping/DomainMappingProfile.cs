@@ -1,5 +1,6 @@
 using AutoMapper;
 using LedgerCore.Core.Models.Documents;
+using LedgerCore.Core.ViewModels.Cheques;
 using LedgerCore.Core.ViewModels.Documents;
 using LedgerCore.Core.ViewModels.ReceiptsPayments;
 
@@ -143,5 +144,20 @@ public class DomainMappingProfile : Profile
 
             .ForMember(d => d.JournalVoucherNumber,
                 opt => opt.MapFrom(s => s.JournalVoucher != null ? s.JournalVoucher.Number : null));
+        
+        // -------------------------
+        // Cheque -> ChequeDto
+        // -------------------------
+        CreateMap<Cheque, ChequeDto>()
+            .ForMember(d => d.PartyName, m => m.MapFrom(s => s.Party!.Name))
+            .ForMember(d => d.BankAccountTitle, m => m.MapFrom(s => s.BankAccount!.Title))
+            .ForMember(d => d.CurrencyCode, m => m.MapFrom(s => s.Currency!.Code));
+
+        CreateMap<ChequeHistory, ChequeHistoryDto>();
+
+        CreateMap<RegisterChequeRequest, Cheque>()
+            .ForMember(d => d.Id, m => m.Ignore())
+            .ForMember(d => d.Status, m => m.Ignore())
+            .ForMember(d => d.History, m => m.Ignore());        
     }
 }
