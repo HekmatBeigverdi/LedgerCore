@@ -1,5 +1,7 @@
 using AutoMapper;
+using LedgerCore.Core.Interfaces;
 using LedgerCore.Core.Interfaces.Services;
+using LedgerCore.Core.Models.Common;
 using LedgerCore.Core.Models.Documents;
 using LedgerCore.Core.ViewModels.Documents;
 using LedgerCore.Core.ViewModels.ReceiptsPayments;
@@ -9,8 +11,13 @@ namespace LedgerCore.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class ReceiptsController(IAccountingService accountingService, IMapper mapper) : ControllerBase
+public class ReceiptsController(
+    IAccountingService accountingService,
+    IUnitOfWork uow,
+    IMapper mapper)
+    : ControllerBase
 {
+    // GET api/receipts/{id}
     [HttpGet("{id:int}")]
     public async Task<ActionResult<ReceiptDto>> Get(int id, CancellationToken cancellationToken)
     {
@@ -18,9 +25,29 @@ public class ReceiptsController(IAccountingService accountingService, IMapper ma
         if (receipt is null)
             return NotFound();
 
-        return Ok(mapper.Map<ReceiptDto>(receipt));
+        var dto = mapper.Map<ReceiptDto>(receipt);
+        return Ok(dto);
     }
 
+    // GET api/receipts?PageNumber=1&PageSize=20
+    [HttpGet]
+    public async Task<ActionResult<PagedResult<ReceiptDto>>> Query(
+        [FromQuery] PagingParams paging,
+        CancellationToken cancellationToken)
+    {
+        var result = await uow.Receipts.QueryAsync(paging, cancellationToken);
+        var dtoItems = result.Items.Select(x => mapper.Map<ReceiptDto>(x)).ToList();
+
+        var dtoPage = new PagedResult<ReceiptDto>(
+            dtoItems,
+            result.TotalCount,
+            result.PageNumber,
+            result.PageSize);
+
+        return Ok(dtoPage);
+    }
+
+    // POST api/receipts
     [HttpPost]
     public async Task<ActionResult<ReceiptDto>> Create(
         [FromBody] CreateReceiptRequest request,
@@ -33,6 +60,7 @@ public class ReceiptsController(IAccountingService accountingService, IMapper ma
         return CreatedAtAction(nameof(Get), new { id = dto.Id }, dto);
     }
 
+    // PUT api/receipts/{id}
     [HttpPut("{id:int}")]
     public async Task<ActionResult<ReceiptDto>> Update(
         int id,
@@ -46,9 +74,11 @@ public class ReceiptsController(IAccountingService accountingService, IMapper ma
         mapper.Map(request, existing);
         var updated = await accountingService.UpdateReceiptAsync(existing, cancellationToken);
 
-        return Ok(mapper.Map<ReceiptDto>(updated));
+        var dto = mapper.Map<ReceiptDto>(updated);
+        return Ok(dto);
     }
 
+    // POST api/receipts/{id}/post
     [HttpPost("{id:int}/post")]
     public async Task<IActionResult> Post(int id, CancellationToken cancellationToken)
     {

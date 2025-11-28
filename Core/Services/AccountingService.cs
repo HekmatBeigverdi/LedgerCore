@@ -9,9 +9,110 @@ namespace LedgerCore.Core.Services;
 
 public class AccountingService(IUnitOfWork uow) : IAccountingService
 {
-    // =================== Receipt ===================
+    // ===================== ژورنال =====================
 
-    public async Task<Receipt> CreateReceiptAsync(Receipt receipt, CancellationToken cancellationToken = default)
+    public async Task<JournalVoucher> CreateJournalAsync(
+        JournalVoucher voucher,
+        CancellationToken cancellationToken = default)
+    {
+        // اگر شماره ندارد، از NumberSeries بگیریم
+        if (string.IsNullOrWhiteSpace(voucher.Number))
+        {
+            voucher.Number = await GenerateNextNumberAsync("Journal", voucher.BranchId, cancellationToken);
+        }
+
+        // اعتبارسنجی تراز بودن
+        if (!IsBalanced(voucher))
+            throw new InvalidOperationException("Journal voucher is not balanced (Debit != Credit).");
+
+        voucher.Status = DocumentStatus.Draft;
+
+        await uow.Journals.AddAsync(voucher, cancellationToken);
+        await uow.SaveChangesAsync(cancellationToken);
+
+        return voucher;
+    }
+
+    public Task<JournalVoucher?> GetJournalAsync(
+        int id,
+        CancellationToken cancellationToken = default)
+    {
+        return uow.Journals.GetWithLinesAsync(id, cancellationToken);
+    }
+
+    public async Task PostJournalAsync(
+        int journalId,
+        CancellationToken cancellationToken = default)
+    {
+        await uow.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            var journal = await uow.Journals.GetWithLinesAsync(journalId, cancellationToken);
+            if (journal is null)
+                throw new InvalidOperationException($"JournalVoucher with id={journalId} not found.");
+
+            if (journal.Status == DocumentStatus.Posted)
+                return;
+
+            if (!IsBalanced(journal))
+                throw new InvalidOperationException("Cannot post unbalanced journal.");
+
+            journal.Status = DocumentStatus.Posted;
+            uow.Journals.Update(journal);
+            await uow.SaveChangesAsync(cancellationToken);
+
+            await uow.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await uow.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    public async Task CloseFiscalPeriodAsync(
+        int fiscalPeriodId,
+        CancellationToken cancellationToken = default)
+    {
+        var periodRepo = uow.Repository<FiscalPeriod>();
+        var period = await periodRepo.GetByIdAsync(fiscalPeriodId, cancellationToken)
+                     ?? throw new InvalidOperationException($"FiscalPeriod with id={fiscalPeriodId} not found.");
+
+        if (period.IsClosed)
+            return;
+
+        // اینجا می‌توانی قوانین بستن دوره (ثبت سند اختتامیه و افتتاحیه و ...) را اضافه کنی
+        // فعلاً ساده: فقط flag بستن را می‌زنیم
+        period.IsClosed = true;
+        period.ClosedAt = DateTime.UtcNow;
+
+        periodRepo.Update(period);
+        await uow.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<bool> IsBalancedAsync(
+        int journalId,
+        CancellationToken cancellationToken = default)
+    {
+        var journal = await uow.Journals.GetWithLinesAsync(journalId, cancellationToken);
+        if (journal is null)
+            throw new InvalidOperationException($"JournalVoucher with id={journalId} not found.");
+
+        return IsBalanced(journal);
+    }
+
+    private static bool IsBalanced(JournalVoucher journal)
+    {
+        var totalDebit = journal.Lines.Sum(x => x.Debit);
+        var totalCredit = journal.Lines.Sum(x => x.Credit);
+        return decimal.Round(totalDebit, 2) == decimal.Round(totalCredit, 2);
+    }
+
+    // ===================== Receipt =====================
+
+    public async Task<Receipt> CreateReceiptAsync(
+        Receipt receipt,
+        CancellationToken cancellationToken = default)
     {
         await uow.BeginTransactionAsync(cancellationToken);
         try
@@ -34,10 +135,14 @@ public class AccountingService(IUnitOfWork uow) : IAccountingService
         }
     }
 
-    public Task<Receipt?> GetReceiptAsync(int id, CancellationToken cancellationToken = default)
+    public Task<Receipt?> GetReceiptAsync(
+        int id,
+        CancellationToken cancellationToken = default)
         => uow.Receipts.GetByIdAsync(id, cancellationToken);
 
-    public async Task<Receipt> UpdateReceiptAsync(Receipt receipt, CancellationToken cancellationToken = default)
+    public async Task<Receipt> UpdateReceiptAsync(
+        Receipt receipt,
+        CancellationToken cancellationToken = default)
     {
         var existing = await uow.Receipts.GetByIdAsync(receipt.Id, cancellationToken);
         if (existing is null)
@@ -66,7 +171,9 @@ public class AccountingService(IUnitOfWork uow) : IAccountingService
         return existing;
     }
 
-    public async Task PostReceiptAsync(int receiptId, CancellationToken cancellationToken = default)
+    public async Task PostReceiptAsync(
+        int receiptId,
+        CancellationToken cancellationToken = default)
     {
         await uow.BeginTransactionAsync(cancellationToken);
         try
@@ -78,6 +185,7 @@ public class AccountingService(IUnitOfWork uow) : IAccountingService
             if (receipt.Status == DocumentStatus.Posted)
                 return;
 
+            // ساخت سند حسابداری بر اساس PostingRule
             var journal = await CreateJournalForReceiptAsync(receipt, cancellationToken);
 
             receipt.Status = DocumentStatus.Posted;
@@ -95,9 +203,11 @@ public class AccountingService(IUnitOfWork uow) : IAccountingService
         }
     }
 
-    // =================== Payment ===================
+    // ===================== Payment =====================
 
-    public async Task<Payment> CreatePaymentAsync(Payment payment, CancellationToken cancellationToken = default)
+    public async Task<Payment> CreatePaymentAsync(
+        Payment payment,
+        CancellationToken cancellationToken = default)
     {
         await uow.BeginTransactionAsync(cancellationToken);
         try
@@ -120,10 +230,14 @@ public class AccountingService(IUnitOfWork uow) : IAccountingService
         }
     }
 
-    public Task<Payment?> GetPaymentAsync(int id, CancellationToken cancellationToken = default)
+    public Task<Payment?> GetPaymentAsync(
+        int id,
+        CancellationToken cancellationToken = default)
         => uow.Payments.GetByIdAsync(id, cancellationToken);
 
-    public async Task<Payment> UpdatePaymentAsync(Payment payment, CancellationToken cancellationToken = default)
+    public async Task<Payment> UpdatePaymentAsync(
+        Payment payment,
+        CancellationToken cancellationToken = default)
     {
         var existing = await uow.Payments.GetByIdAsync(payment.Id, cancellationToken);
         if (existing is null)
@@ -152,7 +266,9 @@ public class AccountingService(IUnitOfWork uow) : IAccountingService
         return existing;
     }
 
-    public async Task PostPaymentAsync(int paymentId, CancellationToken cancellationToken = default)
+    public async Task PostPaymentAsync(
+        int paymentId,
+        CancellationToken cancellationToken = default)
     {
         await uow.BeginTransactionAsync(cancellationToken);
         try
@@ -181,17 +297,19 @@ public class AccountingService(IUnitOfWork uow) : IAccountingService
         }
     }
 
-    // =================== Validate & Posting Helpers ===================
+    // ===================== Helpers =====================
 
     private Task ValidateReceiptAsync(Receipt receipt, CancellationToken cancellationToken)
     {
         if (receipt.Amount <= 0)
             throw new InvalidOperationException("Receipt amount must be greater than zero.");
 
-        if (receipt.Method == PaymentMethod.Cash && string.IsNullOrWhiteSpace(receipt.CashDeskCode))
+        if (receipt.Method == PaymentMethod.Cash &&
+            string.IsNullOrWhiteSpace(receipt.CashDeskCode))
             throw new InvalidOperationException("CashDeskCode is required for cash receipt.");
 
-        if (receipt.Method == PaymentMethod.BankTransfer && receipt.BankAccountId is null)
+        if (receipt.Method == PaymentMethod.BankTransfer &&
+            receipt.BankAccountId is null)
             throw new InvalidOperationException("BankAccountId is required for bank receipt.");
 
         return Task.CompletedTask;
@@ -202,25 +320,29 @@ public class AccountingService(IUnitOfWork uow) : IAccountingService
         if (payment.Amount <= 0)
             throw new InvalidOperationException("Payment amount must be greater than zero.");
 
-        if (payment.Method == PaymentMethod.Cash && string.IsNullOrWhiteSpace(payment.CashDeskCode))
+        if (payment.Method == PaymentMethod.Cash &&
+            string.IsNullOrWhiteSpace(payment.CashDeskCode))
             throw new InvalidOperationException("CashDeskCode is required for cash payment.");
 
-        if (payment.Method == PaymentMethod.BankTransfer && payment.BankAccountId is null)
+        if (payment.Method == PaymentMethod.BankTransfer &&
+            payment.BankAccountId is null)
             throw new InvalidOperationException("BankAccountId is required for bank payment.");
 
         return Task.CompletedTask;
     }
 
-    private async Task<JournalVoucher> CreateJournalForReceiptAsync(Receipt receipt, CancellationToken cancellationToken)
+    private async Task<JournalVoucher> CreateJournalForReceiptAsync(
+        Receipt receipt,
+        CancellationToken cancellationToken)
     {
-        // بر اساس PostingRule با DocumentType = "Receipt"
+        // PostingRule با DocumentType = "Receipt"
         var postingRuleRepo = uow.Repository<PostingRule>();
-        var rules = await postingRuleRepo.FindAsync(
+        var page = await postingRuleRepo.FindAsync(
             x => x.DocumentType == "Receipt" && x.IsActive,
             null,
             cancellationToken);
 
-        var rule = rules.Items.FirstOrDefault()
+        var rule = page.Items.FirstOrDefault()
                    ?? throw new InvalidOperationException("No posting rule defined for Receipt.");
 
         var voucher = new JournalVoucher
@@ -235,7 +357,7 @@ public class AccountingService(IUnitOfWork uow) : IAccountingService
         var lines = new List<JournalLine>();
         int lineNo = 1;
 
-        // Debit: Cash/Bank
+        // Debit: Cash/Bank (حساب نقد و بانک)
         lines.Add(new JournalLine
         {
             LineNumber = lineNo++,
@@ -249,7 +371,7 @@ public class AccountingService(IUnitOfWork uow) : IAccountingService
             Description = $"Receipt {receipt.Number}"
         });
 
-        // Credit: Receivable/Other
+        // Credit: Receivable / Other
         lines.Add(new JournalLine
         {
             LineNumber = lineNo++,
@@ -271,15 +393,17 @@ public class AccountingService(IUnitOfWork uow) : IAccountingService
         return voucher;
     }
 
-    private async Task<JournalVoucher> CreateJournalForPaymentAsync(Payment payment, CancellationToken cancellationToken)
+    private async Task<JournalVoucher> CreateJournalForPaymentAsync(
+        Payment payment,
+        CancellationToken cancellationToken)
     {
         var postingRuleRepo = uow.Repository<PostingRule>();
-        var rules = await postingRuleRepo.FindAsync(
+        var page = await postingRuleRepo.FindAsync(
             x => x.DocumentType == "Payment" && x.IsActive,
             null,
             cancellationToken);
 
-        var rule = rules.Items.FirstOrDefault()
+        var rule = page.Items.FirstOrDefault()
                    ?? throw new InvalidOperationException("No posting rule defined for Payment.");
 
         var voucher = new JournalVoucher
@@ -294,7 +418,7 @@ public class AccountingService(IUnitOfWork uow) : IAccountingService
         var lines = new List<JournalLine>();
         int lineNo = 1;
 
-        // Debit: Payable/Expense
+        // Debit: Payable / Expense
         lines.Add(new JournalLine
         {
             LineNumber = lineNo++,
@@ -330,9 +454,13 @@ public class AccountingService(IUnitOfWork uow) : IAccountingService
         return voucher;
     }
 
-    private async Task<string> GenerateNextNumberAsync(string entityType, int? branchId, CancellationToken cancellationToken)
+    private async Task<string> GenerateNextNumberAsync(
+        string entityType,
+        int? branchId,
+        CancellationToken cancellationToken)
     {
         var seriesRepo = uow.Repository<NumberSeries>();
+
         var page = await seriesRepo.FindAsync(
             x => x.EntityType == entityType
                  && x.IsActive
@@ -351,36 +479,5 @@ public class AccountingService(IUnitOfWork uow) : IAccountingService
 
         var num = series.CurrentNumber.ToString().PadLeft(series.Padding, '0');
         return $"{series.Prefix}{num}{series.Suffix}";
-    }
-
-    // ===== متدهای دیگر IAccountingService (Journal, ClosePeriod, ...) را هم اینجا پیاده کن =====
-    public Task<JournalVoucher> CreateJournalAsync(JournalVoucher voucher, CancellationToken cancellationToken = default)
-    {
-        // TODO: پیاده‌سازی طبق نیاز خودت
-        throw new NotImplementedException();
-    }
-
-    public Task<JournalVoucher?> GetJournalAsync(int id, CancellationToken cancellationToken = default)
-    {
-        // TODO
-        throw new NotImplementedException();
-    }
-
-    public Task PostJournalAsync(int journalId, CancellationToken cancellationToken = default)
-    {
-        // TODO
-        throw new NotImplementedException();
-    }
-
-    public Task CloseFiscalPeriodAsync(int fiscalPeriodId, CancellationToken cancellationToken = default)
-    {
-        // TODO
-        throw new NotImplementedException();
-    }
-
-    public Task<bool> IsBalancedAsync(int journalId, CancellationToken cancellationToken = default)
-    {
-        // TODO
-        throw new NotImplementedException();
     }
 }
