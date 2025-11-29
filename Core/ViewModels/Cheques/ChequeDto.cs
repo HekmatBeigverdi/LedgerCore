@@ -8,10 +8,10 @@ public class ChequeDto
 
     public string ChequeNumber { get; set; } = default!;
     public string? Serial { get; set; }
+    
+    public bool IsIncoming { get; set; }          // true: دریافتی، false: صادره
 
-    public bool IsIncoming { get; set; }
-
-    public int? PartyId { get; set; }
+    public int? PartyId { get; set; }             // صادرکننده/ذی‌نفع
     public string? PartyName { get; set; }
 
     public int? BankAccountId { get; set; }
