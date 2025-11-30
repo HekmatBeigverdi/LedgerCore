@@ -1,5 +1,7 @@
 using AutoMapper;
+using LedgerCore.Core.Models.Assets;
 using LedgerCore.Core.Models.Documents;
+using LedgerCore.Core.ViewModels.Assets;
 using LedgerCore.Core.ViewModels.Cheques;
 using LedgerCore.Core.ViewModels.Documents;
 using LedgerCore.Core.ViewModels.ReceiptsPayments;
@@ -111,7 +113,6 @@ public class DomainMappingProfile : Profile
             .ForMember(d => d.Status, m => m.Ignore())
             .ForMember(d => d.JournalVoucherId, m => m.Ignore())
             .ForMember(d => d.JournalVoucher, m => m.Ignore());        
-        
 
         // -------------------------
         // Cheque -> ChequeDto
@@ -126,6 +127,34 @@ public class DomainMappingProfile : Profile
         CreateMap<RegisterChequeRequest, Cheque>()
             .ForMember(d => d.Id, m => m.Ignore())
             .ForMember(d => d.Status, m => m.Ignore())
-            .ForMember(d => d.History, m => m.Ignore());        
+            .ForMember(d => d.History, m => m.Ignore());  
+        
+        // ===== FixedAsset =====
+        CreateMap<FixedAsset, FixedAssetDto>()
+            .ForMember(d => d.CategoryName, m => m.MapFrom(s => s.Category!.Name))
+            .ForMember(d => d.DepreciationMethodName, m => m.MapFrom(s => s.DepreciationMethod!.Name))
+            .ForMember(d => d.BranchName, m => m.MapFrom(s => s.Branch!.Name))
+            .ForMember(d => d.CostCenterName, m => m.MapFrom(s => s.CostCenter!.Name))
+            .ForMember(d => d.ProjectName, m => m.MapFrom(s => s.Project!.Name));
+
+        CreateMap<CreateFixedAssetRequest, FixedAsset>()
+            .ForMember(d => d.Id, m => m.Ignore())
+            .ForMember(d => d.Status, m => m.Ignore())
+            .ForMember(d => d.AccumulatedDepreciation, m => m.Ignore())
+            .ForMember(d => d.DepreciationSchedules, m => m.Ignore())
+            .ForMember(d => d.Transactions, m => m.Ignore());
+
+        CreateMap<UpdateFixedAssetRequest, FixedAsset>()
+            .ForMember(d => d.Id, m => m.Ignore())
+            .ForMember(d => d.Status, m => m.Ignore())
+            .ForMember(d => d.AccumulatedDepreciation, m => m.Ignore())
+            .ForMember(d => d.DepreciationSchedules, m => m.Ignore())
+            .ForMember(d => d.Transactions, m => m.Ignore());
+
+        // ===== DepreciationSchedule =====
+        CreateMap<DepreciationSchedule, DepreciationScheduleDto>();
+
+        // ===== AssetTransaction =====
+        CreateMap<AssetTransaction, AssetTransactionDto>();
     }
 }
