@@ -14,31 +14,36 @@ public class FixedAssetRepository(LedgerCoreDbContext context)
         int fixedAssetId,
         CancellationToken cancellationToken = default)
     {
-        var list = await _context.DepreciationSchedules
+        return await _context.DepreciationSchedules
             .Where(x => x.FixedAssetId == fixedAssetId)
             .OrderBy(x => x.PeriodStart)
             .AsNoTracking()
             .ToListAsync(cancellationToken);
-
-        return list;
     }
 
-    public async Task AddScheduleAsync(DepreciationSchedule schedule, CancellationToken cancellationToken = default)
+    public async Task AddScheduleAsync(
+        DepreciationSchedule schedule,
+        CancellationToken cancellationToken = default)
     {
         await _context.DepreciationSchedules.AddAsync(schedule, cancellationToken);
     }
 
-    public async Task AddTransactionAsync(AssetTransaction transaction, CancellationToken cancellationToken = default)
+    public async Task AddTransactionAsync(
+        AssetTransaction transaction,
+        CancellationToken cancellationToken = default)
     {
         await _context.AssetTransactions.AddAsync(transaction, cancellationToken);
     }
 
-    public async Task<PagedResult<FixedAsset>> QueryAsync(PagingParams? paging = null,
+    public async Task<PagedResult<FixedAsset>> QueryAsync(
+        PagingParams? paging = null,
         CancellationToken cancellationToken = default)
     {
         IQueryable<FixedAsset> query = DbSet
             .Include(x => x.Category)
             .Include(x => x.Branch)
+            .Include(x => x.CostCenter)
+            .Include(x => x.Project)
             .AsNoTracking();
 
         return await QueryHelpers.ApplyPagingAsync(query, paging, cancellationToken);
