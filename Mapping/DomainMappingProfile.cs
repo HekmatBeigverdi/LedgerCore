@@ -1,9 +1,11 @@
 using AutoMapper;
 using LedgerCore.Core.Models.Assets;
 using LedgerCore.Core.Models.Documents;
+using LedgerCore.Core.Models.Payroll;
 using LedgerCore.Core.ViewModels.Assets;
 using LedgerCore.Core.ViewModels.Cheques;
 using LedgerCore.Core.ViewModels.Documents;
+using LedgerCore.Core.ViewModels.Payroll;
 using LedgerCore.Core.ViewModels.ReceiptsPayments;
 
 namespace LedgerCore.Mapping;
@@ -156,5 +158,34 @@ public class DomainMappingProfile : Profile
 
         // ===== AssetTransaction =====
         CreateMap<AssetTransaction, AssetTransactionDto>();
+        
+        // ===== Payroll =====
+
+        CreateMap<PayrollLine, PayrollLineDto>()
+            .ForMember(d => d.EmployeePersonnelCode, m => m.MapFrom(s => s.Employee!.PersonnelCode))
+            .ForMember(d => d.EmployeeFullName, m => m.MapFrom(s => s.Employee!.FullName));
+
+        CreateMap<PayrollDocument, PayrollDocumentDto>()
+            .ForMember(d => d.PayrollPeriodCode, m => m.MapFrom(s => s.PayrollPeriod!.Code))
+            .ForMember(d => d.PayrollPeriodName, m => m.MapFrom(s => s.PayrollPeriod!.Name))
+            .ForMember(d => d.BranchName, m => m.MapFrom(s => s.Branch!.Name))
+            .ForMember(d => d.Lines, m => m.MapFrom(s => s.Lines));
+
+        CreateMap<CreatePayrollRequest, PayrollDocument>()
+            .ForMember(d => d.Id, m => m.Ignore())
+            .ForMember(d => d.Number, m => m.Ignore())
+            .ForMember(d => d.Status, m => m.Ignore())
+            .ForMember(d => d.TotalGross, m => m.Ignore())
+            .ForMember(d => d.TotalDeductions, m => m.Ignore())
+            .ForMember(d => d.TotalNet, m => m.Ignore())
+            .ForMember(d => d.JournalVoucherId, m => m.Ignore())
+            .ForMember(d => d.JournalVoucher, m => m.Ignore())
+            .ForMember(d => d.Lines, m => m.MapFrom(s => s.Lines));
+
+        CreateMap<CreatePayrollLineRequest, PayrollLine>()
+            .ForMember(d => d.Id, m => m.Ignore())
+            .ForMember(d => d.PayrollDocumentId, m => m.Ignore())
+            .ForMember(d => d.PayrollDocument, m => m.Ignore())
+            .ForMember(d => d.NetAmount, m => m.Ignore());
     }
 }
