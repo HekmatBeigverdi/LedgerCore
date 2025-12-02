@@ -40,7 +40,6 @@
       <Folder Include="Core\Storage\" />
       <Folder Include="Core\ViewModels\Common\" />
       <Folder Include="Core\ViewModels\Dashboard\" />
-      <Folder Include="Core\ViewModels\Reports\" />
       <Folder Include="Extentions\" />
       <Folder Include="Helpers\" />
       <Folder Include="Migrations\" />
