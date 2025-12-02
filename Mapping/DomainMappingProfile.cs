@@ -160,17 +160,20 @@ public class DomainMappingProfile : Profile
         CreateMap<AssetTransaction, AssetTransactionDto>();
         
         // ===== Payroll =====
-
+        
+        // PayrollLine -> PayrollLineDto
         CreateMap<PayrollLine, PayrollLineDto>()
             .ForMember(d => d.EmployeePersonnelCode, m => m.MapFrom(s => s.Employee!.PersonnelCode))
             .ForMember(d => d.EmployeeFullName, m => m.MapFrom(s => s.Employee!.FullName));
-
+        
+        // PayrollDocument -> PayrollDocumentDto
         CreateMap<PayrollDocument, PayrollDocumentDto>()
             .ForMember(d => d.PayrollPeriodCode, m => m.MapFrom(s => s.PayrollPeriod!.Code))
             .ForMember(d => d.PayrollPeriodName, m => m.MapFrom(s => s.PayrollPeriod!.Name))
             .ForMember(d => d.BranchName, m => m.MapFrom(s => s.Branch!.Name))
             .ForMember(d => d.Lines, m => m.MapFrom(s => s.Lines));
 
+        // CreatePayrollRequest -> PayrollDocument
         CreateMap<CreatePayrollRequest, PayrollDocument>()
             .ForMember(d => d.Id, m => m.Ignore())
             .ForMember(d => d.Number, m => m.Ignore())
@@ -182,6 +185,7 @@ public class DomainMappingProfile : Profile
             .ForMember(d => d.JournalVoucher, m => m.Ignore())
             .ForMember(d => d.Lines, m => m.MapFrom(s => s.Lines));
 
+        // CreatePayrollLineRequest -> PayrollLine
         CreateMap<CreatePayrollLineRequest, PayrollLine>()
             .ForMember(d => d.Id, m => m.Ignore())
             .ForMember(d => d.PayrollDocumentId, m => m.Ignore())
