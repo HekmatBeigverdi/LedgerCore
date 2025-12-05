@@ -127,7 +127,7 @@
             },
             "System.IdentityModel.Tokens.Jwt": {
               "target": "Package",
-              "version": "[6.32.1, )"
+              "version": "[8.15.0, )"
             },
             "System.Linq.Dynamic.Core": {
               "target": "Package",

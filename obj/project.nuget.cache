@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "vjWsNYDM4FI=",
+  "dgSpecHash": "INqitVLPtsU=",
   "success": true,
   "projectFilePath": "C:\\Users\\Hekmat\\Desktop\\Works\\GreedyDev\\LedgerCore\\LedgerCore.csproj",
   "expectedPackageFiles": [
@@ -36,12 +36,12 @@
     "C:\\Users\\Hekmat\\.nuget\\packages\\microsoft.extensions.options\\8.0.0\\microsoft.extensions.options.8.0.0.nupkg.sha512",
     "C:\\Users\\Hekmat\\.nuget\\packages\\microsoft.extensions.primitives\\8.0.0\\microsoft.extensions.primitives.8.0.0.nupkg.sha512",
     "C:\\Users\\Hekmat\\.nuget\\packages\\microsoft.identitymodel\\7.0.0\\microsoft.identitymodel.7.0.0.nupkg.sha512",
-    "C:\\Users\\Hekmat\\.nuget\\packages\\microsoft.identitymodel.abstractions\\8.14.0\\microsoft.identitymodel.abstractions.8.14.0.nupkg.sha512",
-    "C:\\Users\\Hekmat\\.nuget\\packages\\microsoft.identitymodel.jsonwebtokens\\8.14.0\\microsoft.identitymodel.jsonwebtokens.8.14.0.nupkg.sha512",
-    "C:\\Users\\Hekmat\\.nuget\\packages\\microsoft.identitymodel.logging\\8.14.0\\microsoft.identitymodel.logging.8.14.0.nupkg.sha512",
+    "C:\\Users\\Hekmat\\.nuget\\packages\\microsoft.identitymodel.abstractions\\8.15.0\\microsoft.identitymodel.abstractions.8.15.0.nupkg.sha512",
+    "C:\\Users\\Hekmat\\.nuget\\packages\\microsoft.identitymodel.jsonwebtokens\\8.15.0\\microsoft.identitymodel.jsonwebtokens.8.15.0.nupkg.sha512",
+    "C:\\Users\\Hekmat\\.nuget\\packages\\microsoft.identitymodel.logging\\8.15.0\\microsoft.identitymodel.logging.8.15.0.nupkg.sha512",
     "C:\\Users\\Hekmat\\.nuget\\packages\\microsoft.identitymodel.protocols\\6.15.1\\microsoft.identitymodel.protocols.6.15.1.nupkg.sha512",
     "C:\\Users\\Hekmat\\.nuget\\packages\\microsoft.identitymodel.protocols.openidconnect\\6.15.1\\microsoft.identitymodel.protocols.openidconnect.6.15.1.nupkg.sha512",
-    "C:\\Users\\Hekmat\\.nuget\\packages\\microsoft.identitymodel.tokens\\8.14.0\\microsoft.identitymodel.tokens.8.14.0.nupkg.sha512",
+    "C:\\Users\\Hekmat\\.nuget\\packages\\microsoft.identitymodel.tokens\\8.15.0\\microsoft.identitymodel.tokens.8.15.0.nupkg.sha512",
     "C:\\Users\\Hekmat\\.nuget\\packages\\microsoft.netcore.platforms\\1.1.0\\microsoft.netcore.platforms.1.1.0.nupkg.sha512",
     "C:\\Users\\Hekmat\\.nuget\\packages\\microsoft.netcore.targets\\1.1.0\\microsoft.netcore.targets.1.1.0.nupkg.sha512",
     "C:\\Users\\Hekmat\\.nuget\\packages\\microsoft.openapi\\1.6.17\\microsoft.openapi.1.6.17.nupkg.sha512",
@@ -88,7 +88,7 @@
     "C:\\Users\\Hekmat\\.nuget\\packages\\system.globalization\\4.3.0\\system.globalization.4.3.0.nupkg.sha512",
     "C:\\Users\\Hekmat\\.nuget\\packages\\system.globalization.calendars\\4.3.0\\system.globalization.calendars.4.3.0.nupkg.sha512",
     "C:\\Users\\Hekmat\\.nuget\\packages\\system.globalization.extensions\\4.3.0\\system.globalization.extensions.4.3.0.nupkg.sha512",
-    "C:\\Users\\Hekmat\\.nuget\\packages\\system.identitymodel.tokens.jwt\\6.32.1\\system.identitymodel.tokens.jwt.6.32.1.nupkg.sha512",
+    "C:\\Users\\Hekmat\\.nuget\\packages\\system.identitymodel.tokens.jwt\\8.15.0\\system.identitymodel.tokens.jwt.8.15.0.nupkg.sha512",
     "C:\\Users\\Hekmat\\.nuget\\packages\\system.io\\4.3.0\\system.io.4.3.0.nupkg.sha512",
     "C:\\Users\\Hekmat\\.nuget\\packages\\system.io.compression\\4.3.0\\system.io.compression.4.3.0.nupkg.sha512",
     "C:\\Users\\Hekmat\\.nuget\\packages\\system.io.compression.zipfile\\4.0.1\\system.io.compression.zipfile.4.0.1.nupkg.sha512",
@@ -211,18 +211,6 @@
       "warningLevel": 1,
       "filePath": "C:\\Users\\Hekmat\\Desktop\\Works\\GreedyDev\\LedgerCore\\LedgerCore.csproj",
       "libraryId": "RestSharp",
-      "targetGraphs": [
-        "net9.0"
-      ]
-    },
-    {
-      "code": "NU1902",
-      "level": "Warning",
-      "message": "Package 'System.IdentityModel.Tokens.Jwt' 6.32.1 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-59j7-ghrg-fj52",
-      "projectPath": "C:\\Users\\Hekmat\\Desktop\\Works\\GreedyDev\\LedgerCore\\LedgerCore.csproj",
-      "warningLevel": 1,
-      "filePath": "C:\\Users\\Hekmat\\Desktop\\Works\\GreedyDev\\LedgerCore\\LedgerCore.csproj",
-      "libraryId": "System.IdentityModel.Tokens.Jwt",
       "targetGraphs": [
         "net9.0"
       ]
