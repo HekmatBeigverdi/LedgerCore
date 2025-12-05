@@ -66,6 +66,21 @@ public class AuthService(
                 {
                     claims.Add(new Claim(ClaimTypes.Role, userRole.Role!.Name));
                 }
+
+                // ===========================
+                //  اضافه کردن Permissionها
+                // ===========================
+                if (userRole.Role?.RolePermissions is not null)
+                {
+                    foreach (var rp in userRole.Role.RolePermissions)
+                    {
+                        var code = rp.Permission?.Code; // اگر فیلد اسم دیگری دارد اینجا عوض کن
+                        if (!string.IsNullOrWhiteSpace(code))
+                        {
+                            claims.Add(new Claim("permission", code!));
+                        }
+                    }
+                }
             }
         }
 

@@ -2,6 +2,7 @@ using System.Text;
 using LedgerCore.Core.Interfaces;
 using LedgerCore.Core.Interfaces.Repositories;
 using LedgerCore.Core.Interfaces.Services;
+using LedgerCore.Core.Models.Security;
 using LedgerCore.Core.Services;
 using LedgerCore.Mapping;
 using LedgerCore.Persistence;
@@ -9,6 +10,8 @@ using LedgerCore.Persistence.Repository;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.Extensions.Logging; // added for LogLevel
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+
 
 const string secretKey = "iNfgDmHLpUA552sqsjhqGbMRdRj5PVbH"; // todo: get this from somewhere secure
 var signingKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(secretKey));
@@ -77,6 +80,8 @@ builder.Services.AddScoped<IPayrollService, PayrollService>();
 builder.Services.AddScoped<IPurchaseService, PurchaseService>();
 builder.Services.AddScoped<IReportingService, ReportingService>();
 builder.Services.AddScoped<IAssetService, AssetService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+
 
 
 // AutoMapper
@@ -89,6 +94,51 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddSingleton(signingKey);
+
+
+builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = signingKey,   // همان کلید بالا
+            ValidateIssuer = false,
+            ValidateAudience = false,
+            ClockSkew = TimeSpan.Zero
+        };
+    });
+
+builder.Services.AddAuthorization(options =>
+{
+    // مثال: اگر Permission های ثابت می‌شناسی، اینجا Policy برایشان تعریف کن:
+    string[] permissions =
+    {
+        "Sales.Invoice.View",
+        "Sales.Invoice.Create",
+        "Sales.Invoice.Approve",
+        "Reports.TrialBalance.View",
+        "Reports.Payroll.View"
+        // ... هرچی خواستی اضافه کن
+    };
+
+    foreach (var permission in permissions)
+    {
+        var policyName = HasPermissionAttribute.BuildPolicyName(permission);
+
+        options.AddPolicy(policyName, policy =>
+        {
+            policy.RequireAuthenticatedUser();
+            policy.RequireClaim("permission", permission);
+        });
+    }
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -100,6 +150,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseAuthentication();   // ⬅ حتماً قبل از UseAuthorization
 app.UseAuthorization();
 
 app.MapControllers();
