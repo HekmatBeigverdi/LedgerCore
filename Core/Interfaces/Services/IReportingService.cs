@@ -1,4 +1,5 @@
 using LedgerCore.Core.Models.Accounting;
+using LedgerCore.Core.ViewModels.Dashboard;
 using LedgerCore.Core.ViewModels.Reports;
 
 namespace LedgerCore.Core.Interfaces.Services;
@@ -116,5 +117,34 @@ public interface IReportingService
         DateTime toDate,
         int? branchId,
         int? costCenterId,
+        CancellationToken cancellationToken = default);   
+    
+    // ===== گزارش‌های داشبورد مدیریتی =====
+
+    /// <summary>
+    /// خلاصه داشبورد مدیریتی (امروز / ماه جاری) برای یک شعبه یا کل سیستم.
+    /// </summary>
+    Task<DashboardSummaryDto> GetDashboardSummaryAsync(
+        int? branchId,
+        CancellationToken cancellationToken = default);    
+    
+    // ===== گزارش‌های داشبورد مدیریتی / روندی =====
+
+    /// <summary>
+    /// روند روزانهٔ فروش در بازهٔ زمانی مشخص.
+    /// fromDate و toDate به صورت شامل (inclusive) روی تاریخ در نظر گرفته می‌شوند.
+    /// </summary>
+    Task<IReadOnlyList<DailySalesTrendDto>> GetDailySalesTrendAsync(
+        DateTime fromDate,
+        DateTime toDate,
+        int? branchId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// خلاصهٔ داشبورد به تفکیک شعبه‌ها در بازهٔ زمانی مشخص.
+    /// </summary>
+    Task<IReadOnlyList<BranchDashboardSummaryRowDto>> GetBranchDashboardSummaryAsync(
+        DateTime fromDate,
+        DateTime toDate,
         CancellationToken cancellationToken = default);    
 }

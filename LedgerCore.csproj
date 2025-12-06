@@ -39,7 +39,6 @@
       <Folder Include="Auth\" />
       <Folder Include="Core\Storage\" />
       <Folder Include="Core\ViewModels\Common\" />
-      <Folder Include="Core\ViewModels\Dashboard\" />
       <Folder Include="Extentions\" />
       <Folder Include="Helpers\" />
       <Folder Include="Migrations\" />

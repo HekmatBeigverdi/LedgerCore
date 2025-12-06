@@ -1,5 +1,7 @@
 using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Accounting;
+using LedgerCore.Core.Models.Security;
+using LedgerCore.Core.ViewModels.Dashboard;
 using LedgerCore.Core.ViewModels.Reports;
 using Microsoft.AspNetCore.Mvc;
 
@@ -17,6 +19,7 @@ public class ReportsController(IReportingService reportingService) : ControllerB
     /// تراز آزمایشی در بازه زمانی.
     /// GET api/reports/trial-balance?fromDate=2025-01-01&toDate=2025-01-31&branchId=1
     /// </summary>
+    [HasPermission("Reports.TrialBalance.View")]
     [HttpGet("trial-balance")]
     public async Task<ActionResult<IReadOnlyList<TrialBalanceRow>>> GetTrialBalance(
         [FromQuery] DateTime fromDate,
@@ -37,6 +40,7 @@ public class ReportsController(IReportingService reportingService) : ControllerB
     /// دفتر کل.
     /// GET api/reports/general-ledger?fromDate=...&toDate=...&accountId=...&branchId=...
     /// </summary>
+    [HasPermission("Reports.TrialBalance.View")]
     [HttpGet("general-ledger")]
     public async Task<ActionResult<IReadOnlyList<GeneralLedgerRowDto>>> GetGeneralLedger(
         [FromQuery] DateTime fromDate,
@@ -58,6 +62,7 @@ public class ReportsController(IReportingService reportingService) : ControllerB
     /// صورت سود و زیان.
     /// GET api/reports/profit-and-loss?fromDate=...&toDate=...&branchId=...
     /// </summary>
+    [HasPermission("Reports.TrialBalance.View")]
     [HttpGet("profit-and-loss")]
     public async Task<ActionResult<ProfitAndLossReportDto>> GetProfitAndLoss(
         [FromQuery] DateTime fromDate,
@@ -78,6 +83,7 @@ public class ReportsController(IReportingService reportingService) : ControllerB
     /// ترازنامه.
     /// GET api/reports/balance-sheet?asOfDate=2025-01-31&branchId=1
     /// </summary>
+    [HasPermission("Reports.TrialBalance.View")]
     [HttpGet("balance-sheet")]
     public async Task<ActionResult<BalanceSheetReportDto>> GetBalanceSheet(
         [FromQuery] DateTime asOfDate,
@@ -98,6 +104,7 @@ public class ReportsController(IReportingService reportingService) : ControllerB
     /// مانده موجودی کالاها تا تاریخ مشخص.
     /// GET api/reports/stock-balance?asOfDate=2025-01-31&warehouseId=&productId=&branchId=
     /// </summary>
+    [HasPermission("Reports.Stock.View")]
     [HttpGet("stock-balance")]
     public async Task<ActionResult<IReadOnlyList<StockBalanceRowDto>>> GetStockBalance(
         [FromQuery] DateTime asOfDate,
@@ -142,6 +149,7 @@ public class ReportsController(IReportingService reportingService) : ControllerB
     /// فروش به تفکیک کالا.
     /// GET api/reports/sales-by-item?fromDate=...&toDate=...&branchId=
     /// </summary>
+    [HasPermission("Reports.Sales.View")]
     [HttpGet("sales-by-item")]
     public async Task<ActionResult<IReadOnlyList<SalesByItemRowDto>>> GetSalesByItem(
         [FromQuery] DateTime fromDate,
@@ -240,6 +248,70 @@ public class ReportsController(IReportingService reportingService) : ControllerB
 
         var data = await reportingService.GetPayrollSummaryByBranchAndCostCenterAsync(
             fromDate, toDate, branchId, costCenterId, cancellationToken);
+
+        return Ok(data);
+    }
+    
+    // ==========================
+    //  داشبورد مدیریتی
+    // ==========================
+
+    /// <summary>
+    /// خلاصه داشبورد مدیریتی برای امروز و ماه جاری.
+    /// </summary>
+    [HttpGet("dashboard-summary")]
+    [HasPermission("Dashboard.View")]
+    public async Task<ActionResult<DashboardSummaryDto>> GetDashboardSummary(
+        [FromQuery] int? branchId,
+        CancellationToken cancellationToken)
+    {
+        var data = await reportingService.GetDashboardSummaryAsync(branchId, cancellationToken);
+        return Ok(data);
+    } 
+    
+    /// <summary>
+    /// روند روزانهٔ فروش در بازهٔ زمانی مشخص (برای نمودار).
+    /// </summary>
+    [HttpGet("sales-daily-trend")]
+    [HasPermission("Dashboard.View")]
+    public async Task<ActionResult<IReadOnlyList<DailySalesTrendDto>>> GetSalesDailyTrend(
+        [FromQuery] DateTime fromDate,
+        [FromQuery] DateTime toDate,
+        [FromQuery] int? branchId,
+        CancellationToken cancellationToken)
+    {
+        if (fromDate > toDate)
+        {
+            return BadRequest("fromDate cannot be greater than toDate.");
+        }
+
+        var data = await reportingService.GetDailySalesTrendAsync(
+            fromDate,
+            toDate,
+            branchId,
+            cancellationToken);
+
+        return Ok(data);
+    }
+    /// <summary>
+    /// خلاصه داشبورد مدیریتی به تفکیک شعبه‌ها در بازهٔ زمانی مشخص.
+    /// </summary>
+    [HttpGet("dashboard-branch-summary")]
+    [HasPermission("Dashboard.BranchSummary.View")]
+    public async Task<ActionResult<IReadOnlyList<BranchDashboardSummaryRowDto>>> GetBranchDashboardSummary(
+        [FromQuery] DateTime fromDate,
+        [FromQuery] DateTime toDate,
+        CancellationToken cancellationToken)
+    {
+        if (fromDate > toDate)
+        {
+            return BadRequest("fromDate cannot be greater than toDate.");
+        }
+
+        var data = await reportingService.GetBranchDashboardSummaryAsync(
+            fromDate,
+            toDate,
+            cancellationToken);
 
         return Ok(data);
     }

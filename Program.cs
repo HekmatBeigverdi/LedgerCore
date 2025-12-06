@@ -123,8 +123,9 @@ builder.Services.AddAuthorization(options =>
         "Sales.Invoice.Create",
         "Sales.Invoice.Approve",
         "Reports.TrialBalance.View",
-        "Reports.Payroll.View"
-        // ... هرچی خواستی اضافه کن
+        "Reports.Payroll.View",
+        "Dashboard.View",
+        "Dashboard.BranchSummary.View"
     };
 
     foreach (var permission in permissions)

@@ -1,6 +1,7 @@
 using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Accounting;
 using LedgerCore.Core.Models.Enums;
+using LedgerCore.Core.ViewModels.Dashboard;
 using LedgerCore.Core.ViewModels.Reports;
 using LedgerCore.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -819,5 +820,386 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
     }
 
     #endregion
+    
+    #region Dashboard Summary
 
+    public async Task<DashboardSummaryDto> GetDashboardSummaryAsync(
+        int? branchId,
+        CancellationToken cancellationToken = default)
+    {
+        // مبنا: امروز و ماه جاری
+        var today = DateTime.Today;
+        var monthStart = new DateTime(today.Year, today.Month, 1);
+        var nextMonthStart = monthStart.AddMonths(1);
+
+        // ====== Base Queries (فقط اسناد Post شده) ======
+        var salesQuery = _db.SalesInvoices
+            .AsNoTracking()
+            .Where(x => x.Status == DocumentStatus.Posted);
+
+        var purchasesQuery = _db.PurchaseInvoices
+            .AsNoTracking()
+            .Where(x => x.Status == DocumentStatus.Posted);
+
+        var receiptsQuery = _db.Receipts
+            .AsNoTracking()
+            .Where(x => x.Status == DocumentStatus.Posted);
+
+        var paymentsQuery = _db.Payments
+            .AsNoTracking()
+            .Where(x => x.Status == DocumentStatus.Posted);
+
+        if (branchId.HasValue)
+        {
+            salesQuery = salesQuery.Where(x => x.BranchId == branchId.Value);
+            purchasesQuery = purchasesQuery.Where(x => x.BranchId == branchId.Value);
+            receiptsQuery = receiptsQuery.Where(x => x.BranchId == branchId.Value);
+            paymentsQuery = paymentsQuery.Where(x => x.BranchId == branchId.Value);
+        }
+
+        // ===== فروش امروز =====
+        var todaySalesAgg = await salesQuery
+            .Where(x => x.Date >= today && x.Date < today.AddDays(1))
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Count = g.Count(),
+                Total = g.Sum(x => x.TotalAmount)
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var monthSalesAgg = await salesQuery
+            .Where(x => x.Date >= monthStart && x.Date < nextMonthStart)
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Count = g.Count(),
+                Total = g.Sum(x => x.TotalAmount)
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        // ===== خرید امروز / ماه =====
+        var todayPurchasesAgg = await purchasesQuery
+            .Where(x => x.Date >= today && x.Date < today.AddDays(1))
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Count = g.Count(),
+                Total = g.Sum(x => x.TotalAmount)
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var monthPurchasesAgg = await purchasesQuery
+            .Where(x => x.Date >= monthStart && x.Date < nextMonthStart)
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Count = g.Count(),
+                Total = g.Sum(x => x.TotalAmount)
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        // ===== دریافت‌ها / پرداخت‌های نقدی =====
+
+        var todayReceiptsTotal = await receiptsQuery
+            .Where(x => x.Date >= today && x.Date < today.AddDays(1))
+            .SumAsync(x => (decimal?)x.Amount, cancellationToken) ?? 0m;
+
+        var monthReceiptsTotal = await receiptsQuery
+            .Where(x => x.Date >= monthStart && x.Date < nextMonthStart)
+            .SumAsync(x => (decimal?)x.Amount, cancellationToken) ?? 0m;
+
+        var todayPaymentsTotal = await paymentsQuery
+            .Where(x => x.Date >= today && x.Date < today.AddDays(1))
+            .SumAsync(x => (decimal?)x.Amount, cancellationToken) ?? 0m;
+
+        var monthPaymentsTotal = await paymentsQuery
+            .Where(x => x.Date >= monthStart && x.Date < nextMonthStart)
+            .SumAsync(x => (decimal?)x.Amount, cancellationToken) ?? 0m;
+
+        // ===== تعداد مشتری / تأمین‌کننده =====
+        var customerCount = await _db.Parties
+            .AsNoTracking()
+            .CountAsync(p =>
+                p.Type == PartyType.Customer ||
+                p.Type == PartyType.Both,
+                cancellationToken);
+
+        var supplierCount = await _db.Parties
+            .AsNoTracking()
+            .CountAsync(p =>
+                p.Type == PartyType.Supplier ||
+                p.Type == PartyType.Both,
+                cancellationToken);
+
+        // ===== فاکتورهای فروش معوق (براساس DueDate) =====
+        var overdueSalesAgg = await salesQuery
+            .Where(x => x.DueDate.HasValue && x.DueDate.Value < today)
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Count = g.Count(),
+                Total = g.Sum(x => x.TotalAmount)
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        // ===== ساخت DTO خروجی =====
+        var result = new DashboardSummaryDto
+        {
+            Today = today,
+            MonthStart = monthStart,
+            MonthEnd = nextMonthStart.AddDays(-1),
+            BranchId = branchId,
+
+            TodaySalesInvoiceCount = todaySalesAgg?.Count ?? 0,
+            TodaySalesTotal = todaySalesAgg?.Total ?? 0m,
+            ThisMonthSalesInvoiceCount = monthSalesAgg?.Count ?? 0,
+            ThisMonthSalesTotal = monthSalesAgg?.Total ?? 0m,
+
+            TodayPurchaseInvoiceCount = todayPurchasesAgg?.Count ?? 0,
+            TodayPurchaseTotal = todayPurchasesAgg?.Total ?? 0m,
+            ThisMonthPurchaseInvoiceCount = monthPurchasesAgg?.Count ?? 0,
+            ThisMonthPurchaseTotal = monthPurchasesAgg?.Total ?? 0m,
+
+            TodayReceiptsTotal = todayReceiptsTotal,
+            TodayPaymentsTotal = todayPaymentsTotal,
+            ThisMonthReceiptsTotal = monthReceiptsTotal,
+            ThisMonthPaymentsTotal = monthPaymentsTotal,
+
+            CustomerCount = customerCount,
+            SupplierCount = supplierCount,
+
+            OverdueSalesInvoiceCount = overdueSalesAgg?.Count ?? 0,
+            OverdueSalesInvoiceAmount = overdueSalesAgg?.Total ?? 0m
+        };
+
+        return result;
+    }
+
+    #endregion
+    
+    #region Daily Sales Trend
+
+    public async Task<IReadOnlyList<DailySalesTrendDto>> GetDailySalesTrendAsync(
+        DateTime fromDate,
+        DateTime toDate,
+        int? branchId,
+        CancellationToken cancellationToken = default)
+    {
+        fromDate = fromDate.Date;
+        toDate = toDate.Date;
+
+        if (toDate < fromDate)
+        {
+            throw new ArgumentException("toDate must be greater than or equal to fromDate");
+        }
+
+        // فقط فاکتورهای فروش ثبت‌شده
+        var salesQuery = _db.SalesInvoices
+            .AsNoTracking()
+            .Where(x => x.Status == DocumentStatus.Posted);
+
+        if (branchId.HasValue)
+        {
+            salesQuery = salesQuery.Where(x => x.BranchId == branchId.Value);
+        }
+
+        // جمع فروش به تفکیک روز (در دیتابیس)
+        var aggregated = await salesQuery
+            .Where(x => x.Date >= fromDate && x.Date <= toDate)
+            .GroupBy(x => x.Date.Date)
+            .Select(g => new
+            {
+                Date = g.Key,
+                Count = g.Count(),
+                Total = g.Sum(x => x.TotalAmount)
+            })
+            .ToListAsync(cancellationToken);
+
+        // تبدیل لیست به دیکشنری برای پر کردن روزهای بدون فروش
+        var dict = aggregated.ToDictionary(
+            x => x.Date,
+            x => new { x.Count, x.Total });
+
+        var result = new List<DailySalesTrendDto>();
+
+        for (var date = fromDate; date <= toDate; date = date.AddDays(1))
+        {
+            if (dict.TryGetValue(date, out var value))
+            {
+                result.Add(new DailySalesTrendDto
+                {
+                    Date = date,
+                    SalesInvoiceCount = value.Count,
+                    SalesTotal = value.Total
+                });
+            }
+            else
+            {
+                // روزی که فروش ندارد، ولی برای نمودار صفر برمی‌گردانیم
+                result.Add(new DailySalesTrendDto
+                {
+                    Date = date,
+                    SalesInvoiceCount = 0,
+                    SalesTotal = 0m
+                });
+            }
+        }
+
+        return result;
+    }
+
+    #endregion
+    
+    #region Branch Dashboard Summary
+
+    public async Task<IReadOnlyList<BranchDashboardSummaryRowDto>> GetBranchDashboardSummaryAsync(
+        DateTime fromDate,
+        DateTime toDate,
+        CancellationToken cancellationToken = default)
+    {
+        fromDate = fromDate.Date;
+        toDate = toDate.Date;
+
+        if (toDate < fromDate)
+        {
+            throw new ArgumentException("toDate must be greater than or equal to fromDate");
+        }
+
+        // امروز برای تشخیص overdue
+        var today = DateTime.Today;
+
+        // لیست شعب
+        var branches = await _db.Branches
+            .AsNoTracking()
+            .OrderBy(b => b.Id)
+            .ToListAsync(cancellationToken);
+
+        // Base queries برای اسناد Post شده
+        var salesQuery = _db.SalesInvoices
+            .AsNoTracking()
+            .Where(x => x.Status == DocumentStatus.Posted);
+
+        var purchasesQuery = _db.PurchaseInvoices
+            .AsNoTracking()
+            .Where(x => x.Status == DocumentStatus.Posted);
+
+        var receiptsQuery = _db.Receipts
+            .AsNoTracking()
+            .Where(x => x.Status == DocumentStatus.Posted);
+
+        var paymentsQuery = _db.Payments
+            .AsNoTracking()
+            .Where(x => x.Status == DocumentStatus.Posted);
+
+        // ===== فروش در بازهٔ زمانی به تفکیک شعبه =====
+        var salesAgg = await salesQuery
+            .Where(x => x.Date >= fromDate && x.Date <= toDate)
+            .GroupBy(x => x.BranchId)
+            .Select(g => new
+            {
+                BranchId = g.Key,
+                Total = g.Sum(x => x.TotalAmount)
+            })
+            .ToListAsync(cancellationToken);
+
+        var salesDict = salesAgg.ToDictionary(
+            x => x.BranchId,
+            x => x.Total);
+
+        // ===== خرید =====
+        var purchaseAgg = await purchasesQuery
+            .Where(x => x.Date >= fromDate && x.Date <= toDate)
+            .GroupBy(x => x.BranchId)
+            .Select(g => new
+            {
+                BranchId = g.Key,
+                Total = g.Sum(x => x.TotalAmount)
+            })
+            .ToListAsync(cancellationToken);
+
+        var purchaseDict = purchaseAgg.ToDictionary(
+            x => x.BranchId,
+            x => x.Total);
+
+        // ===== دریافت‌ها =====
+        var receiptsAgg = await receiptsQuery
+            .Where(x => x.Date >= fromDate && x.Date <= toDate)
+            .GroupBy(x => x.BranchId)
+            .Select(g => new
+            {
+                BranchId = g.Key,
+                Total = g.Sum(x => x.Amount)
+            })
+            .ToListAsync(cancellationToken);
+
+        var receiptsDict = receiptsAgg.ToDictionary(
+            x => x.BranchId,
+            x => x.Total);
+
+        // ===== پرداخت‌ها =====
+        var paymentsAgg = await paymentsQuery
+            .Where(x => x.Date >= fromDate && x.Date <= toDate)
+            .GroupBy(x => x.BranchId)
+            .Select(g => new
+            {
+                BranchId = g.Key,
+                Total = g.Sum(x => x.Amount)
+            })
+            .ToListAsync(cancellationToken);
+
+        var paymentsDict = paymentsAgg.ToDictionary(
+            x => x.BranchId,
+            x => x.Total);
+
+        // ===== فاکتورهای فروش معوق (تا امروز) به تفکیک شعبه =====
+        var overdueAgg = await salesQuery
+            .Where(x => x.DueDate.HasValue && x.DueDate.Value < today)
+            .GroupBy(x => x.BranchId)
+            .Select(g => new
+            {
+                BranchId = g.Key,
+                Count = g.Count(),
+                Total = g.Sum(x => x.TotalAmount)
+            })
+            .ToListAsync(cancellationToken);
+
+        var overdueDict = overdueAgg.ToDictionary(
+            x => x.BranchId,
+            x => new { x.Count, x.Total });
+
+        // ===== ساخت خروجی به ازای هر شعبه =====
+        var result = new List<BranchDashboardSummaryRowDto>();
+
+        foreach (var branch in branches)
+        {
+            salesDict.TryGetValue(branch.Id, out var salesTotal);
+            purchaseDict.TryGetValue(branch.Id, out var purchaseTotal);
+            receiptsDict.TryGetValue(branch.Id, out var receiptsTotal);
+            paymentsDict.TryGetValue(branch.Id, out var paymentsTotal);
+
+            overdueDict.TryGetValue(branch.Id, out var overdueInfo);
+
+            result.Add(new BranchDashboardSummaryRowDto
+            {
+                BranchId = branch.Id,
+                BranchName = branch.Name,
+                FromDate = fromDate,
+                ToDate = toDate,
+
+                SalesTotal = salesTotal,
+                PurchaseTotal = purchaseTotal,
+                ReceiptsTotal = receiptsTotal,
+                PaymentsTotal = paymentsTotal,
+
+                OverdueSalesInvoiceCount = overdueInfo?.Count ?? 0,
+                OverdueSalesInvoiceAmount = overdueInfo?.Total ?? 0m
+            });
+        }
+
+        return result;
+    }
+
+    #endregion
+    
 }
