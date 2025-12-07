@@ -63,9 +63,7 @@ builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 builder.Services.AddScoped<IWarehouseRepository, WarehouseRepository>();
 builder.Services.AddScoped<ISalesService, SalesService>();
 builder.Services.AddScoped<IPurchaseService, PurchaseService>();
-builder.Services.AddScoped<IReceiptRepository, ReceiptRepository>();
-builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
-builder.Services.AddScoped<IChequeRepository, ChequeRepository>();
+builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IReceiptRepository, ReceiptRepository>();
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IChequeRepository, ChequeRepository>();
@@ -125,7 +123,13 @@ builder.Services.AddAuthorization(options =>
         "Reports.TrialBalance.View",
         "Reports.Payroll.View",
         "Dashboard.View",
-        "Dashboard.BranchSummary.View"
+        "Dashboard.BranchSummary.View",
+        "Inventory.StockCard.View",
+        "Inventory.StockItem.View",
+        "Inventory.Adjustment.Create",
+        "Inventory.Adjustment.View",
+        "Inventory.Adjustment.Process",
+        "Inventory.Adjustment.Post"
     };
 
     foreach (var permission in permissions)

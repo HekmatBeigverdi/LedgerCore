@@ -37,4 +37,14 @@ public interface IAccountingService
     Task<Payment?> GetPaymentAsync(int id, CancellationToken cancellationToken = default);
     Task<Payment> UpdatePaymentAsync(Payment payment, CancellationToken cancellationToken = default);
     Task PostPaymentAsync(int paymentId, CancellationToken cancellationToken = default);
+    
+    // ==== Inventory Adjustment ====
+
+    /// <summary>
+    /// ثبت سند حسابداری برای تعدیل موجودی انبار بر اساس TotalDifferenceValue.
+    /// فرض: موجودی انبار قبلاً در InventoryService محاسبه و TotalDifferenceValue تنظیم شده است.
+    /// </summary>
+    Task PostInventoryAdjustmentAsync(
+        int inventoryAdjustmentId,
+        CancellationToken cancellationToken = default);
 }

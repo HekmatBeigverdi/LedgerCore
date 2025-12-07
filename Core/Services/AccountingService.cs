@@ -3,6 +3,7 @@ using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Accounting;
 using LedgerCore.Core.Models.Documents;
 using LedgerCore.Core.Models.Enums;
+using LedgerCore.Core.Models.Inventory;
 using LedgerCore.Core.Models.Settings;
 
 namespace LedgerCore.Core.Services;
@@ -480,4 +481,143 @@ public class AccountingService(IUnitOfWork uow) : IAccountingService
         var num = series.CurrentNumber.ToString().PadLeft(series.Padding, '0');
         return $"{series.Prefix}{num}{series.Suffix}";
     }
+    
+    // ===================== Inventory Adjustment =====================
+
+    public async Task PostInventoryAdjustmentAsync(
+        int inventoryAdjustmentId,
+        CancellationToken cancellationToken = default)
+    {
+        await uow.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            var adjustmentRepo = uow.Repository<InventoryAdjustment>();
+
+            var adjustment = await adjustmentRepo.GetByIdAsync(inventoryAdjustmentId, cancellationToken)
+                             ?? throw new InvalidOperationException(
+                                 $"InventoryAdjustment with id={inventoryAdjustmentId} not found.");
+
+            if (adjustment.Status == DocumentStatus.Posted)
+                return;
+
+            if (!adjustment.TotalDifferenceValue.HasValue ||
+                adjustment.TotalDifferenceValue.Value == 0m)
+            {
+                throw new InvalidOperationException(
+                    "InventoryAdjustment has no TotalDifferenceValue. " +
+                    "Make sure inventory adjustment is processed (and TotalDifferenceValue calculated) before posting to accounting.");
+            }
+
+            var journal = await CreateJournalForInventoryAdjustmentAsync(
+                adjustment,
+                cancellationToken);
+
+            adjustment.Status = DocumentStatus.Posted;
+            adjustment.JournalVoucherId = journal.Id;
+
+            adjustmentRepo.Update(adjustment);
+            await uow.SaveChangesAsync(cancellationToken);
+
+            await uow.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await uow.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
+    }
+    private async Task<JournalVoucher> CreateJournalForInventoryAdjustmentAsync(
+        InventoryAdjustment adjustment,
+        CancellationToken cancellationToken)
+    {
+        // گرفتن PostingRule با DocumentType = "InventoryAdjustment"
+        var postingRuleRepo = uow.Repository<PostingRule>();
+        var page = await postingRuleRepo.FindAsync(
+            x => x.DocumentType == "InventoryAdjustment" && x.IsActive,
+            null,
+            cancellationToken);
+
+        var rule = page.Items.FirstOrDefault()
+                   ?? throw new InvalidOperationException(
+                       "No posting rule defined for InventoryAdjustment.");
+
+        if (!adjustment.TotalDifferenceValue.HasValue ||
+            adjustment.TotalDifferenceValue.Value == 0m)
+        {
+            throw new InvalidOperationException(
+                "TotalDifferenceValue is null or zero for InventoryAdjustment.");
+        }
+
+        var diff = adjustment.TotalDifferenceValue.Value;
+        var amount = diff >= 0 ? diff : -diff;
+
+        // منطق Debit/Credit:
+        // فرض: PostingRule برای حالت افزایش موجودی تعریف شده است:
+        //   diff > 0  => Debit: rule.DebitAccountId (Inventory)
+        //                Credit: rule.CreditAccountId (Gain/Loss)
+        //
+        // اگر diff < 0 بود، حساب‌ها را برعکس می‌کنیم:
+        //   diff < 0  => Debit: rule.CreditAccountId (Loss)
+        //                Credit: rule.DebitAccountId (Inventory)
+
+        int debitAccountId;
+        int creditAccountId;
+
+        if (diff > 0)
+        {
+            debitAccountId = rule.DebitAccountId;
+            creditAccountId = rule.CreditAccountId;
+        }
+        else
+        {
+            debitAccountId = rule.CreditAccountId;
+            creditAccountId = rule.DebitAccountId;
+        }
+
+        var voucher = new JournalVoucher
+        {
+            Number = await GenerateNextNumberAsync("Journal", adjustment.BranchId, cancellationToken),
+            Date = adjustment.Date,
+            BranchId = adjustment.BranchId,
+            Description = $"Inventory Adjustment {adjustment.Number}",
+            Status = DocumentStatus.Posted
+        };
+
+        var lines = new List<JournalLine>();
+        var lineNo = 1;
+
+        // خط بدهکار
+        lines.Add(new JournalLine
+        {
+            LineNumber = lineNo++,
+            AccountId = debitAccountId,
+            Debit = amount,
+            Credit = 0m,
+            RefDocumentType = "InventoryAdjustment",
+            RefDocumentId = adjustment.Id,
+            Description = $"Inventory Adjustment {adjustment.Number}"
+        });
+
+        // خط بستانکار
+        lines.Add(new JournalLine
+        {
+            LineNumber = lineNo++,
+            AccountId = creditAccountId,
+            Debit = 0m,
+            Credit = amount,
+            RefDocumentType = "InventoryAdjustment",
+            RefDocumentId = adjustment.Id,
+            Description = $"Inventory Adjustment {adjustment.Number}"
+        });
+
+        voucher.Lines = lines;
+
+        await uow.Journals.AddAsync(voucher, cancellationToken);
+        await uow.SaveChangesAsync(cancellationToken);
+
+        return voucher;
+    }
+
+    
 }

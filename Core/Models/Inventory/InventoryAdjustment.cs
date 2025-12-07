@@ -1,3 +1,4 @@
+using LedgerCore.Core.Models.Accounting;
 using LedgerCore.Core.Models.Common;
 using LedgerCore.Core.Models.Enums;
 using LedgerCore.Core.Models.Master;
@@ -20,4 +21,6 @@ public class InventoryAdjustment: AuditableEntity
 
     // جمع مقدار ریالی تعدیل (برای لینک با حسابداری)
     public decimal? TotalDifferenceValue { get; set; }
+    public int? JournalVoucherId { get; set; }
+    public JournalVoucher? JournalVoucher { get; set; }
 }
