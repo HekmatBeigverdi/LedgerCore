@@ -53,8 +53,8 @@ public class UnitOfWork(
 
     public IRepository<T> Repository<T>() where T : BaseEntity
     {
-        // اگر بعداً از ServiceProvider استفاده کنی، می‌توانی این را پیاده‌سازی کنی
-        throw new NotImplementedException("Generic repository resolution is not implemented.");
+        // یک generic repository ساده روی DbContext
+        return new RepositoryBase<T>(context);
     }
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
