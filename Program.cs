@@ -75,6 +75,8 @@ builder.Services.AddScoped<IReportingService, ReportingService>();
 builder.Services.AddScoped<IAssetService, AssetService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
+builder.Services.AddScoped<IApprovalService, ApprovalService>();
+
 
 
 
@@ -121,12 +123,19 @@ builder.Services.AddAuthorization(options =>
         "Reports.Payroll.View",
         "Dashboard.View",
         "Dashboard.BranchSummary.View",
+        
         "Inventory.StockCard.View",
         "Inventory.StockItem.View",
+        
         "Inventory.Adjustment.Create",
         "Inventory.Adjustment.View",
         "Inventory.Adjustment.Process",
-        "Inventory.Adjustment.Post"
+        "Inventory.Adjustment.Post",
+        
+        "Approval.Request.Create",
+        "Approval.Request.View",
+        "Approval.Request.Approve",
+        "Approval.Request.Reject"
     };
 
     foreach (var permission in permissions)
