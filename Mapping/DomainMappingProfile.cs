@@ -1,6 +1,7 @@
 using AutoMapper;
 using LedgerCore.Core.Models.Assets;
 using LedgerCore.Core.Models.Documents;
+using LedgerCore.Core.Models.Enums;
 using LedgerCore.Core.Models.Payroll;
 using LedgerCore.Core.ViewModels.Assets;
 using LedgerCore.Core.ViewModels.Cheques;
@@ -191,5 +192,42 @@ public class DomainMappingProfile : Profile
             .ForMember(d => d.PayrollDocumentId, m => m.Ignore())
             .ForMember(d => d.PayrollDocument, m => m.Ignore())
             .ForMember(d => d.NetAmount, m => m.Ignore());
+        
+        // ===== CashTransfer =====
+
+        CreateMap<CashTransfer, CashTransferDto>()
+            .ForMember(d => d.FromAccountName, m => m.MapFrom(s =>
+                s.FromBankAccount != null
+                    ? (s.FromBankAccount.Title ?? s.FromBankAccount.AccountNumber)
+                    : s.FromCashDeskCode))
+            .ForMember(d => d.ToAccountName, m => m.MapFrom(s =>
+                s.ToBankAccount != null
+                    ? (s.ToBankAccount.Title ?? s.ToBankAccount.AccountNumber)
+                    : s.ToCashDeskCode))
+            .ForMember(d => d.CurrencyCode, m => m.MapFrom(s =>
+                s.Currency != null ? s.Currency.Code : null!));
+
+        CreateMap<CashTransfer, CashTransferListItemDto>()
+            .ForMember(d => d.FromAccountName, m => m.MapFrom(s =>
+                s.FromBankAccount != null
+                    ? (s.FromBankAccount.Title ?? s.FromBankAccount.AccountNumber)
+                    : s.FromCashDeskCode))
+            .ForMember(d => d.ToAccountName, m => m.MapFrom(s =>
+                s.ToBankAccount != null
+                    ? (s.ToBankAccount.Title ?? s.ToBankAccount.AccountNumber)
+                    : s.ToCashDeskCode))
+            .ForMember(d => d.CurrencyCode, m => m.MapFrom(s =>
+                s.Currency != null ? s.Currency.Code : null!));
+
+        CreateMap<CashTransferCreateDto, CashTransfer>()
+            .ForMember(d => d.Id, m => m.Ignore())
+            .ForMember(d => d.Status, m => m.MapFrom(_ => DocumentStatus.Draft))
+            .ForMember(d => d.Number, m => m.Ignore())          // شماره را بعداً با NumberSeries می‌گیریم
+            .ForMember(d => d.FromBankAccount, m => m.Ignore()) // navigation ها را EF خودش پر می‌کند
+            .ForMember(d => d.ToBankAccount, m => m.Ignore())
+            .ForMember(d => d.Currency, m => m.Ignore())
+            .ForMember(d => d.JournalVoucherId, m => m.Ignore())
+            .ForMember(d => d.JournalVoucher, m => m.Ignore());
+        
     }
 }
