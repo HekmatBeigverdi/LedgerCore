@@ -194,38 +194,29 @@ public class DomainMappingProfile : Profile
             .ForMember(d => d.NetAmount, m => m.Ignore());
         
         // ===== CashTransfer =====
-
         CreateMap<CashTransfer, CashTransferDto>()
-            .ForMember(d => d.FromAccountName, m => m.MapFrom(s =>
-                s.FromBankAccount != null
-                    ? (s.FromBankAccount.Title ?? s.FromBankAccount.AccountNumber)
-                    : s.FromCashDeskCode))
-            .ForMember(d => d.ToAccountName, m => m.MapFrom(s =>
-                s.ToBankAccount != null
-                    ? (s.ToBankAccount.Title ?? s.ToBankAccount.AccountNumber)
-                    : s.ToCashDeskCode))
-            .ForMember(d => d.CurrencyCode, m => m.MapFrom(s =>
-                s.Currency != null ? s.Currency.Code : null!));
+            .ForMember(d => d.FromBankAccountTitle,
+                m => m.MapFrom(s => s.FromBankAccount!.Title))
+            .ForMember(d => d.ToBankAccountTitle,
+                m => m.MapFrom(s => s.ToBankAccount!.Title))
+            .ForMember(d => d.CurrencyCode,
+                m => m.MapFrom(s => s.Currency!.Code))
+            .ForMember(d => d.StatusName,
+                m => m.MapFrom(s => s.Status.ToString()))
+            .ForMember(d => d.JournalVoucherNumber,
+                m => m.MapFrom(s => s.JournalVoucher!.Number));
 
-        CreateMap<CashTransfer, CashTransferListItemDto>()
-            .ForMember(d => d.FromAccountName, m => m.MapFrom(s =>
-                s.FromBankAccount != null
-                    ? (s.FromBankAccount.Title ?? s.FromBankAccount.AccountNumber)
-                    : s.FromCashDeskCode))
-            .ForMember(d => d.ToAccountName, m => m.MapFrom(s =>
-                s.ToBankAccount != null
-                    ? (s.ToBankAccount.Title ?? s.ToBankAccount.AccountNumber)
-                    : s.ToCashDeskCode))
-            .ForMember(d => d.CurrencyCode, m => m.MapFrom(s =>
-                s.Currency != null ? s.Currency.Code : null!));
-
-        CreateMap<CashTransferCreateDto, CashTransfer>()
+        CreateMap<CreateCashTransferRequest, CashTransfer>()
             .ForMember(d => d.Id, m => m.Ignore())
-            .ForMember(d => d.Status, m => m.MapFrom(_ => DocumentStatus.Draft))
-            .ForMember(d => d.Number, m => m.Ignore())          // شماره را بعداً با NumberSeries می‌گیریم
-            .ForMember(d => d.FromBankAccount, m => m.Ignore()) // navigation ها را EF خودش پر می‌کند
-            .ForMember(d => d.ToBankAccount, m => m.Ignore())
-            .ForMember(d => d.Currency, m => m.Ignore())
+            .ForMember(d => d.Number, m => m.Ignore())
+            .ForMember(d => d.Status, m => m.Ignore())
+            .ForMember(d => d.JournalVoucherId, m => m.Ignore())
+            .ForMember(d => d.JournalVoucher, m => m.Ignore());
+
+        CreateMap<UpdateCashTransferRequest, CashTransfer>()
+            .ForMember(d => d.Id, m => m.Ignore())
+            .ForMember(d => d.Number, m => m.Ignore())
+            .ForMember(d => d.Status, m => m.Ignore())
             .ForMember(d => d.JournalVoucherId, m => m.Ignore())
             .ForMember(d => d.JournalVoucher, m => m.Ignore());
         
