@@ -8,7 +8,9 @@ using LedgerCore.Core.Models.Settings;
 
 namespace LedgerCore.Core.Services;
 
-public class AccountingService(IUnitOfWork uow) : IAccountingService
+public class AccountingService(
+    IUnitOfWork uow,
+    IReportingService reportingService) : IAccountingService
 {
     // ===================== ژورنال =====================
 
@@ -40,7 +42,69 @@ public class AccountingService(IUnitOfWork uow) : IAccountingService
     {
         return uow.Journals.GetWithLinesAsync(id, cancellationToken);
     }
+    
+    public async Task<JournalVoucher> UpdateJournalAsync(
+        JournalVoucher voucher,
+        CancellationToken cancellationToken = default)
+    {
+        var existing = await uow.Journals.GetWithLinesAsync(voucher.Id, cancellationToken);
+        if (existing is null)
+            throw new InvalidOperationException($"JournalVoucher with id={voucher.Id} not found.");
 
+        if (existing.Status == DocumentStatus.Posted)
+            throw new InvalidOperationException("Posted journal cannot be updated.");
+
+        // هدر سند را به‌روزرسانی می‌کنیم
+        existing.Date = voucher.Date;
+        existing.Description = voucher.Description;
+        existing.BranchId = voucher.BranchId;
+        existing.FiscalPeriodId = voucher.FiscalPeriodId;
+
+        // سطرها را ساده ری‌بیلد می‌کنیم
+        existing.Lines.Clear();
+        foreach (var line in voucher.Lines)
+        {
+            existing.Lines.Add(new JournalLine
+            {
+                AccountId = line.AccountId,
+                Debit = line.Debit,
+                Credit = line.Credit,
+                PartyId = line.PartyId,
+                CostCenterId = line.CostCenterId,
+                ProjectId = line.ProjectId,
+                CurrencyId = line.CurrencyId,
+                FxRate = line.FxRate,
+                Description = line.Description,
+                RefDocumentType = line.RefDocumentType,
+                RefDocumentId = line.RefDocumentId,
+                LineNumber = line.LineNumber
+            });
+        }
+
+        if (!IsBalanced(existing))
+            throw new InvalidOperationException("Journal voucher is not balanced (Debit != Credit).");
+
+        uow.Journals.Update(existing);
+        await uow.SaveChangesAsync(cancellationToken);
+
+        return existing;
+    }
+
+    public async Task DeleteJournalAsync(
+        int id,
+        CancellationToken cancellationToken = default)
+    {
+        var existing = await uow.Journals.GetByIdAsync(id, cancellationToken);
+        if (existing is null)
+            throw new InvalidOperationException($"JournalVoucher with id={id} not found.");
+
+        if (existing.Status == DocumentStatus.Posted)
+            throw new InvalidOperationException("Posted journal cannot be deleted.");
+
+        uow.Journals.Remove(existing);
+        await uow.SaveChangesAsync(cancellationToken);
+    }
+    
     public async Task PostJournalAsync(
         int journalId,
         CancellationToken cancellationToken = default)
@@ -73,6 +137,7 @@ public class AccountingService(IUnitOfWork uow) : IAccountingService
 
     public async Task CloseFiscalPeriodAsync(
         int fiscalPeriodId,
+        int profitAndLossAccountId,
         CancellationToken cancellationToken = default)
     {
         var periodRepo = uow.Repository<FiscalPeriod>();
@@ -82,14 +147,149 @@ public class AccountingService(IUnitOfWork uow) : IAccountingService
         if (period.IsClosed)
             return;
 
-        // اینجا می‌توانی قوانین بستن دوره (ثبت سند اختتامیه و افتتاحیه و ...) را اضافه کنی
-        // فعلاً ساده: فقط flag بستن را می‌زنیم
-        period.IsClosed = true;
-        period.ClosedAt = DateTime.UtcNow;
+        // 1) گرفتن تراز آزمایشی دوره از ReportingService
+        var trialBalance = await reportingService.GetTrialBalanceAsync(
+            period.StartDate,
+            period.EndDate,
+            branchId: null,
+            cancellationToken);
 
-        periodRepo.Update(period);
-        await uow.SaveChangesAsync(cancellationToken);
+        // اگر هیچ حرکت درآمد/هزینه‌ای نداریم، فقط دوره را ببند
+        if (trialBalance == null || trialBalance.Count == 0)
+        {
+            period.IsClosed = true;
+            period.ClosedAt = DateTime.UtcNow;
+            periodRepo.Update(period);
+            await uow.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        // 2) چک کردن حساب سود و زیان (ِEquity)
+        var plAccount = await uow.Accounts.GetByIdAsync(profitAndLossAccountId, cancellationToken)
+                        ?? throw new InvalidOperationException($"Account with id={profitAndLossAccountId} not found.");
+
+        if (plAccount.Type != AccountType.Equity)
+            throw new InvalidOperationException("Profit and loss account must be an equity account.");
+
+        var lines = new List<JournalLine>();
+        var lineNumber = 1;
+        decimal totalDebit = 0m;
+        decimal totalCredit = 0m;
+
+        // 3) برای همه حساب‌های درآمد و هزینه، مانده دوره را صفر می‌کنیم
+        foreach (var row in trialBalance)
+        {
+            var account = await uow.Accounts.GetByIdAsync(row.AccountId, cancellationToken);
+            if (account is null)
+                continue;
+
+            if (account.Type != AccountType.Revenue && account.Type != AccountType.Expense)
+                continue;
+
+            var net = row.PeriodDebit - row.PeriodCredit;
+            if (net == 0m)
+                continue;
+
+            if (net > 0m)
+            {
+                // مانده بدهکار (هزینه) => بستن با ثبت بستانکار
+                lines.Add(new JournalLine
+                {
+                    AccountId = row.AccountId,
+                    Debit = 0m,
+                    Credit = net,
+                    LineNumber = lineNumber++,
+                    Description = "Closing entry"
+                });
+                totalCredit += net;
+            }
+            else
+            {
+                var amount = Math.Abs(net);
+                // مانده بستانکار (درآمد) => بستن با ثبت بدهکار
+                lines.Add(new JournalLine
+                {
+                    AccountId = row.AccountId,
+                    Debit = amount,
+                    Credit = 0m,
+                    LineNumber = lineNumber++,
+                    Description = "Closing entry"
+                });
+                totalDebit += amount;
+            }
+        }
+
+        if (!lines.Any())
+        {
+            // هیچ حساب سود و زیانی برای بستن نداریم
+            period.IsClosed = true;
+            period.ClosedAt = DateTime.UtcNow;
+            periodRepo.Update(period);
+            await uow.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        // 4) ثبت سطر خلاصه سود و زیان در حساب profitAndLossAccountId
+        var netPl = totalDebit - totalCredit;
+        if (netPl > 0m)
+        {
+            // خالص بدهکار (زیان) => بستانکار کردن حساب سود و زیان
+            lines.Add(new JournalLine
+            {
+                AccountId = profitAndLossAccountId,
+                Debit = 0m,
+                Credit = netPl,
+                LineNumber = lineNumber++,
+                Description = $"Net loss closing for period {period.Name}"
+            });
+            totalCredit += netPl;
+        }
+        else if (netPl < 0m)
+        {
+            var amount = Math.Abs(netPl);
+            // خالص بستانکار (سود) => بدهکار کردن حساب سود و زیان
+            lines.Add(new JournalLine
+            {
+                AccountId = profitAndLossAccountId,
+                Debit = amount,
+                Credit = 0m,
+                LineNumber = lineNumber++,
+                Description = $"Net profit closing for period {period.Name}"
+            });
+            totalDebit += amount;
+        }
+
+        // در این مرحله مجموع بدهکار و بستانکار باید برابر باشد، اختلاف‌های خیلی کوچک را می‌توانی بعداً هندل کنی
+
+        await uow.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            var closingVoucher = new JournalVoucher
+            {
+                Number = await GenerateNextNumberAsync("Journal", null, cancellationToken),
+                Date = period.EndDate,
+                Description = $"Closing entries for fiscal period {period.Name}",
+                Status = DocumentStatus.Posted,
+                FiscalPeriodId = fiscalPeriodId,
+                Lines = lines
+            };
+
+            await uow.Journals.AddAsync(closingVoucher, cancellationToken);
+
+            period.IsClosed = true;
+            period.ClosedAt = DateTime.UtcNow;
+            periodRepo.Update(period);
+
+            await uow.SaveChangesAsync(cancellationToken);
+            await uow.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await uow.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
     }
+
 
     public async Task<bool> IsBalancedAsync(
         int journalId,

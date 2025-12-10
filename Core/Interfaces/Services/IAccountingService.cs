@@ -5,12 +5,20 @@ namespace LedgerCore.Core.Interfaces.Services;
 
 public interface IAccountingService
 {
-    // ==== متدهای قبلی برای سند حسابداری ====
+    // ==== متدهای سند حسابداری (Journal) ====
     Task<JournalVoucher> CreateJournalAsync(
         JournalVoucher voucher,
         CancellationToken cancellationToken = default);
 
     Task<JournalVoucher?> GetJournalAsync(
+        int id,
+        CancellationToken cancellationToken = default);
+
+    Task<JournalVoucher> UpdateJournalAsync(
+        JournalVoucher voucher,
+        CancellationToken cancellationToken = default);
+
+    Task DeleteJournalAsync(
         int id,
         CancellationToken cancellationToken = default);
 
@@ -20,6 +28,7 @@ public interface IAccountingService
 
     Task CloseFiscalPeriodAsync(
         int fiscalPeriodId,
+        int profitAndLossAccountId,
         CancellationToken cancellationToken = default);
 
     Task<bool> IsBalancedAsync(
