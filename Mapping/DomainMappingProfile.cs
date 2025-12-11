@@ -1,8 +1,10 @@
 using AutoMapper;
+using LedgerCore.Core.Models.Accounting;
 using LedgerCore.Core.Models.Assets;
 using LedgerCore.Core.Models.Documents;
 using LedgerCore.Core.Models.Enums;
 using LedgerCore.Core.Models.Payroll;
+using LedgerCore.Core.ViewModels.Accounting;
 using LedgerCore.Core.ViewModels.Assets;
 using LedgerCore.Core.ViewModels.Cheques;
 using LedgerCore.Core.ViewModels.Documents;
@@ -219,6 +221,27 @@ public class DomainMappingProfile : Profile
             .ForMember(d => d.Status, m => m.Ignore())
             .ForMember(d => d.JournalVoucherId, m => m.Ignore())
             .ForMember(d => d.JournalVoucher, m => m.Ignore());
+        
+        // ===== Journal (سند حسابداری) =====
+        CreateMap<JournalLine, JournalLineDto>()
+            .ForMember(d => d.AccountCode, m => m.MapFrom(s => s.Account!.Code))
+            .ForMember(d => d.AccountName, m => m.MapFrom(s => s.Account!.Name));
+
+        CreateMap<JournalVoucher, JournalVoucherDto>()
+            .ForMember(d => d.BranchName, m => m.MapFrom(s => s.Branch!.Name))
+            .ForMember(d => d.FiscalPeriodName, m => m.MapFrom(s => s.FiscalPeriod!.Name));
+
+        CreateMap<CreateJournalLineRequest, JournalLine>();
+
+        CreateMap<CreateJournalVoucherRequest, JournalVoucher>()
+            .ForMember(d => d.Number, m => m.Ignore())
+            .ForMember(d => d.Status, m => m.Ignore())
+            .ForMember(d => d.Lines, m => m.MapFrom(s => s.Lines));
+
+        CreateMap<UpdateJournalVoucherRequest, JournalVoucher>()
+            .ForMember(d => d.Number, m => m.Ignore())
+            .ForMember(d => d.Status, m => m.Ignore())
+            .ForMember(d => d.Lines, m => m.MapFrom(s => s.Lines));
         
     }
 }
