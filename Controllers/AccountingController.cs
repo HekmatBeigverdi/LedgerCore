@@ -4,6 +4,7 @@ using LedgerCore.Core.Interfaces;
 using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Accounting;
 using LedgerCore.Core.Models.Common;
+using LedgerCore.Core.Models.Security;
 using LedgerCore.Core.ViewModels.Accounting;
 using Microsoft.AspNetCore.Mvc;
 
@@ -22,6 +23,7 @@ public class AccountingController(
     /// لیست سندهای روزنامه با Paging ساده.
     /// </summary>
     [HttpGet("journals")]
+    [HasPermission("Accounting.Journal.View")]
     public async Task<ActionResult<PagedResult<JournalVoucherDto>>> GetJournals(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20,
@@ -52,6 +54,7 @@ public class AccountingController(
     /// دریافت یک سند روزنامه با خطوط آن.
     /// </summary>
     [HttpGet("journals/{id:int}")]
+    [HasPermission("Accounting.Journal.View")]
     public async Task<ActionResult<JournalVoucherDto>> GetJournal(
         int id,
         CancellationToken cancellationToken)
@@ -68,6 +71,7 @@ public class AccountingController(
     /// ایجاد سند روزنامه جدید.
     /// </summary>
     [HttpPost("journals")]
+    [HasPermission("Accounting.Journal.Create")]
     public async Task<ActionResult<JournalVoucherDto>> CreateJournal(
         [FromBody] CreateJournalVoucherRequest request,
         CancellationToken cancellationToken)
@@ -83,6 +87,7 @@ public class AccountingController(
     /// ویرایش سند روزنامه (فقط در حالت Draft).
     /// </summary>
     [HttpPut("journals/{id:int}")]
+    [HasPermission("Accounting.Journal.Edit")]
     public async Task<ActionResult<JournalVoucherDto>> UpdateJournal(
         int id,
         [FromBody] UpdateJournalVoucherRequest request,
@@ -102,6 +107,7 @@ public class AccountingController(
     /// حذف سند روزنامه (فقط در حالت Draft).
     /// </summary>
     [HttpDelete("journals/{id:int}")]
+    [HasPermission("Accounting.Journal.Delete")]
     public async Task<IActionResult> DeleteJournal(
         int id,
         CancellationToken cancellationToken)
@@ -114,6 +120,7 @@ public class AccountingController(
     /// پست کردن سند روزنامه.
     /// </summary>
     [HttpPost("journals/{id:int}/post")]
+    [HasPermission("Accounting.Journal.Post")]
     public async Task<IActionResult> PostJournal(
         int id,
         CancellationToken cancellationToken)
@@ -126,6 +133,7 @@ public class AccountingController(
     /// بستن دوره مالی و ثبت سند اختتامیه سود و زیان.
     /// </summary>
     [HttpPost("fiscal-periods/close")]
+    [HasPermission("Accounting.FiscalPeriod.Close")]
     public async Task<IActionResult> CloseFiscalPeriod(
         [FromBody] CloseFiscalPeriodRequest request,
         CancellationToken cancellationToken)
@@ -137,9 +145,40 @@ public class AccountingController(
 
         return NoContent();
     }
+    /// <summary>
+    /// باز کردن (Re-open) دوره مالی. 
+    /// توجه: این متد فقط فلگ IsClosed را برمی‌گرداند و سند اختتامیه را دست نمی‌زند.
+    /// در صورت نیاز، منطق پاک کردن سند اختتامیه را بعداً اضافه می‌کنیم.
+    /// </summary>
+    [HttpPost("fiscal-periods/open")]
+    [HasPermission("Accounting.FiscalPeriod.Open")]
+    public async Task<IActionResult> OpenFiscalPeriod(
+        [FromBody] OpenFiscalPeriodRequest request,
+        CancellationToken cancellationToken)
+    {
+        var periodRepo = uow.Repository<FiscalPeriod>();
+        var period = await periodRepo.GetByIdAsync(request.FiscalPeriodId, cancellationToken);
+        if (period is null)
+            return NotFound();
+
+        if (!period.IsClosed)
+            return NoContent(); // عملاً باز است
+
+        // اگر بخواهی سخت‌گیر باشیم، می‌توانیم چک کنیم که آیا JournalClosing برای این دوره وجود دارد یا نه.
+        // فعلاً فقط فلگ را برمی‌گردانیم:
+        period.IsClosed = false;
+        period.ClosedAt = null;
+
+        periodRepo.Update(period);
+        await uow.SaveChangesAsync(cancellationToken);
+
+        return NoContent();
+    }
+
     // ======================== FiscalYears ========================
 
     [HttpGet("fiscal-years")]
+    [HasPermission("Accounting.FiscalYear.View")]
     public async Task<ActionResult<IEnumerable<FiscalYearDto>>> GetFiscalYears(
         CancellationToken cancellationToken)
     {
@@ -156,6 +195,7 @@ public class AccountingController(
     }
 
     [HttpGet("fiscal-years/{id:int}")]
+    [HasPermission("Accounting.FiscalYear.View")]
     public async Task<ActionResult<FiscalYearDto>> GetFiscalYear(
         int id,
         CancellationToken cancellationToken)
@@ -170,6 +210,7 @@ public class AccountingController(
     }
 
     [HttpPost("fiscal-years")]
+    [HasPermission("Accounting.FiscalYear.Manage")]
     public async Task<ActionResult<FiscalYearDto>> CreateFiscalYear(
         [FromBody] CreateFiscalYearRequest request,
         CancellationToken cancellationToken)
@@ -188,6 +229,7 @@ public class AccountingController(
     }
 
     [HttpPut("fiscal-years/{id:int}")]
+    [HasPermission("Accounting.FiscalYear.Manage")]
     public async Task<ActionResult<FiscalYearDto>> UpdateFiscalYear(
         int id,
         [FromBody] UpdateFiscalYearRequest request,
@@ -217,6 +259,7 @@ public class AccountingController(
     // ======================== FiscalPeriods ========================
 
     [HttpGet("fiscal-periods")]
+    [HasPermission("Accounting.FiscalPeriod.View")]
     public async Task<ActionResult<IEnumerable<FiscalPeriodDto>>> GetFiscalPeriods(
         [FromQuery] int? fiscalYearId,
         CancellationToken cancellationToken)
@@ -245,6 +288,7 @@ public class AccountingController(
         return Ok(dto);
     }
     [HttpGet("fiscal-periods/{id:int}")]
+    [HasPermission("Accounting.FiscalPeriod.View")]
     public async Task<ActionResult<FiscalPeriodDto>> GetFiscalPeriod(
         int id,
         CancellationToken cancellationToken)
@@ -257,6 +301,64 @@ public class AccountingController(
         var dto = mapper.Map<FiscalPeriodDto>(period);
         return Ok(dto);
     }
+    [HttpPost("fiscal-periods")]
+    [HasPermission("Accounting.FiscalPeriod.Manage")]
+    public async Task<ActionResult<FiscalPeriodDto>> CreateFiscalPeriod(
+        [FromBody] CreateFiscalPeriodRequest request,
+        CancellationToken cancellationToken)
+    {
+        var yearRepo = uow.Repository<FiscalYear>();
+        var periodRepo = uow.Repository<FiscalPeriod>();
 
+        var fiscalYear = await yearRepo.GetByIdAsync(request.FiscalYearId, cancellationToken);
+        if (fiscalYear is null)
+            return BadRequest($"FiscalYear with id={request.FiscalYearId} not found.");
 
+        if (fiscalYear.IsClosed)
+            return BadRequest("Cannot create period on closed fiscal year.");
+
+        var period = mapper.Map<FiscalPeriod>(request);
+
+        await periodRepo.AddAsync(period, cancellationToken);
+        await uow.SaveChangesAsync(cancellationToken);
+
+        var dto = mapper.Map<FiscalPeriodDto>(period);
+        return CreatedAtAction(nameof(GetFiscalPeriod), new { id = dto.Id }, dto);
+    }
+
+    [HttpPut("fiscal-periods/{id:int}")]
+    [HasPermission("Accounting.FiscalPeriod.Manage")]
+    public async Task<ActionResult<FiscalPeriodDto>> UpdateFiscalPeriod(
+        int id,
+        [FromBody] UpdateFiscalPeriodRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (id != request.Id)
+            return BadRequest("Route id and request id do not match.");
+
+        var periodRepo = uow.Repository<FiscalPeriod>();
+        var yearRepo = uow.Repository<FiscalYear>();
+
+        var existing = await periodRepo.GetByIdAsync(id, cancellationToken);
+        if (existing is null)
+            return NotFound();
+
+        if (existing.IsClosed)
+            return BadRequest("Closed fiscal period cannot be modified.");
+
+        var fiscalYear = await yearRepo.GetByIdAsync(request.FiscalYearId, cancellationToken);
+        if (fiscalYear is null)
+            return BadRequest($"FiscalYear with id={request.FiscalYearId} not found.");
+
+        if (fiscalYear.IsClosed)
+            return BadRequest("Cannot move period into a closed fiscal year.");
+
+        mapper.Map(request, existing);
+
+        periodRepo.Update(existing);
+        await uow.SaveChangesAsync(cancellationToken);
+
+        var dto = mapper.Map<FiscalPeriodDto>(existing);
+        return Ok(dto);
+    }
 }
