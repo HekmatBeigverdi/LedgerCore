@@ -315,5 +315,17 @@ public class ReportsController(IReportingService reportingService) : ControllerB
 
         return Ok(data);
     }
+    /// <summary>
+    /// گزارش وضعیت سال‌ها و دوره‌های مالی (باز/بسته بودن).
+    /// </summary>
+    [HttpGet("fiscal-status")]
+    [HasPermission("Reports.FiscalStatus.View")]
+    public async Task<ActionResult<IReadOnlyList<FiscalStatusRowDto>>> GetFiscalStatus(
+        CancellationToken cancellationToken)
+    {
+        var data = await reportingService.GetFiscalStatusAsync(cancellationToken);
+        return Ok(data);
+    }
+
 
 }

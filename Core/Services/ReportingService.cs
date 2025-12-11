@@ -1202,4 +1202,83 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
 
     #endregion
     
+    #region Fiscal Status
+
+    public async Task<IReadOnlyList<FiscalStatusRowDto>> GetFiscalStatusAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var years = await _db.FiscalYears
+            .AsNoTracking()
+            .OrderBy(y => y.StartDate)
+            .ToListAsync(cancellationToken);
+
+        var yearIds = years.Select(y => y.Id).ToList();
+
+        var periods = await _db.FiscalPeriods
+            .AsNoTracking()
+            .Where(p => yearIds.Contains(p.FiscalYearId))
+            .OrderBy(p => p.StartDate)
+            .ToListAsync(cancellationToken);
+
+        var periodLookup = periods
+            .GroupBy(p => p.FiscalYearId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var result = new List<FiscalStatusRowDto>();
+
+        foreach (var year in years)
+        {
+            if (!periodLookup.TryGetValue(year.Id, out var yearPeriods))
+                yearPeriods = new List<FiscalPeriod>();
+
+            foreach (var p in yearPeriods)
+            {
+                result.Add(new FiscalStatusRowDto
+                {
+                    FiscalYearId = year.Id,
+                    FiscalYearName = year.Name,
+                    FiscalYearStartDate = year.StartDate,
+                    FiscalYearEndDate = year.EndDate,
+                    FiscalYearIsClosed = year.IsClosed,
+                    FiscalYearClosedAt = year.ClosedAt,
+
+                    FiscalPeriodId = p.Id,
+                    PeriodNumber = p.PeriodNumber,
+                    FiscalPeriodName = p.Name,
+                    FiscalPeriodStartDate = p.StartDate,
+                    FiscalPeriodEndDate = p.EndDate,
+                    FiscalPeriodIsClosed = p.IsClosed,
+                    FiscalPeriodClosedAt = p.ClosedAt
+                });
+            }
+
+            // اگر سالی هنوز دوره‌ای ندارد، یک ردیف فقط در سطح سال برمی‌گردانیم
+            if (!yearPeriods.Any())
+            {
+                result.Add(new FiscalStatusRowDto
+                {
+                    FiscalYearId = year.Id,
+                    FiscalYearName = year.Name,
+                    FiscalYearStartDate = year.StartDate,
+                    FiscalYearEndDate = year.EndDate,
+                    FiscalYearIsClosed = year.IsClosed,
+                    FiscalYearClosedAt = year.ClosedAt,
+
+                    FiscalPeriodId = 0,
+                    PeriodNumber = 0,
+                    FiscalPeriodName = string.Empty,
+                    FiscalPeriodStartDate = year.StartDate,
+                    FiscalPeriodEndDate = year.EndDate,
+                    FiscalPeriodIsClosed = year.IsClosed,
+                    FiscalPeriodClosedAt = year.ClosedAt
+                });
+            }
+        }
+
+        return result;
+    }
+
+    #endregion
+
+    
 }

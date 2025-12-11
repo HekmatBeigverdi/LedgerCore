@@ -147,4 +147,10 @@ public interface IReportingService
         DateTime fromDate,
         DateTime toDate,
         CancellationToken cancellationToken = default);    
+    
+    /// <summary>
+    /// وضعیت سال‌ها و دوره‌های مالی (باز/بسته بودن و تاریخ‌ها).
+    /// </summary>
+    Task<IReadOnlyList<FiscalStatusRowDto>> GetFiscalStatusAsync(
+        CancellationToken cancellationToken = default);
 }
