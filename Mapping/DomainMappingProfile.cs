@@ -243,5 +243,30 @@ public class DomainMappingProfile : Profile
             .ForMember(d => d.Status, m => m.Ignore())
             .ForMember(d => d.Lines, m => m.MapFrom(s => s.Lines));
         
+        // ===== FiscalYear / FiscalPeriod =====
+
+                CreateMap<FiscalYear, FiscalYearDto>();
+
+                CreateMap<FiscalPeriod, FiscalPeriodDto>()
+                    .ForMember(d => d.FiscalYearName, m => m.MapFrom(s => s.FiscalYear!.Name));
+
+                CreateMap<CreateFiscalYearRequest, FiscalYear>()
+                    .ForMember(d => d.Id, m => m.Ignore())
+                    .ForMember(d => d.IsClosed, m => m.Ignore())
+                    .ForMember(d => d.ClosedAt, m => m.Ignore());
+
+                CreateMap<UpdateFiscalYearRequest, FiscalYear>()
+                    .ForMember(d => d.IsClosed, m => m.Ignore())
+                    .ForMember(d => d.ClosedAt, m => m.Ignore());
+
+                CreateMap<CreateFiscalPeriodRequest, FiscalPeriod>()
+                    .ForMember(d => d.Id, m => m.Ignore())
+                    .ForMember(d => d.IsClosed, m => m.Ignore())
+                    .ForMember(d => d.ClosedAt, m => m.Ignore());
+
+                CreateMap<UpdateFiscalPeriodRequest, FiscalPeriod>()
+                    .ForMember(d => d.IsClosed, m => m.Ignore())
+                    .ForMember(d => d.ClosedAt, m => m.Ignore());
+        
     }
 }

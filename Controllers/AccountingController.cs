@@ -1,3 +1,4 @@
+using System.Linq;
 using AutoMapper;
 using LedgerCore.Core.Interfaces;
 using LedgerCore.Core.Interfaces.Services;
@@ -5,6 +6,7 @@ using LedgerCore.Core.Models.Accounting;
 using LedgerCore.Core.Models.Common;
 using LedgerCore.Core.ViewModels.Accounting;
 using Microsoft.AspNetCore.Mvc;
+
 
 namespace LedgerCore.Controllers;
 
@@ -135,4 +137,126 @@ public class AccountingController(
 
         return NoContent();
     }
+    // ======================== FiscalYears ========================
+
+    [HttpGet("fiscal-years")]
+    public async Task<ActionResult<IEnumerable<FiscalYearDto>>> GetFiscalYears(
+        CancellationToken cancellationToken)
+    {
+        var repo = uow.Repository<FiscalYear>();
+
+        var result = await repo.GetAllAsync(cancellationToken: cancellationToken);
+
+        var dto = result.Items
+            .OrderBy(y => y.StartDate)
+            .Select(y => mapper.Map<FiscalYearDto>(y))
+            .ToList();
+
+        return Ok(dto);
+    }
+
+    [HttpGet("fiscal-years/{id:int}")]
+    public async Task<ActionResult<FiscalYearDto>> GetFiscalYear(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var repo = uow.Repository<FiscalYear>();
+        var year = await repo.GetByIdAsync(id, cancellationToken);
+        if (year is null)
+            return NotFound();
+
+        var dto = mapper.Map<FiscalYearDto>(year);
+        return Ok(dto);
+    }
+
+    [HttpPost("fiscal-years")]
+    public async Task<ActionResult<FiscalYearDto>> CreateFiscalYear(
+        [FromBody] CreateFiscalYearRequest request,
+        CancellationToken cancellationToken)
+    {
+        var repo = uow.Repository<FiscalYear>();
+
+        // اینجا می‌توانی بعداً ولیدیشن هم اضافه کنی (مثلاً عدم تداخل بازه تاریخ)
+
+        var entity = mapper.Map<FiscalYear>(request);
+        await repo.AddAsync(entity, cancellationToken);
+        await uow.SaveChangesAsync(cancellationToken);
+
+        var dto = mapper.Map<FiscalYearDto>(entity);
+
+        return CreatedAtAction(nameof(GetFiscalYear), new { id = dto.Id }, dto);
+    }
+
+    [HttpPut("fiscal-years/{id:int}")]
+    public async Task<ActionResult<FiscalYearDto>> UpdateFiscalYear(
+        int id,
+        [FromBody] UpdateFiscalYearRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (id != request.Id)
+            return BadRequest("Route id and request id do not match.");
+
+        var repo = uow.Repository<FiscalYear>();
+        var existing = await repo.GetByIdAsync(id, cancellationToken);
+        if (existing is null)
+            return NotFound();
+
+        if (existing.IsClosed)
+            return BadRequest("Closed fiscal year cannot be modified.");
+
+        // Map به entity موجود
+        mapper.Map(request, existing);
+
+        repo.Update(existing);
+        await uow.SaveChangesAsync(cancellationToken);
+
+        var dto = mapper.Map<FiscalYearDto>(existing);
+        return Ok(dto);
+    }
+    
+    // ======================== FiscalPeriods ========================
+
+    [HttpGet("fiscal-periods")]
+    public async Task<ActionResult<IEnumerable<FiscalPeriodDto>>> GetFiscalPeriods(
+        [FromQuery] int? fiscalYearId,
+        CancellationToken cancellationToken)
+    {
+        var repo = uow.Repository<FiscalPeriod>();
+
+        IReadOnlyList<FiscalPeriod> periods;
+        if (fiscalYearId.HasValue)
+        {
+            var result = await repo.FindAsync(
+                p => p.FiscalYearId == fiscalYearId.Value,
+                cancellationToken: cancellationToken);
+            periods = result.Items;
+        }
+        else
+        {
+            var result = await repo.GetAllAsync(cancellationToken: cancellationToken);
+            periods = result.Items;
+        }
+
+        var dto = periods
+            .OrderBy(p => p.StartDate)
+            .Select(p => mapper.Map<FiscalPeriodDto>(p))
+            .ToList();
+
+        return Ok(dto);
+    }
+    [HttpGet("fiscal-periods/{id:int}")]
+    public async Task<ActionResult<FiscalPeriodDto>> GetFiscalPeriod(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var repo = uow.Repository<FiscalPeriod>();
+        var period = await repo.GetByIdAsync(id, cancellationToken);
+        if (period is null)
+            return NotFound();
+
+        var dto = mapper.Map<FiscalPeriodDto>(period);
+        return Ok(dto);
+    }
+
+
 }
