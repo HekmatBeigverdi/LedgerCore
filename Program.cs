@@ -112,46 +112,27 @@ builder.Services.AddAuthentication(options =>
         };
     });
 
+// ===== Authorization with dynamic permission loading =====
 builder.Services.AddAuthorization(options =>
 {
-    // مثال: اگر Permission های ثابت می‌شناسی، اینجا Policy برایشان تعریف کن:
-    string[] permissions =
+    // ساخت Policy برای تمام Permissionهای سیستم
+    foreach (var permission in PermissionSeedData.GetAll())
     {
-        "Sales.Invoice.View",
-        "Sales.Invoice.Create",
-        "Sales.Invoice.Approve",
-        "Reports.TrialBalance.View",
-        "Reports.Payroll.View",
-        "Dashboard.View",
-        "Dashboard.BranchSummary.View",
-        
-        "Inventory.StockCard.View",
-        "Inventory.StockItem.View",
-        
-        "Inventory.Adjustment.Create",
-        "Inventory.Adjustment.View",
-        "Inventory.Adjustment.Process",
-        "Inventory.Adjustment.Post",
-        
-        "Approval.Request.Create",
-        "Approval.Request.View",
-        "Approval.Request.Approve",
-        "Approval.Request.Reject"
-    };
-
-    foreach (var permission in permissions)
-    {
-        var policyName = HasPermissionAttribute.BuildPolicyName(permission);
-
-        options.AddPolicy(policyName, policy =>
-        {
-            policy.RequireAuthenticatedUser();
-            policy.RequireClaim("permission", permission);
-        });
+        options.AddPolicy(permission.Code, policy =>
+            policy.RequireClaim("Permission", permission.Code));
     }
 });
 
+
+
 var app = builder.Build();
+
+// ===== Seed Permissions / Roles / RolePermissions =====
+using (var scope = app.Services.CreateScope())
+{
+    var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+    await SecuritySeeder.SeedAsync(uow);
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

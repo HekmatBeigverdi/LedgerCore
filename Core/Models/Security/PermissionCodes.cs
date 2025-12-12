@@ -2,11 +2,14 @@ namespace LedgerCore.Core.Models.Security;
 
 public static class PermissionCodes
 {
-    // Dashboard
+    // ========== Dashboard ==========
     public const string Dashboard_View = "Dashboard.View";
     public const string Dashboard_BranchSummary_View = "Dashboard.BranchSummary.View";
 
-    // Inventory
+    // ========== Sales ==========
+    public const string Sales_Invoice_View = "Sales.Invoice.View";
+
+    // ========== Inventory ==========
     public const string Inventory_StockItem_View = "Inventory.StockItem.View";
     public const string Inventory_StockCard_View = "Inventory.StockCard.View";
     public const string Inventory_Adjustment_View = "Inventory.Adjustment.View";
@@ -14,19 +17,19 @@ public static class PermissionCodes
     public const string Inventory_Adjustment_Process = "Inventory.Adjustment.Process";
     public const string Inventory_Adjustment_Post = "Inventory.Adjustment.Post";
 
-    // Reports
+    // ========== Reports ==========
     public const string Reports_Sales_View = "Reports.Sales.View";
     public const string Reports_Stock_View = "Reports.Stock.View";
     public const string Reports_TrialBalance_View = "Reports.TrialBalance.View";
     public const string Reports_FiscalStatus_View = "Reports.FiscalStatus.View"; // جدید
 
-    // Approval
+    // ========== Approval / Workflow ==========
     public const string Approval_Request_View = "Approval.Request.View";
     public const string Approval_Request_Create = "Approval.Request.Create";
     public const string Approval_Request_Approve = "Approval.Request.Approve";
     public const string Approval_Request_Reject = "Approval.Request.Reject";
 
-    // ============ جدید: Accounting ============
+    // ========== Accounting (جدید) ==========
 
     // Journals
     public const string Accounting_Journal_View = "Accounting.Journal.View";
