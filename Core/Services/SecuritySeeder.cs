@@ -17,6 +17,7 @@ public static class SecuritySeeder
         await SeedRolesAsync(uow, cancellationToken);
         await SeedRolePermissionsAsync(uow, cancellationToken); // Admin = all permissions
         await SeedRolePermissionForCustomRoles(uow, cancellationToken); // نقش‌های جدید
+        await SeedAdminUserAsync(uow, cancellationToken: cancellationToken);
     }
 
     public static async Task SeedPermissionsAsync(
@@ -198,4 +199,47 @@ public static class SecuritySeeder
 
         await uow.SaveChangesAsync(cancellationToken);
     }
+    public static async Task SeedAdminUserAsync(
+        IUnitOfWork uow,
+        string adminUserName = "admin",
+        string defaultPassword = "Admin@12345",
+        CancellationToken cancellationToken = default)
+    {
+        var userRepo = uow.Repository<User>();
+        var roleRepo = uow.Repository<Role>();
+        var urRepo = uow.Repository<UserRole>();
+
+        // اگر admin موجود است، کاری نکن
+        var exists = await userRepo.AnyAsync(u => u.UserName == adminUserName, cancellationToken);
+        if (exists) return;
+
+        var adminRolePage = await roleRepo.FindAsync(r => r.Name == RoleSeedData.AdminRoleName, null, cancellationToken);
+        var adminRole = adminRolePage.Items.FirstOrDefault();
+        if (adminRole is null)
+            throw new InvalidOperationException("Admin role not found. Run role seeding first.");
+
+        AuthService.CreatePasswordHash(defaultPassword, out var hash, out var salt);
+
+        var admin = new User
+        {
+            UserName = adminUserName,
+            DisplayName = "System Admin",
+            Email = "admin@local",
+            PasswordHash = hash,
+            PasswordSalt = salt,
+            Status = Core.Models.Enums.UserStatus.Active
+        };
+
+        await userRepo.AddAsync(admin, cancellationToken);
+        await uow.SaveChangesAsync(cancellationToken); // تا Id تولید شود
+
+        await urRepo.AddAsync(new UserRole
+        {
+            UserId = admin.Id,
+            RoleId = adminRole.Id
+        }, cancellationToken);
+
+        await uow.SaveChangesAsync(cancellationToken);
+    }
+
 }

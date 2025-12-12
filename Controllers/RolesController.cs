@@ -181,4 +181,99 @@ public class RolesController : ControllerBase
 
         return NoContent();
     }
+    // POST api/roles/{roleId}/permissions/assign
+    [HttpPost("{roleId:int}/permissions/assign")]
+    public async Task<IActionResult> AssignPermissions(
+        int roleId,
+        [FromBody] RolePermissionChangeRequest request,
+        CancellationToken cancellationToken)
+    {
+        var role = await _uow.Repository<Role>().GetByIdAsync(roleId, cancellationToken);
+        if (role is null) return NotFound();
+
+        var rpRepo = _uow.Repository<RolePermission>();
+
+        foreach (var pid in request.PermissionIds.Distinct())
+        {
+            var exists = await rpRepo.AnyAsync(
+                rp => rp.RoleId == roleId && rp.PermissionId == pid,
+                cancellationToken);
+
+            if (exists) continue;
+
+            await rpRepo.AddAsync(new RolePermission
+            {
+                RoleId = roleId,
+                PermissionId = pid
+            }, cancellationToken);
+        }
+
+        await _uow.SaveChangesAsync(cancellationToken);
+        return NoContent();
+    }
+
+    // POST api/roles/{roleId}/permissions/remove
+    [HttpPost("{roleId:int}/permissions/remove")]
+    public async Task<IActionResult> RemovePermissions(
+        int roleId,
+        [FromBody] RolePermissionChangeRequest request,
+        CancellationToken cancellationToken)
+    {
+        var role = await _uow.Repository<Role>().GetByIdAsync(roleId, cancellationToken);
+        if (role is null) return NotFound();
+
+        var rpRepo = _uow.Repository<RolePermission>();
+
+        var existing = await rpRepo.FindAsync(
+            rp => rp.RoleId == roleId && request.PermissionIds.Contains(rp.PermissionId),
+            null,
+            cancellationToken);
+
+        foreach (var rp in existing.Items)
+            rpRepo.Remove(rp);
+
+        await _uow.SaveChangesAsync(cancellationToken);
+        return NoContent();
+    }
+    
+    // GET api/roles/{id}/management
+    [HttpGet("{id:int}/management")]
+    public async Task<ActionResult<RoleManagementDto>> GetRoleManagement(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var role = await _uow.Repository<Role>().GetByIdAsync(id, cancellationToken);
+        if (role is null) return NotFound();
+
+        var permRepo = _uow.Repository<Permission>();
+        var rpRepo = _uow.Repository<RolePermission>();
+
+        var perms = await permRepo.GetAllAsync(null, cancellationToken);
+        var rps = await rpRepo.FindAsync(rp => rp.RoleId == id, null, cancellationToken);
+
+        var assignedIds = rps.Items.Select(x => x.PermissionId).ToHashSet();
+
+        var assigned = perms.Items
+            .Where(p => assignedIds.Contains(p.Id))
+            .Select(p => new PermissionDto { Id = p.Id, Code = p.Code, Description = p.Description })
+            .OrderBy(p => p.Code)
+            .ToList();
+
+        var unassigned = perms.Items
+            .Where(p => !assignedIds.Contains(p.Id))
+            .Select(p => new PermissionDto { Id = p.Id, Code = p.Code, Description = p.Description })
+            .OrderBy(p => p.Code)
+            .ToList();
+
+        return Ok(new RoleManagementDto
+        {
+            RoleId = role.Id,
+            RoleName = role.Name,
+            RoleDescription = role.Description,
+            Assigned = assigned,
+            Unassigned = unassigned
+        });
+    }
+
+
 }
