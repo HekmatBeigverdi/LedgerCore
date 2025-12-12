@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using LedgerCore.Core.Interfaces;
 using LedgerCore.Core.Models.Security;
 
+
 namespace LedgerCore.Core.Services;
 
 public static class SecuritySeeder
@@ -14,7 +15,8 @@ public static class SecuritySeeder
     {
         await SeedPermissionsAsync(uow, cancellationToken);
         await SeedRolesAsync(uow, cancellationToken);
-        await SeedRolePermissionsAsync(uow, cancellationToken);
+        await SeedRolePermissionsAsync(uow, cancellationToken); // Admin = all permissions
+        await SeedRolePermissionForCustomRoles(uow, cancellationToken); // نقش‌های جدید
     }
 
     public static async Task SeedPermissionsAsync(
@@ -107,6 +109,91 @@ public static class SecuritySeeder
                 RoleId = adminRole.Id,
                 PermissionId = perm.Id
             }, cancellationToken);
+        }
+
+        await uow.SaveChangesAsync(cancellationToken);
+    }
+    public static async Task SeedRolePermissionForCustomRoles(
+        IUnitOfWork uow,
+        CancellationToken cancellationToken = default)
+    {
+        var roleRepo = uow.Repository<Role>();
+        var permRepo = uow.Repository<Permission>();
+        var rpRepo = uow.Repository<RolePermission>();
+
+        // توجه: امضای GetAllAsync در پروژه شما (PagingParams? pagingParams = null, CancellationToken ct = default) است
+        var rolesPage = await roleRepo.GetAllAsync(null, cancellationToken);
+        var permsPage = await permRepo.GetAllAsync(null, cancellationToken);
+
+        var roles = rolesPage.Items;
+        var permissions = permsPage.Items;
+
+        var accountant = roles.FirstOrDefault(r => r.Name == RoleSeedData.Accountant);
+        var inventoryManager = roles.FirstOrDefault(r => r.Name == RoleSeedData.InventoryManager);
+        var auditor = roles.FirstOrDefault(r => r.Name == RoleSeedData.Auditor);
+
+        if (accountant != null)
+        {
+            var allowed = permissions.Where(p =>
+                p.Code.StartsWith("Accounting.") ||
+                p.Code.StartsWith("Reports.")
+            );
+
+            foreach (var perm in allowed)
+            {
+                var exists = await rpRepo.AnyAsync(
+                    rp => rp.RoleId == accountant.Id && rp.PermissionId == perm.Id,
+                    cancellationToken);
+
+                if (exists) continue;
+
+                await rpRepo.AddAsync(new RolePermission
+                {
+                    RoleId = accountant.Id,
+                    PermissionId = perm.Id
+                }, cancellationToken);
+            }
+        }
+
+        if (inventoryManager != null)
+        {
+            var allowed = permissions.Where(p => p.Code.StartsWith("Inventory."));
+
+            foreach (var perm in allowed)
+            {
+                var exists = await rpRepo.AnyAsync(
+                    rp => rp.RoleId == inventoryManager.Id && rp.PermissionId == perm.Id,
+                    cancellationToken);
+
+                if (exists) continue;
+
+                await rpRepo.AddAsync(new RolePermission
+                {
+                    RoleId = inventoryManager.Id,
+                    PermissionId = perm.Id
+                }, cancellationToken);
+            }
+        }
+
+        if (auditor != null)
+        {
+            // فقط View ها
+            var allowed = permissions.Where(p => p.Code.EndsWith(".View"));
+
+            foreach (var perm in allowed)
+            {
+                var exists = await rpRepo.AnyAsync(
+                    rp => rp.RoleId == auditor.Id && rp.PermissionId == perm.Id,
+                    cancellationToken);
+
+                if (exists) continue;
+
+                await rpRepo.AddAsync(new RolePermission
+                {
+                    RoleId = auditor.Id,
+                    PermissionId = perm.Id
+                }, cancellationToken);
+            }
         }
 
         await uow.SaveChangesAsync(cancellationToken);
