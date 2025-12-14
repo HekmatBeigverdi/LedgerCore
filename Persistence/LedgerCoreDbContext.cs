@@ -82,6 +82,10 @@ public class LedgerCoreDbContext(DbContextOptions<LedgerCoreDbContext> options) 
     // Workflow
     public DbSet<ApprovalRequest> ApprovalRequests => Set<ApprovalRequest>();
     public DbSet<ApprovalStep> ApprovalSteps => Set<ApprovalStep>();
+    
+    // Logs
+    public DbSet<SecurityActivityLog> SecurityActivityLogs => Set<SecurityActivityLog>();
+
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

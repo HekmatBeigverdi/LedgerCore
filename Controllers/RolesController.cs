@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using LedgerCore.Core.Interfaces;
+using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Security;
 using LedgerCore.Core.ViewModels.Security;
 using Microsoft.AspNetCore.Authorization;
@@ -17,10 +18,12 @@ namespace LedgerCore.Controllers;
 public class RolesController : ControllerBase
 {
     private readonly IUnitOfWork _uow;
+    private readonly ISecurityActivityLogService _activityLog;
 
-    public RolesController(IUnitOfWork uow)
+    public RolesController(IUnitOfWork uow, ISecurityActivityLogService activityLog)
     {
         _uow = uow;
+        _activityLog = activityLog;
     }
 
     // GET api/roles
@@ -209,6 +212,19 @@ public class RolesController : ControllerBase
         }
 
         await _uow.SaveChangesAsync(cancellationToken);
+        
+        var actorId = int.TryParse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var uid) ? uid : (int?)null;
+        var actorName = User.Identity?.Name;
+
+        await _activityLog.LogAsync(
+            action: "RolePermission.Assigned",
+            entityType: "Role",
+            entityId: roleId,
+            actorUserId: actorId,
+            actorUserName: actorName,
+            details: $"Assigned PermissionIds: {string.Join(",", request.PermissionIds.Distinct())}",
+            cancellationToken);
+        
         return NoContent();
     }
 
@@ -233,6 +249,19 @@ public class RolesController : ControllerBase
             rpRepo.Remove(rp);
 
         await _uow.SaveChangesAsync(cancellationToken);
+        
+        var actorId = int.TryParse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var uid) ? uid : (int?)null;
+        var actorName = User.Identity?.Name;
+
+        await _activityLog.LogAsync(
+            action: "RolePermission.Assigned",
+            entityType: "Role",
+            entityId: roleId,
+            actorUserId: actorId,
+            actorUserName: actorName,
+            details: $"Assigned PermissionIds: {string.Join(",", request.PermissionIds.Distinct())}",
+            cancellationToken);
+        
         return NoContent();
     }
     
