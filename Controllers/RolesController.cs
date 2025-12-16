@@ -25,6 +25,25 @@ public class RolesController : ControllerBase
         _uow = uow;
         _activityLog = activityLog;
     }
+    private int? GetActorUserId()
+    {
+        // تلاش با کلیدهای رایج (طبق توکن‌های معمول)
+        var idStr =
+            User.Claims.FirstOrDefault(c => c.Type == "userId")?.Value ??
+            User.Claims.FirstOrDefault(c => c.Type == "id")?.Value ??
+            User.Claims.FirstOrDefault(c => c.Type == "sub")?.Value;
+
+        return int.TryParse(idStr, out var id) ? id : null;
+    }
+
+    private string? GetActorUserName()
+    {
+        return
+            User.Claims.FirstOrDefault(c => c.Type == "username")?.Value ??
+            User.Claims.FirstOrDefault(c => c.Type == "name")?.Value ??
+            User.Claims.FirstOrDefault(c => c.Type == "unique_name")?.Value ??
+            User.Identity?.Name;
+    }
 
     // GET api/roles
     [HttpGet]
@@ -212,10 +231,11 @@ public class RolesController : ControllerBase
         }
 
         await _uow.SaveChangesAsync(cancellationToken);
-        
-        var actorId = int.TryParse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var uid) ? uid : (int?)null;
-        var actorName = User.Identity?.Name;
 
+        // Activity Log
+        var actorId = GetActorUserId();
+        var actorName = GetActorUserName();
+        
         await _activityLog.LogAsync(
             action: "RolePermission.Assigned",
             entityType: "Role",
@@ -223,11 +243,11 @@ public class RolesController : ControllerBase
             actorUserId: actorId,
             actorUserName: actorName,
             details: $"Assigned PermissionIds: {string.Join(",", request.PermissionIds.Distinct())}",
-            cancellationToken);
-        
+            cancellationToken: cancellationToken);
+
         return NoContent();
     }
-
+    
     // POST api/roles/{roleId}/permissions/remove
     [HttpPost("{roleId:int}/permissions/remove")]
     public async Task<IActionResult> RemovePermissions(
@@ -249,21 +269,24 @@ public class RolesController : ControllerBase
             rpRepo.Remove(rp);
 
         await _uow.SaveChangesAsync(cancellationToken);
-        
-        var actorId = int.TryParse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var uid) ? uid : (int?)null;
-        var actorName = User.Identity?.Name;
+
+        // Activity Log
+        var actorId = GetActorUserId();
+        var actorName = GetActorUserName();
+
 
         await _activityLog.LogAsync(
-            action: "RolePermission.Assigned",
+            action: "RolePermission.Removed",
             entityType: "Role",
             entityId: roleId,
             actorUserId: actorId,
             actorUserName: actorName,
-            details: $"Assigned PermissionIds: {string.Join(",", request.PermissionIds.Distinct())}",
-            cancellationToken);
-        
+            details: $"Removed PermissionIds: {string.Join(",", request.PermissionIds.Distinct())}",
+            cancellationToken: cancellationToken);
+
         return NoContent();
     }
+
     
     // GET api/roles/{id}/management
     [HttpGet("{id:int}/management")]
@@ -284,13 +307,23 @@ public class RolesController : ControllerBase
 
         var assigned = perms.Items
             .Where(p => assignedIds.Contains(p.Id))
-            .Select(p => new PermissionDto { Id = p.Id, Code = p.Code, Description = p.Description })
+            .Select(p => new PermissionDto
+            {
+                Id = p.Id,
+                Code = p.Code,
+                Description = p.Description
+            })
             .OrderBy(p => p.Code)
             .ToList();
 
         var unassigned = perms.Items
             .Where(p => !assignedIds.Contains(p.Id))
-            .Select(p => new PermissionDto { Id = p.Id, Code = p.Code, Description = p.Description })
+            .Select(p => new PermissionDto
+            {
+                Id = p.Id,
+                Code = p.Code,
+                Description = p.Description
+            })
             .OrderBy(p => p.Code)
             .ToList();
 
@@ -303,6 +336,5 @@ public class RolesController : ControllerBase
             Unassigned = unassigned
         });
     }
-
-
+    
 }

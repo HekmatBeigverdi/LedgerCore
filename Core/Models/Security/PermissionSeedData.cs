@@ -192,6 +192,69 @@ public static class PermissionSeedData
                 Code = PermissionCodes.Accounting_FiscalPeriod_Open,
                 Name = "باز کردن دوره مالی",
                 Description = "امکان باز کردن مجدد دوره بسته‌شده (Re-open)"
-            }
+            },
+            new()
+            {
+                Code = PermissionCodes.Sales_Invoice_View,
+                Name = "مشاهده فروش",
+                Description = "مشاهده فاکتورهای فروش"
+            },
+            new()
+            {
+                Code = PermissionCodes.Sales_Invoice_Create,
+                Name = "ایجاد فروش",
+                Description = "ثبت فاکتور فروش"
+            },
+            new()
+            {
+                Code = PermissionCodes.Sales_Invoice_Edit,
+                Name = "ویرایش فروش",
+                Description = "ویرایش فاکتور فروش"
+            },
+            new()
+            {
+                Code = PermissionCodes.Sales_Invoice_Post,
+                Name = "پست فروش",
+                Description = "پست فاکتور فروش"
+            },
+
+            new()
+            {
+                Code = PermissionCodes.Payroll_View,
+                Name = "مشاهده حقوق",
+                Description = "مشاهده اسناد حقوق و دستمزد"
+            },
+            new()
+            {
+                Code = PermissionCodes.Payroll_Manage,
+                Name = "مدیریت حقوق",
+                Description = "ایجاد و محاسبه حقوق"
+            },
+            new()
+            {
+                Code = PermissionCodes.Payroll_Post,
+                Name = "پست حقوق",
+                Description = "پست سند حقوق به حسابداری"
+            },
+
+            new()
+            {
+                Code = PermissionCodes.Assets_View,
+                Name = "مشاهده دارایی ثابت",
+                Description = "مشاهده دارایی‌ها و گزارشات"
+            },
+            new()
+            {
+                Code = PermissionCodes.Assets_Manage,
+                Name = "مدیریت دارایی ثابت",
+                Description = "ثبت/ویرایش دارایی و برنامه استهلاک"
+            },
+            new()
+            {
+                Code = PermissionCodes.Assets_Depreciation_Post,
+                Name = "پست استهلاک",
+                Description = "پست سند استهلاک به حسابداری"
+            },
+
         };
 }

@@ -77,6 +77,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IApprovalService, ApprovalService>();
 builder.Services.AddScoped<ICashTransferService, CashTransferService>();
+builder.Services.AddScoped<ISecurityActivityLogService, SecurityActivityLogService>();
 
 
 

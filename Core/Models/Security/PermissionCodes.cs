@@ -8,6 +8,9 @@ public static class PermissionCodes
 
     // ========== Sales ==========
     public const string Sales_Invoice_View = "Sales.Invoice.View";
+    public const string Sales_Invoice_Create = "Sales.Invoice.Create";
+    public const string Sales_Invoice_Edit = "Sales.Invoice.Edit";
+    public const string Sales_Invoice_Post = "Sales.Invoice.Post";
 
     // ========== Inventory ==========
     public const string Inventory_StockItem_View = "Inventory.StockItem.View";
@@ -47,4 +50,14 @@ public static class PermissionCodes
     public const string Accounting_FiscalPeriod_Manage = "Accounting.FiscalPeriod.Manage";
     public const string Accounting_FiscalPeriod_Close = "Accounting.FiscalPeriod.Close";
     public const string Accounting_FiscalPeriod_Open = "Accounting.FiscalPeriod.Open";
+    
+    // ========== Payroll ==========
+    public const string Payroll_View = "Payroll.View";
+    public const string Payroll_Manage = "Payroll.Manage";
+    public const string Payroll_Post = "Payroll.Post";
+
+    // ========== FixedAssets ==========
+    public const string Assets_View = "Assets.View";
+    public const string Assets_Manage = "Assets.Manage";
+    public const string Assets_Depreciation_Post = "Assets.Depreciation.Post";
 }
