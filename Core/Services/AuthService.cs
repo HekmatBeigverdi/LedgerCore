@@ -48,47 +48,71 @@ public class AuthService(
     {
         var handler = new JwtSecurityTokenHandler();
 
+        // ---------------------------
+        // Claims پایه
+        // ---------------------------
         var claims = new List<Claim>
         {
+            // استانداردها
             new(JwtRegisteredClaimNames.Sub, user.UserName),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+
+            // Claimهای استاندارد (قبلی) - حفظ می‌شود
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new(ClaimTypes.Name, user.UserName),
+
+            // Claimهای مستقل از ClaimTypes برای استفاده در لاگ/اکتیویتی و کلاینت
+            new("userId", user.Id.ToString()),
+            new("username", user.UserName),
+
+            // داده‌های نمایشی
             new("displayName", user.DisplayName ?? string.Empty),
             new("email", user.Email ?? string.Empty)
         };
+
+        // ---------------------------
+        // Roles + Permissions
+        // ---------------------------
+        var permissionSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         if (user.UserRoles is not null)
         {
             foreach (var userRole in user.UserRoles)
             {
-                if (!string.IsNullOrWhiteSpace(userRole.Role?.Name))
+                var roleName = userRole.Role?.Name;
+                if (!string.IsNullOrWhiteSpace(roleName))
                 {
-                    claims.Add(new Claim(ClaimTypes.Role, userRole.Role!.Name));
+                    claims.Add(new Claim(ClaimTypes.Role, roleName!));
                 }
 
-                // ===========================
-                //  اضافه کردن Permissionها
-                // ===========================
+                // اضافه کردن Permissionها (Claim key: "permission")
                 if (userRole.Role?.RolePermissions is not null)
                 {
                     foreach (var rp in userRole.Role.RolePermissions)
                     {
-                        var code = rp.Permission?.Code; // اگر فیلد اسم دیگری دارد اینجا عوض کن
+                        var code = rp.Permission?.Code;
                         if (!string.IsNullOrWhiteSpace(code))
                         {
-                            claims.Add(new Claim("permission", code!));
+                            permissionSet.Add(code!);
                         }
                     }
                 }
             }
         }
 
-        // اینجا دیگه SecurityTokenDescriptor استفاده نمی‌کنیم
+        // افزودن Permissionها به claims (بدون تکرار)
+        foreach (var code in permissionSet)
+        {
+            claims.Add(new Claim("permission", code));
+        }
+
+        // ---------------------------
+        // ساخت توکن
+        // ---------------------------
         var token = new JwtSecurityToken(
             claims: claims,
             notBefore: DateTime.UtcNow,
-            expires: DateTime.UtcNow.AddHours(8), // مدت اعتبار توکن
+            expires: DateTime.UtcNow.AddHours(8),
             signingCredentials: new SigningCredentials(
                 signingKey,
                 SecurityAlgorithms.HmacSha256)
@@ -97,7 +121,6 @@ public class AuthService(
         var jwt = handler.WriteToken(token);
         return Task.FromResult(jwt);
     }
-    
 
     // ===== کمک‌ها برای Hash کردن پسورد =====
 
