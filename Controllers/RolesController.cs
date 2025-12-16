@@ -27,22 +27,14 @@ public class RolesController : ControllerBase
     }
     private int? GetActorUserId()
     {
-        // تلاش با کلیدهای رایج (طبق توکن‌های معمول)
-        var idStr =
-            User.Claims.FirstOrDefault(c => c.Type == "userId")?.Value ??
-            User.Claims.FirstOrDefault(c => c.Type == "id")?.Value ??
-            User.Claims.FirstOrDefault(c => c.Type == "sub")?.Value;
-
+        var idStr = User?.Claims?.FirstOrDefault(c => c.Type == "userId")?.Value;
         return int.TryParse(idStr, out var id) ? id : null;
     }
 
     private string? GetActorUserName()
     {
-        return
-            User.Claims.FirstOrDefault(c => c.Type == "username")?.Value ??
-            User.Claims.FirstOrDefault(c => c.Type == "name")?.Value ??
-            User.Claims.FirstOrDefault(c => c.Type == "unique_name")?.Value ??
-            User.Identity?.Name;
+        return User?.Claims?.FirstOrDefault(c => c.Type == "username")?.Value
+               ?? User?.Identity?.Name;
     }
 
     // GET api/roles
@@ -232,10 +224,10 @@ public class RolesController : ControllerBase
 
         await _uow.SaveChangesAsync(cancellationToken);
 
-        // Activity Log
+        // Activity Log (بدون ClaimTypes)
         var actorId = GetActorUserId();
         var actorName = GetActorUserName();
-        
+
         await _activityLog.LogAsync(
             action: "RolePermission.Assigned",
             entityType: "Role",
@@ -270,10 +262,9 @@ public class RolesController : ControllerBase
 
         await _uow.SaveChangesAsync(cancellationToken);
 
-        // Activity Log
+        // Activity Log (بدون ClaimTypes)
         var actorId = GetActorUserId();
         var actorName = GetActorUserName();
-
 
         await _activityLog.LogAsync(
             action: "RolePermission.Removed",
@@ -286,7 +277,6 @@ public class RolesController : ControllerBase
 
         return NoContent();
     }
-
     
     // GET api/roles/{id}/management
     [HttpGet("{id:int}/management")]
@@ -336,5 +326,6 @@ public class RolesController : ControllerBase
             Unassigned = unassigned
         });
     }
+
     
 }
