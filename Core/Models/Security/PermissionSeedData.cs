@@ -195,12 +195,6 @@ public static class PermissionSeedData
             },
             new()
             {
-                Code = PermissionCodes.Sales_Invoice_View,
-                Name = "مشاهده فروش",
-                Description = "مشاهده فاکتورهای فروش"
-            },
-            new()
-            {
                 Code = PermissionCodes.Sales_Invoice_Create,
                 Name = "ایجاد فروش",
                 Description = "ثبت فاکتور فروش"

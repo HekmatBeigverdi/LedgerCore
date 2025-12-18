@@ -7,7 +7,7 @@ using LedgerCore.Core.Models.Security;
 
 namespace LedgerCore.Core.Services;
 
-public static class SecuritySeeder
+public static class SeedPermissionsAsyncSecuritySeeder
 {
     public static async Task SeedAsync(
         IUnitOfWork uow,
@@ -25,24 +25,40 @@ public static class SecuritySeeder
         CancellationToken cancellationToken = default)
     {
         var permissionRepo = uow.Repository<Permission>();
-        var all = PermissionSeedData.GetAll();
 
-        foreach (var perm in all)
-        {
-            var exists = await permissionRepo.AnyAsync(
-                p => p.Code == perm.Code,
-                cancellationToken);
+        // 1) لیست seed را بگیر و بر اساس Code یکتا کن (ضد تکرار داخل لیست)
+        var seedAll = PermissionSeedData.GetAll();
 
-            if (exists)
-                continue;
+        var uniqueSeed = seedAll
+            .GroupBy(p => p.Code)
+            .Select(g => g.First())
+            .ToList();
 
-            await permissionRepo.AddAsync(new Permission
+        // 2) همه Permissionهای موجود را یکجا بخوان (به‌جای AnyAsync در حلقه)
+        var existingPage = await permissionRepo.GetAllAsync(
+            pagingParams: null,
+            cancellationToken: cancellationToken);
+
+        var existingCodes = existingPage.Items
+            .Select(p => p.Code)
+            .ToHashSet();
+
+        // 3) فقط مواردی که وجود ندارند را اضافه کن
+        var toInsert = uniqueSeed
+            .Where(p => !existingCodes.Contains(p.Code))
+            .Select(p => new Permission
             {
-                Code = perm.Code,
-                Name = perm.Name,
-                Description = perm.Description
-            }, cancellationToken);
-        }
+                Code = p.Code,
+                Name = p.Name,
+                Description = p.Description
+            })
+            .ToList();
+
+        if (toInsert.Count == 0)
+            return;
+
+        foreach (var perm in toInsert)
+            await permissionRepo.AddAsync(perm, cancellationToken);
 
         await uow.SaveChangesAsync(cancellationToken);
     }

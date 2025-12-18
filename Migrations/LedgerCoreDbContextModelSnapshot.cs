@@ -1320,6 +1320,9 @@ namespace LedgerCore.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<int?>("JournalVoucherId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("ModifiedAt")
                         .HasColumnType("datetime(6)");
 
@@ -1343,6 +1346,8 @@ namespace LedgerCore.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("BranchId");
+
+                    b.HasIndex("JournalVoucherId");
 
                     b.HasIndex("Number")
                         .IsUnique();
@@ -2465,6 +2470,52 @@ namespace LedgerCore.Migrations
                     b.ToTable("RolePermissions", (string)null);
                 });
 
+            modelBuilder.Entity("LedgerCore.Core.Models.Security.SecurityActivityLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int?>("ActorUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ActorUserName")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Details")
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("EntityId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("longtext");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SecurityActivityLogs");
+                });
+
             modelBuilder.Entity("LedgerCore.Core.Models.Security.User", b =>
                 {
                     b.Property<int>("Id")
@@ -3235,6 +3286,10 @@ namespace LedgerCore.Migrations
                         .WithMany()
                         .HasForeignKey("BranchId");
 
+                    b.HasOne("LedgerCore.Core.Models.Accounting.JournalVoucher", "JournalVoucher")
+                        .WithMany()
+                        .HasForeignKey("JournalVoucherId");
+
                     b.HasOne("LedgerCore.Core.Models.Inventory.Warehouse", "Warehouse")
                         .WithMany()
                         .HasForeignKey("WarehouseId")
@@ -3242,6 +3297,8 @@ namespace LedgerCore.Migrations
                         .IsRequired();
 
                     b.Navigation("Branch");
+
+                    b.Navigation("JournalVoucher");
 
                     b.Navigation("Warehouse");
                 });

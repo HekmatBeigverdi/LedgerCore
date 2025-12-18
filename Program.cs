@@ -129,11 +129,12 @@ builder.Services.AddAuthorization(options =>
 var app = builder.Build();
 
 // ===== Seed Permissions / Roles / RolePermissions =====
-using (var scope = app.Services.CreateScope())
+await using (var scope = app.Services.CreateAsyncScope())
 {
     var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-    await SecuritySeeder.SeedAsync(uow);
+    await SeedPermissionsAsyncSecuritySeeder.SeedAsync(uow);
 }
+
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
