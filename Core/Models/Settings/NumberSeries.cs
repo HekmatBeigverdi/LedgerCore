@@ -8,7 +8,8 @@ public class NumberSeries: AuditableEntity
     /// نوع سند (مثلاً "SalesInvoice", "PurchaseInvoice", "Journal", "Receipt")
     /// </summary>
     public string EntityType { get; set; } = default!;
-
+    public string Code { get; set; } = null!;
+    
     public int? BranchId { get; set; }      // در صورت نیاز سریال مختلف برای هر شعبه
     public string Prefix { get; set; } = "";       // مثال: "SI-", "PI-"
     public string? Suffix { get; set; }           // مثال: "/1403"

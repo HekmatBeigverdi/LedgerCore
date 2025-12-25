@@ -1,5 +1,6 @@
 using LedgerCore.Core.Interfaces.Repositories;
 using LedgerCore.Core.Interfaces.Services;
+using LedgerCore.Core.Models.Accounting;
 using LedgerCore.Core.Models.Enums;
 using LedgerCore.Core.Models.Inventory;
 using LedgerCore.Persistence;
@@ -69,7 +70,9 @@ public class InventoryService(LedgerCoreDbContext db, IStockRepository stockRepo
             throw new ArgumentNullException(nameof(adjustment));
 
         // اطمینان از اینکه رکورد اصلی از دیتابیس خوانده می‌شود
+
         var dbAdjustment = await _db.InventoryAdjustments
+            .Include(x => x.Warehouse)
             .FirstOrDefaultAsync(x => x.Id == adjustment.Id, cancellationToken);
 
         if (dbAdjustment is null)
@@ -97,6 +100,7 @@ public class InventoryService(LedgerCoreDbContext db, IStockRepository stockRepo
 
         try
         {
+            // 1) Apply stock moves -> StockItem + TotalDifferenceValue (منطق فعلی شما)
             foreach (var move in moves)
             {
                 var stockItem = await _stock.GetStockItemAsync(
@@ -115,7 +119,7 @@ public class InventoryService(LedgerCoreDbContext db, IStockRepository stockRepo
                         AverageCost = 0
                     };
 
-                    await _stock.AddStockItemAsync(stockItem, cancellationToken);
+                    await _db.StockItems.AddAsync(stockItem, cancellationToken);
                 }
 
                 // منطق هم‌راستا با Purchase/Sales:
@@ -127,8 +131,8 @@ public class InventoryService(LedgerCoreDbContext db, IStockRepository stockRepo
                 {
                     var oldQty = stockItem.OnHand;
                     var oldCost = stockItem.AverageCost;
+                    
                     var newQty = move.Quantity;
-
                     var newCostPerUnit = move.UnitCost ?? oldCost;
 
                     var totalQty = oldQty + newQty;
@@ -148,8 +152,7 @@ public class InventoryService(LedgerCoreDbContext db, IStockRepository stockRepo
                 else if (move.MoveType == StockMoveType.Outbound ||
                          (move.MoveType == StockMoveType.Adjustment && move.Quantity < 0))
                 {
-                    var qty = move.Quantity;
-                    if (qty < 0) qty = -qty;
+                    var qty = move.Quantity < 0 ? -move.Quantity : move.Quantity;
 
                     if (stockItem.OnHand < qty)
                     {
@@ -174,6 +177,65 @@ public class InventoryService(LedgerCoreDbContext db, IStockRepository stockRepo
 
                 _stock.UpdateStockItem(stockItem);
             }
+            
+            // 2) Create JournalVoucher for adjustment (NEW)
+            if (totalDifferenceValue != 0m)
+            {
+                var rule = await _db.PostingRules
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(x => x.DocumentType == "InventoryAdjustment" && x.IsActive, cancellationToken);
+
+                if (rule is null)
+                    throw new InvalidOperationException("No posting rule defined for InventoryAdjustment.");
+
+                var journalNumber = await GenerateNextNumberAsync("Journal", dbAdjustment.BranchId, cancellationToken);
+
+                var abs = Math.Abs(totalDifferenceValue);
+
+                // اگر افزایش موجودی: Debit Inventory / Credit Adjustment
+                // اگر کاهش موجودی: Debit Adjustment / Credit Inventory
+                var debitAccountId = totalDifferenceValue > 0 ? rule.DebitAccountId : rule.CreditAccountId;
+                var creditAccountId = totalDifferenceValue > 0 ? rule.CreditAccountId : rule.DebitAccountId;
+
+                var journal = new JournalVoucher
+                {
+                    Number = journalNumber,
+                    Date = dbAdjustment.Date.Date,
+                    BranchId = dbAdjustment.BranchId,
+                    Description = $"Inventory adjustment {dbAdjustment.Number}",
+                    Status = DocumentStatus.Posted,
+                    Lines = new List<JournalLine>
+                    {
+                        new JournalLine
+                        {
+                            LineNumber = 1,
+                            AccountId = debitAccountId,
+                            Debit = abs,
+                            Credit = 0,
+                            RefDocumentType = "InventoryAdjustment",
+                            RefDocumentId = dbAdjustment.Id,
+                            Description = $"Inventory adjustment {dbAdjustment.Number}"
+                        },
+                        new JournalLine
+                        {
+                            LineNumber = 2,
+                            AccountId = creditAccountId,
+                            Debit = 0,
+                            Credit = abs,
+                            RefDocumentType = "InventoryAdjustment",
+                            RefDocumentId = dbAdjustment.Id,
+                            Description = $"Inventory adjustment {dbAdjustment.Number}"
+                        }
+                    }
+                };
+
+                await _db.JournalVouchers.AddAsync(journal, cancellationToken);
+                await _db.SaveChangesAsync(cancellationToken);
+
+                dbAdjustment.JournalVoucherId = journal.Id;
+            }
+
+            // 3) Finalize adjustment            
 
             dbAdjustment.TotalDifferenceValue = totalDifferenceValue;
             dbAdjustment.Status = DocumentStatus.Approved;
@@ -187,5 +249,29 @@ public class InventoryService(LedgerCoreDbContext db, IStockRepository stockRepo
             await transaction.RollbackAsync(cancellationToken);
             throw;
         }
+        
+    }
+    // NEW helper: consistent number generation using NumberSeries table
+    private async Task<string> GenerateNextNumberAsync(
+        string seriesCode,
+        int? branchId,
+        CancellationToken cancellationToken)
+    {
+        var series = await _db.NumberSeries
+                         .FirstOrDefaultAsync(x => x.Code == seriesCode && x.BranchId == branchId, cancellationToken)
+                     ?? await _db.NumberSeries.FirstOrDefaultAsync(x => x.Code == seriesCode && x.BranchId == null, cancellationToken);
+
+        if (series is null)
+            throw new InvalidOperationException($"NumberSeries '{seriesCode}' not found.");
+
+        series.CurrentNumber += 1;
+        series.ModifiedAt = DateTime.UtcNow;
+
+        // نمونه ساده: Prefix + شماره با طول ثابت
+        var number = $"{series.Prefix}{series.CurrentNumber.ToString().PadLeft(series.Padding, '0')}{series.Suffix}";
+        _db.NumberSeries.Update(series);
+
+        // توجه: SaveChanges بیرون انجام می‌شود
+        return number;
     }
 }

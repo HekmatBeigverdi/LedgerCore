@@ -21,16 +21,20 @@ public class InventoryController : ControllerBase
     private readonly IAccountingService _accountingService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly LedgerCoreDbContext _dbContext;
+    private readonly INumberSeriesService _numberSeries;
+
 
     public InventoryController(
         IInventoryService inventoryService,
         IAccountingService accountingService,
         IUnitOfWork unitOfWork,
+        INumberSeriesService numberSeries,
         LedgerCoreDbContext dbContext)
     {
         _inventoryService = inventoryService;
         _accountingService = accountingService;
         _unitOfWork = unitOfWork;
+        _numberSeries = numberSeries;
         _dbContext = dbContext;
     }
 
@@ -98,12 +102,14 @@ public class InventoryController : ControllerBase
         var adjustmentRepo = _unitOfWork.Repository<InventoryAdjustment>();
         var stockMoveRepo = _unitOfWork.Repository<StockMove>();
 
+        var number = string.IsNullOrWhiteSpace(dto.Number)
+            ? await _numberSeries.NextAsync("InventoryAdjustment", dto.BranchId, cancellationToken)
+            : dto.Number!;
+        
         // هدر سند تعدیل
         var adjustment = new InventoryAdjustment
         {
-            Number = string.IsNullOrWhiteSpace(dto.Number)
-                ? $"ADJ-{DateTime.UtcNow:yyyyMMddHHmmss}" // موقت؛ بعداً می‌توانی از NumberSeries استفاده کنی
-                : dto.Number!,
+            Number = number,
             Date = dto.Date == default ? DateTime.Today : dto.Date.Date,
             WarehouseId = dto.WarehouseId,
             BranchId = dto.BranchId,
