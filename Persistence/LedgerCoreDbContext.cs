@@ -1,6 +1,7 @@
 using LedgerCore.Core.Models.Accounting;
 using LedgerCore.Core.Models.Assets;
 using LedgerCore.Core.Models.Documents;
+using LedgerCore.Core.Models.Enums;
 using LedgerCore.Core.Models.Inventory;
 using LedgerCore.Core.Models.Master;
 using LedgerCore.Core.Models.Payroll;
@@ -115,6 +116,48 @@ public class LedgerCoreDbContext(DbContextOptions<LedgerCoreDbContext> options) 
             eb.HasNoKey();
             eb.ToView("vw_TrialBalanceRows"); // adjust view name or remove if not a view
         });
+    }
+    private async Task ValidateFiscalLocksAsync(CancellationToken cancellationToken)
+    {
+        // هر JournalVoucher جدید/ویرایش‌شده که Posted است را چک می‌کنیم
+        var postedJournals = ChangeTracker.Entries<JournalVoucher>()
+            .Where(e => (e.State == EntityState.Added || e.State == EntityState.Modified)
+                        && e.Entity.Status == DocumentStatus.Posted)
+            .Select(e => e.Entity)
+            .ToList();
+
+        if (postedJournals.Count == 0)
+            return;
+
+        foreach (var j in postedJournals)
+        {
+            var date = j.Date.Date;
+
+            // سال مالی بسته؟
+            var year = await FiscalYears.FirstOrDefaultAsync(
+                y => y.StartDate.Date <= date && y.EndDate.Date >= date,
+                cancellationToken);
+
+            if (year != null && year.IsClosed)
+                throw new InvalidOperationException($"Fiscal year '{year.Name}' is closed. Posting is not allowed on {date:yyyy-MM-dd}.");
+
+            // دوره بسته؟
+            var period = await FiscalPeriods.FirstOrDefaultAsync(
+                p => p.StartDate.Date <= date && p.EndDate.Date >= date,
+                cancellationToken);
+
+            if (period != null && period.IsClosed)
+                throw new InvalidOperationException($"Fiscal period '{period.Name}' is closed. Posting is not allowed on {date:yyyy-MM-dd}.");
+
+            // اگر FiscalPeriodId ست نشده بود، اینجا ست می‌کنیم (کمک می‌کند گزارش‌ها دقیق‌تر شوند)
+            if (j.FiscalPeriodId == null && period != null)
+                j.FiscalPeriodId = period.Id;
+        }
+    }  
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        await ValidateFiscalLocksAsync(cancellationToken);
+        return await base.SaveChangesAsync(cancellationToken);
     }
 }
 
