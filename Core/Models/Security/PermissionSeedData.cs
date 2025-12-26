@@ -249,6 +249,12 @@ public static class PermissionSeedData
                 Name = "پست استهلاک",
                 Description = "پست سند استهلاک به حسابداری"
             },
-
+            // ================= Fiscal (Close year) =================
+            new()
+            {
+                Code = PermissionCodes.Accounting_Fiscal_Close,
+                Name = "بستن سال مالی",
+                Description = "امکان بستن سال مالی و تولید سند افتتاحیه سال بعد"
+            },
         };
 }

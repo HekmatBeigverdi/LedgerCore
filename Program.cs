@@ -134,6 +134,7 @@ await using (var scope = app.Services.CreateAsyncScope())
 {
     var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
     await SeedPermissionsAsyncSecuritySeeder.SeedAsync(uow);
+    await SettingsSeeder.SeedAsync(uow);
 }
 
 

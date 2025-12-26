@@ -133,7 +133,7 @@ public class AccountingController(
     /// بستن سال مالی.
     /// </summary>
     [HttpPost("fiscal-years/close")]
-    [HasPermission("Accounting.Fiscal.Close")]
+    [HasPermission(PermissionCodes.Accounting_Fiscal_Close)]
     public async Task<IActionResult> CloseFiscalYear(
         [FromBody] CloseFiscalYearRequest request,
         CancellationToken cancellationToken)

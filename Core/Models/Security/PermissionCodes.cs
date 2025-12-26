@@ -44,6 +44,9 @@ public static class PermissionCodes
     // FiscalYear
     public const string Accounting_FiscalYear_View = "Accounting.FiscalYear.View";
     public const string Accounting_FiscalYear_Manage = "Accounting.FiscalYear.Manage";
+    
+    // Fiscal (Close year)
+    public const string Accounting_Fiscal_Close = "Accounting.Fiscal.Close";
 
     // FiscalPeriod
     public const string Accounting_FiscalPeriod_View = "Accounting.FiscalPeriod.View";

@@ -266,7 +266,7 @@ public class AccountingService(
         {
             var closingVoucher = new JournalVoucher
             {
-                Number = await GenerateNextNumberAsync("Journal", null, cancellationToken),
+                Number = await GenerateNextNumberAsync("ClosingJournal", null, cancellationToken),
                 Date = period.EndDate,
                 Description = $"Closing entries for fiscal period {period.Name}",
                 Status = DocumentStatus.Posted,
@@ -438,7 +438,7 @@ public class AccountingService(
 
         var openingVoucher = new JournalVoucher
         {
-            Number = await GenerateNextNumberAsync("Journal", null, cancellationToken),
+            Number = await GenerateNextNumberAsync("OpeningJournal", null, cancellationToken),
             Date = nextYearStartDate,
             Description = $"Opening balances as of {nextYearStartDate:yyyy-MM-dd}",
             Status = DocumentStatus.Posted,
