@@ -290,6 +290,164 @@ public class AccountingService(
         }
     }
 
+    public async Task CloseFiscalYearAsync(
+        int fiscalYearId,
+        int profitAndLossAccountId,
+        bool createOpeningForNextYear = true,
+        CancellationToken cancellationToken = default)
+    {
+        var fyRepo = uow.Repository<FiscalYear>();
+        var periodRepo = uow.Repository<FiscalPeriod>();
+
+        var fiscalYear = await fyRepo.GetByIdAsync(fiscalYearId, cancellationToken)
+                         ?? throw new InvalidOperationException($"FiscalYear with id={fiscalYearId} not found.");
+
+        if (fiscalYear.IsClosed)
+            return;
+
+        // 1) لیست دوره‌های سال
+        var periodsResult = await periodRepo.FindAsync(
+            p => p.FiscalYearId == fiscalYearId,
+            pagingParams: null,
+            cancellationToken: cancellationToken);
+
+        var periods = periodsResult.Items
+            .OrderBy(p => p.StartDate)
+            .ToList();
+
+        if (periods.Count == 0)
+            throw new InvalidOperationException("FiscalYear has no FiscalPeriods. Create fiscal periods first.");
+
+        // 2) بستن تمام دوره‌های باز (با منطق موجود)
+        foreach (var p in periods.Where(x => !x.IsClosed))
+            await CloseFiscalPeriodAsync(p.Id, profitAndLossAccountId, cancellationToken);
+
+        // 3) بستن سال
+        fiscalYear.IsClosed = true;
+        fiscalYear.ClosedAt = DateTime.UtcNow;
+        fyRepo.Update(fiscalYear);
+        await uow.SaveChangesAsync(cancellationToken);
+
+        // 4) سند افتتاحیه سال بعد
+        if (!createOpeningForNextYear)
+            return;
+
+        var nextYearStart = fiscalYear.EndDate.Date.AddDays(1);
+
+        var nextYearResult = await fyRepo.FindAsync(
+            y => y.StartDate.Date == nextYearStart,
+            pagingParams: null,
+            cancellationToken: cancellationToken);
+
+        var nextYear = nextYearResult.Items.FirstOrDefault();
+
+        if (nextYear is null)
+        {
+            nextYear = new FiscalYear
+            {
+                Name = $"{fiscalYear.Name}-Next",
+                StartDate = nextYearStart,
+                EndDate = nextYearStart.AddYears(1).AddDays(-1),
+                IsClosed = false
+            };
+
+            await fyRepo.AddAsync(nextYear, cancellationToken);
+            await uow.SaveChangesAsync(cancellationToken);
+        }
+
+        await CreateOpeningJournalForNextYearAsync(
+            fiscalYearStartDate: fiscalYear.StartDate.Date,
+            fiscalYearEndDate: fiscalYear.EndDate.Date,
+            nextYearStartDate: nextYear.StartDate.Date,
+            cancellationToken: cancellationToken);
+    }
+
+    private async Task CreateOpeningJournalForNextYearAsync(
+        DateTime fiscalYearStartDate,
+        DateTime fiscalYearEndDate,
+        DateTime nextYearStartDate,
+        CancellationToken cancellationToken)
+    {
+        // TrialBalance از ابتدای سال تا انتهای سال:
+        // Opening* = مانده قبل از شروع سال
+        // Period*  = گردش داخل سال
+        // Closing* = مانده تا انتهای سال (همان چیزی که برای افتتاحیه لازم داریم)
+        var tb = await reportingService.GetTrialBalanceAsync(
+            fiscalYearStartDate,
+            fiscalYearEndDate,
+            branchId: null,
+            cancellationToken: cancellationToken);
+
+        if (tb is null || tb.Count == 0)
+            return;
+
+        // برای تشخیص نوع حساب‌ها، همه حساب‌ها را می‌گیریم
+        var accountsResult = await uow.Accounts.GetAllAsync(null, cancellationToken);
+        var accounts = accountsResult.Items.ToDictionary(a => a.Id);
+
+        var openingLines = new List<JournalLine>();
+        var lineNo = 1;
+
+        foreach (var row in tb)
+        {
+            if (!accounts.TryGetValue(row.AccountId, out var acc))
+                continue;
+
+            // فقط ترازنامه‌ای‌ها: دارایی/بدهی/حقوق صاحبان سهام
+            if (acc.Type != AccountType.Asset &&
+                acc.Type != AccountType.Liability &&
+                acc.Type != AccountType.Equity)
+                continue;
+
+            // مانده پایان سال:
+            // اگر ClosingDebit>0 => بدهکار
+            // اگر ClosingCredit>0 => بستانکار
+            if (row.ClosingDebit > 0m)
+            {
+                openingLines.Add(new JournalLine
+                {
+                    LineNumber = lineNo++,
+                    AccountId = row.AccountId,
+                    Debit = row.ClosingDebit,
+                    Credit = 0m,
+                    Description = "Opening balance"
+                });
+            }
+            else if (row.ClosingCredit > 0m)
+            {
+                openingLines.Add(new JournalLine
+                {
+                    LineNumber = lineNo++,
+                    AccountId = row.AccountId,
+                    Debit = 0m,
+                    Credit = row.ClosingCredit,
+                    Description = "Opening balance"
+                });
+            }
+        }
+
+        if (openingLines.Count == 0)
+            return;
+
+        var totalDebit = openingLines.Sum(x => x.Debit);
+        var totalCredit = openingLines.Sum(x => x.Credit);
+
+        // با توجه به ماهیت ترازنامه، باید تراز باشد
+        if (decimal.Round(totalDebit, 2) != decimal.Round(totalCredit, 2))
+            throw new InvalidOperationException("Opening journal is not balanced. Check postings and account types.");
+
+        var openingVoucher = new JournalVoucher
+        {
+            Number = await GenerateNextNumberAsync("Journal", null, cancellationToken),
+            Date = nextYearStartDate,
+            Description = $"Opening balances as of {nextYearStartDate:yyyy-MM-dd}",
+            Status = DocumentStatus.Posted,
+            Lines = openingLines
+        };
+
+        await uow.Journals.AddAsync(openingVoucher, cancellationToken);
+        await uow.SaveChangesAsync(cancellationToken);
+    }
 
     public async Task<bool> IsBalancedAsync(
         int journalId,

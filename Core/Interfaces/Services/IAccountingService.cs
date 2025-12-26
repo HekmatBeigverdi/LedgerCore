@@ -6,34 +6,16 @@ namespace LedgerCore.Core.Interfaces.Services;
 public interface IAccountingService
 {
     // ==== متدهای سند حسابداری (Journal) ====
-    Task<JournalVoucher> CreateJournalAsync(
-        JournalVoucher voucher,
-        CancellationToken cancellationToken = default);
-
-    Task<JournalVoucher?> GetJournalAsync(
-        int id,
-        CancellationToken cancellationToken = default);
-
-    Task<JournalVoucher> UpdateJournalAsync(
-        JournalVoucher voucher,
-        CancellationToken cancellationToken = default);
-
-    Task DeleteJournalAsync(
-        int id,
-        CancellationToken cancellationToken = default);
-
-    Task PostJournalAsync(
-        int journalId,
-        CancellationToken cancellationToken = default);
-
-    Task CloseFiscalPeriodAsync(
-        int fiscalPeriodId,
-        int profitAndLossAccountId,
-        CancellationToken cancellationToken = default);
-
-    Task<bool> IsBalancedAsync(
-        int journalId,
-        CancellationToken cancellationToken = default);
+    Task<JournalVoucher> CreateJournalAsync(JournalVoucher voucher, CancellationToken cancellationToken = default);
+    Task<JournalVoucher?> GetJournalAsync(int id, CancellationToken cancellationToken = default);
+    Task<JournalVoucher> UpdateJournalAsync(JournalVoucher voucher, CancellationToken cancellationToken = default);
+    Task DeleteJournalAsync(int id, CancellationToken cancellationToken = default);
+    Task PostJournalAsync(int id, CancellationToken cancellationToken = default);
+    Task<bool> IsBalancedAsync(int journalId, CancellationToken cancellationToken = default);
+    
+    // ==== Fiscal ====
+    Task CloseFiscalPeriodAsync(int fiscalPeriodId, int profitAndLossAccountId, CancellationToken cancellationToken = default);
+    Task CloseFiscalYearAsync(int fiscalYearId, int profitAndLossAccountId, bool createOpeningForNextYear = true, CancellationToken cancellationToken = default);
     
     // ==== Receipt ====
     Task<Receipt> CreateReceiptAsync(Receipt receipt, CancellationToken cancellationToken = default);
@@ -47,13 +29,12 @@ public interface IAccountingService
     Task<Payment> UpdatePaymentAsync(Payment payment, CancellationToken cancellationToken = default);
     Task PostPaymentAsync(int paymentId, CancellationToken cancellationToken = default);
     
-    // ==== Inventory Adjustment ====
+    // ==== Inventory Adjustment Posting ====
 
     /// <summary>
     /// ثبت سند حسابداری برای تعدیل موجودی انبار بر اساس TotalDifferenceValue.
     /// فرض: موجودی انبار قبلاً در InventoryService محاسبه و TotalDifferenceValue تنظیم شده است.
     /// </summary>
-    Task PostInventoryAdjustmentAsync(
-        int inventoryAdjustmentId,
-        CancellationToken cancellationToken = default);
+    Task PostInventoryAdjustmentAsync(int inventoryAdjustmentId, CancellationToken cancellationToken = default);
+
 }

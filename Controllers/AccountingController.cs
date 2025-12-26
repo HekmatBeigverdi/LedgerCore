@@ -128,6 +128,24 @@ public class AccountingController(
         await accountingService.PostJournalAsync(id, cancellationToken);
         return NoContent();
     }
+    
+    /// <summary>
+    /// بستن سال مالی.
+    /// </summary>
+    [HttpPost("fiscal-years/close")]
+    [HasPermission("Accounting.Fiscal.Close")]
+    public async Task<IActionResult> CloseFiscalYear(
+        [FromBody] CloseFiscalYearRequest request,
+        CancellationToken cancellationToken)
+    {
+        await accountingService.CloseFiscalYearAsync(
+            request.FiscalYearId,
+            request.ProfitAndLossAccountId,
+            request.CreateOpeningForNextYear,
+            cancellationToken);
+
+        return Ok(new { message = "Fiscal year closed successfully." });
+    }
 
     /// <summary>
     /// بستن دوره مالی و ثبت سند اختتامیه سود و زیان.
