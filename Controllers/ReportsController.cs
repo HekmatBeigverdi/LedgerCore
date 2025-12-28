@@ -326,5 +326,50 @@ public class ReportsController(IReportingService reportingService) : ControllerB
         var data = await reportingService.GetFiscalStatusAsync(cancellationToken);
         return Ok(data);
     }
+    /// <summary>
+    /// مانده تفصیلی.
+    /// GET api/v1/reports/subledger-balance?fromDate=...&toDate=...&partyId=&accountId=&branchId=
+    /// </summary>
+    [HasPermission(PermissionCodes.Reports_SubLedger_View)]
+    [HttpGet("subledger-balance")]
+    public async Task<ActionResult<IReadOnlyList<SubLedgerBalanceRowDto>>> GetSubLedgerBalance(
+        [FromQuery] DateTime fromDate,
+        [FromQuery] DateTime toDate,
+        [FromQuery] int? partyId,
+        [FromQuery] int? accountId,
+        [FromQuery] int? branchId,
+        CancellationToken cancellationToken)
+    {
+        if (fromDate > toDate)
+            return BadRequest("fromDate cannot be greater than toDate.");
 
+        var data = await reportingService.GetSubLedgerBalanceAsync(
+            fromDate, toDate, partyId, accountId, branchId, cancellationToken);
+
+        return Ok(data);
+    }
+
+    /// <summary>
+    /// دفتر معین تفصیلی.
+    /// GET api/v1/reports/subledger-ledger?fromDate=...&toDate=...&partyId=123&accountId=&branchId=
+    /// </summary>
+    [HasPermission(PermissionCodes.Reports_SubLedger_View)]
+    [HttpGet("subledger-ledger")]
+    public async Task<ActionResult<IReadOnlyList<SubLedgerLedgerRowDto>>> GetSubLedgerLedger(
+        [FromQuery] DateTime fromDate,
+        [FromQuery] DateTime toDate,
+        [FromQuery] int partyId,
+        [FromQuery] int? accountId,
+        [FromQuery] int? branchId,
+        CancellationToken cancellationToken)
+    {
+        if (fromDate > toDate)
+            return BadRequest("fromDate cannot be greater than toDate.");
+
+        var data = await reportingService.GetSubLedgerLedgerAsync(
+            fromDate, toDate, partyId, accountId, branchId, cancellationToken);
+
+        return Ok(data);
+    }
+    
 }

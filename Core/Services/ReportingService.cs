@@ -1279,6 +1279,217 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
     }
 
     #endregion
+    
+    #region SubLedger Reports
 
+    public async Task<IReadOnlyList<SubLedgerBalanceRowDto>> GetSubLedgerBalanceAsync(
+        DateTime fromDate,
+        DateTime toDate,
+        int? partyId,
+        int? accountId,
+        int? branchId,
+        CancellationToken cancellationToken = default)
+    {
+        var baseLines = _db.JournalLines
+            .Include(l => l.Account)
+            .Include(l => l.Party)
+            .Include(l => l.JournalVoucher)
+            .Where(l => l.JournalVoucher != null &&
+                        l.JournalVoucher.Status == DocumentStatus.Posted &&
+                        l.PartyId != null);
+
+        if (branchId.HasValue)
+            baseLines = baseLines.Where(l => l.JournalVoucher!.BranchId == branchId.Value);
+
+        if (partyId.HasValue)
+            baseLines = baseLines.Where(l => l.PartyId == partyId.Value);
+
+        if (accountId.HasValue)
+            baseLines = baseLines.Where(l => l.AccountId == accountId.Value);
+
+        var openingQuery = baseLines.Where(l => l.JournalVoucher!.Date < fromDate);
+        var periodQuery = baseLines.Where(l =>
+            l.JournalVoucher!.Date >= fromDate &&
+            l.JournalVoucher!.Date <= toDate);
+
+        var opening = await openingQuery
+            .GroupBy(l => new { l.PartyId, l.Party!.Code, l.Party!.Name, l.Party!.Type })
+            .Select(g => new
+            {
+                PartyId = g.Key.PartyId!.Value,
+                g.Key.Code,
+                g.Key.Name,
+                g.Key.Type,
+                Debit = g.Sum(x => x.Debit),
+                Credit = g.Sum(x => x.Credit)
+            })
+            .ToListAsync(cancellationToken);
+
+        var period = await periodQuery
+            .GroupBy(l => new { l.PartyId, l.Party!.Code, l.Party!.Name, l.Party!.Type })
+            .Select(g => new
+            {
+                PartyId = g.Key.PartyId!.Value,
+                g.Key.Code,
+                g.Key.Name,
+                g.Key.Type,
+                Debit = g.Sum(x => x.Debit),
+                Credit = g.Sum(x => x.Credit)
+            })
+            .ToListAsync(cancellationToken);
+
+        var result = new Dictionary<int, SubLedgerBalanceRowDto>();
+
+        SubLedgerBalanceRowDto GetOrCreate(int id, string code, string name, PartyType type)
+        {
+            if (!result.TryGetValue(id, out var row))
+            {
+                row = new SubLedgerBalanceRowDto
+                {
+                    PartyId = id,
+                    PartyCode = code,
+                    PartyName = name,
+                    PartyType = type.ToString()
+                };
+                result[id] = row;
+            }
+            return row;
+        }
+
+        foreach (var o in opening)
+        {
+            var row = GetOrCreate(o.PartyId, o.Code, o.Name, o.Type);
+            var net = o.Debit - o.Credit;
+            if (net > 0) row.OpeningDebit = net;
+            else if (net < 0) row.OpeningCredit = Math.Abs(net);
+        }
+
+        foreach (var p in period)
+        {
+            var row = GetOrCreate(p.PartyId, p.Code, p.Name, p.Type);
+            var net = p.Debit - p.Credit;
+            if (net > 0) row.PeriodDebit = net;
+            else if (net < 0) row.PeriodCredit = Math.Abs(net);
+        }
+
+        // محاسبه Closing
+        foreach (var row in result.Values)
+        {
+            var openingNet = row.OpeningDebit - row.OpeningCredit;
+            var periodNet = row.PeriodDebit - row.PeriodCredit;
+            var closingNet = openingNet + periodNet;
+
+            if (closingNet >= 0)
+            {
+                row.ClosingDebit = closingNet;
+                row.ClosingCredit = 0;
+            }
+            else
+            {
+                row.ClosingDebit = 0;
+                row.ClosingCredit = Math.Abs(closingNet);
+            }
+        }
+
+        return result.Values
+            .OrderBy(x => x.PartyCode)
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<SubLedgerLedgerRowDto>> GetSubLedgerLedgerAsync(
+        DateTime fromDate,
+        DateTime toDate,
+        int partyId,
+        int? accountId,
+        int? branchId,
+        CancellationToken cancellationToken = default)
+    {
+        var baseLines = _db.JournalLines
+            .Include(l => l.Account)
+            .Include(l => l.Party)
+            .Include(l => l.JournalVoucher)
+            .Where(l => l.JournalVoucher != null &&
+                        l.JournalVoucher.Status == DocumentStatus.Posted &&
+                        l.PartyId == partyId);
+
+        if (branchId.HasValue)
+            baseLines = baseLines.Where(l => l.JournalVoucher!.BranchId == branchId.Value);
+
+        if (accountId.HasValue)
+            baseLines = baseLines.Where(l => l.AccountId == accountId.Value);
+
+        // Opening net
+        var openingNet = await baseLines
+            .Where(l => l.JournalVoucher!.Date < fromDate)
+            .SumAsync(l => (l.Debit - l.Credit), cancellationToken);
+
+        // Period lines
+        var lines = await baseLines
+            .Where(l => l.JournalVoucher!.Date >= fromDate && l.JournalVoucher!.Date <= toDate)
+            .Select(l => new
+            {
+                PartyId = l.PartyId!.Value,
+                PartyCode = l.Party!.Code,
+                PartyName = l.Party!.Name,
+
+                l.AccountId,
+                AccountCode = l.Account!.Code,
+                AccountName = l.Account!.Name,
+
+                Date = l.JournalVoucher!.Date,
+                JournalNumber = l.JournalVoucher!.Number,
+                Description = l.Description ?? l.JournalVoucher!.Description,
+
+                l.Debit,
+                l.Credit,
+                l.LineNumber
+            })
+            .OrderBy(x => x.Date)
+            .ThenBy(x => x.JournalNumber)
+            .ThenBy(x => x.LineNumber)
+            .ToListAsync(cancellationToken);
+
+        var result = new List<SubLedgerLedgerRowDto>();
+        var running = openingNet;
+
+        foreach (var l in lines)
+        {
+            running += l.Debit - l.Credit;
+
+            var row = new SubLedgerLedgerRowDto
+            {
+                PartyId = l.PartyId,
+                PartyCode = l.PartyCode,
+                PartyName = l.PartyName,
+
+                AccountId = l.AccountId,
+                AccountCode = l.AccountCode,
+                AccountName = l.AccountName,
+
+                Date = l.Date,
+                JournalNumber = l.JournalNumber,
+                Description = l.Description,
+                Debit = l.Debit,
+                Credit = l.Credit
+            };
+
+            if (running >= 0)
+            {
+                row.BalanceDebit = running;
+                row.BalanceCredit = 0;
+            }
+            else
+            {
+                row.BalanceDebit = 0;
+                row.BalanceCredit = Math.Abs(running);
+            }
+
+            result.Add(row);
+        }
+
+        return result;
+    }
+
+    #endregion
     
 }

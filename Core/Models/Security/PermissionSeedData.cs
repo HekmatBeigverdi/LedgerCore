@@ -95,6 +95,13 @@ public static class PermissionSeedData
                 Name = "گزارش وضعیت سال و دوره مالی",
                 Description = "امکان مشاهده وضعیت سال‌ها و دوره‌های مالی (باز/بسته بودن)"
             },
+            new()
+            {
+                Code = PermissionCodes.Reports_SubLedger_View,
+                Name = "گزارش تفصیلی (مانده و گردش)",
+                Description = "امکان مشاهده گزارش‌های تفصیلی: مانده تفصیلی و دفتر معین تفصیلی"
+            },
+
 
             // ================= Approval =================
             new()
@@ -249,12 +256,18 @@ public static class PermissionSeedData
                 Name = "پست استهلاک",
                 Description = "پست سند استهلاک به حسابداری"
             },
-            // ================= Fiscal (Close year) =================
+            // ================= Fiscal (Close and Open year) =================
             new()
             {
                 Code = PermissionCodes.Accounting_Fiscal_Close,
                 Name = "بستن سال مالی",
                 Description = "امکان بستن سال مالی و تولید سند افتتاحیه سال بعد"
+            },
+            new()
+            {
+                Code = PermissionCodes.Accounting_FiscalYear_Open,
+                Name = "باز کردن سال مالی",
+                Description = "امکان باز کردن مجدد سال مالی بسته‌شده"
             },
         };
 }

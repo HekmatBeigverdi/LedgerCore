@@ -153,4 +153,24 @@ public interface IReportingService
     /// </summary>
     Task<IReadOnlyList<FiscalStatusRowDto>> GetFiscalStatusAsync(
         CancellationToken cancellationToken = default);
+    
+    
+    /// <summary>
+    /// مانده تفصیلی و دفترمعین تفصیلی
+    /// </summary>
+    Task<IReadOnlyList<SubLedgerBalanceRowDto>> GetSubLedgerBalanceAsync(
+        DateTime fromDate,
+        DateTime toDate,
+        int? partyId,
+        int? accountId,
+        int? branchId,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SubLedgerLedgerRowDto>> GetSubLedgerLedgerAsync(
+        DateTime fromDate,
+        DateTime toDate,
+        int partyId,
+        int? accountId,
+        int? branchId,
+        CancellationToken cancellationToken = default);
 }

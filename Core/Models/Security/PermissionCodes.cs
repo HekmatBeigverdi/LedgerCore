@@ -25,6 +25,8 @@ public static class PermissionCodes
     public const string Reports_Stock_View = "Reports.Stock.View";
     public const string Reports_TrialBalance_View = "Reports.TrialBalance.View";
     public const string Reports_FiscalStatus_View = "Reports.FiscalStatus.View"; // جدید
+    public const string Reports_SubLedger_View = "Reports.SubLedger.View";
+
 
     // ========== Approval / Workflow ==========
     public const string Approval_Request_View = "Approval.Request.View";
@@ -45,8 +47,9 @@ public static class PermissionCodes
     public const string Accounting_FiscalYear_View = "Accounting.FiscalYear.View";
     public const string Accounting_FiscalYear_Manage = "Accounting.FiscalYear.Manage";
     
-    // Fiscal (Close year)
+    // Fiscal (Close and Open year)
     public const string Accounting_Fiscal_Close = "Accounting.Fiscal.Close";
+    public const string Accounting_FiscalYear_Open  = "Accounting.FiscalYear.Open";
 
     // FiscalPeriod
     public const string Accounting_FiscalPeriod_View = "Accounting.FiscalPeriod.View";

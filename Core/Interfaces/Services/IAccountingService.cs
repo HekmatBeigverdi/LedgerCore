@@ -14,7 +14,7 @@ public interface IAccountingService
     Task<bool> IsBalancedAsync(int journalId, CancellationToken cancellationToken = default);
     
     // ==== Fiscal ====
-    Task CloseFiscalPeriodAsync(int fiscalPeriodId, int profitAndLossAccountId, CancellationToken cancellationToken = default);
+    Task CloseFiscalPeriodAsync(int fiscalPeriodId, int profitAndLossAccountId,  CancellationToken cancellationToken = default);
     Task CloseFiscalYearAsync(int fiscalYearId, int profitAndLossAccountId, bool createOpeningForNextYear = true, CancellationToken cancellationToken = default);
     
     // ==== Receipt ====
