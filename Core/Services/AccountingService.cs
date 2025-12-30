@@ -23,6 +23,9 @@ public class AccountingService(
         {
             voucher.Number = await GenerateNextNumberAsync("Journal", voucher.BranchId, cancellationToken);
         }
+        
+        // اعتبارسنجی قواعد ژورنال + تفصیلی
+        await ValidateJournalVoucherAsync(voucher, cancellationToken);
 
         // اعتبارسنجی تراز بودن
         if (!IsBalanced(voucher))
@@ -80,6 +83,9 @@ public class AccountingService(
                 LineNumber = line.LineNumber
             });
         }
+        
+        // اعتبارسنجی قواعد ژورنال + تفصیلی
+        await ValidateJournalVoucherAsync(existing, cancellationToken);
 
         if (!IsBalanced(existing))
             throw new InvalidOperationException("Journal voucher is not balanced (Debit != Credit).");
@@ -118,6 +124,9 @@ public class AccountingService(
 
             if (journal.Status == DocumentStatus.Posted)
                 return;
+            
+            // اعتبارسنجی قواعد ژورنال + تفصیلی (قبل از Post)
+            await ValidateJournalVoucherAsync(journal, cancellationToken);
 
             if (!IsBalanced(journal))
                 throw new InvalidOperationException("Cannot post unbalanced journal.");
@@ -977,5 +986,88 @@ public class AccountingService(
         return voucher;
     }
 
-    
+    // --------------------- Validation Helpers ---------------------
+
+    private async Task ValidateJournalVoucherAsync(JournalVoucher voucher, CancellationToken ct)
+    {
+        if (voucher is null)
+            throw new InvalidOperationException("Voucher is required.");
+
+        if (voucher.Date == default)
+            throw new InvalidOperationException("Voucher date is required.");
+
+        if (voucher.BranchId <= 0)
+            throw new InvalidOperationException("BranchId is required.");
+
+        if (voucher.Lines is null || voucher.Lines.Count == 0)
+            throw new InvalidOperationException("Voucher must have at least one line.");
+
+        // Line-level checks + SubLedger rules
+        await ValidateJournalLinesAsync(voucher.Lines, ct);
+    }
+
+    private async Task ValidateJournalLinesAsync(IEnumerable<JournalLine> lines, CancellationToken ct)
+    {
+        // cache برای جلوگیری از چندبار خواندن یک Account/Party
+        var accountCache = new Dictionary<int, Account>();
+        var partyCache = new Dictionary<int, Core.Models.Master.Party>();
+
+        var index = 0;
+        foreach (var line in lines)
+        {
+            index++;
+
+            if (line.AccountId <= 0)
+                throw new InvalidOperationException($"Line[{index}]: AccountId is required.");
+
+            if (line.Debit < 0 || line.Credit < 0)
+                throw new InvalidOperationException($"Line[{index}]: Debit/Credit cannot be negative.");
+
+            if (line.Debit > 0 && line.Credit > 0)
+                throw new InvalidOperationException($"Line[{index}]: A line cannot have both Debit and Credit.");
+
+            if (line.Debit == 0 && line.Credit == 0)
+                throw new InvalidOperationException($"Line[{index}]: Either Debit or Credit must be greater than zero.");
+
+            // -------- Account validation --------
+            if (!accountCache.TryGetValue(line.AccountId, out var account))
+            {
+                account = await uow.Accounts.GetByIdAsync(line.AccountId, ct)
+                          ?? throw new InvalidOperationException($"Line[{index}]: Account not found (Id={line.AccountId}).");
+                accountCache[line.AccountId] = account;
+            }
+
+            if (!account.IsActive)
+                throw new InvalidOperationException($"Line[{index}]: Account is inactive (Code={account.Code}).");
+
+            if (!account.IsPosting)
+                throw new InvalidOperationException($"Line[{index}]: Account is not posting (Code={account.Code}).");
+
+            // -------- SubLedger rule: RequiresParty --------
+            if (account.RequiresParty && line.PartyId is null)
+                throw new InvalidOperationException($"Line[{index}]: Party is required for account {account.Code} - {account.Name}.");
+
+            // -------- Party validation (if provided) --------
+            if (line.PartyId is not null)
+            {
+                var pid = line.PartyId.Value;
+
+                if (!partyCache.TryGetValue(pid, out var party))
+                {
+                    party = await uow.Parties.GetByIdAsync(pid, ct)
+                            ?? throw new InvalidOperationException($"Line[{index}]: Party not found (Id={pid}).");
+                    partyCache[pid] = party;
+                }
+
+                if (!party.IsActive)
+                    throw new InvalidOperationException($"Line[{index}]: Party is inactive (Code={party.Code}).");
+
+                if (account.AllowedPartyType.HasValue && party.Type != account.AllowedPartyType.Value)
+                {
+                    throw new InvalidOperationException(
+                        $"Line[{index}]: Party type '{party.Type}' is not allowed for account {account.Code} - {account.Name}.");
+                }
+            }
+        }
+    }
 }

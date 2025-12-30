@@ -25,5 +25,12 @@ public class AccountConfiguration : IEntityTypeConfiguration<Account>
             .WithMany()
             .HasForeignKey(x => x.ParentAccountId)
             .OnDelete(DeleteBehavior.Restrict);
+        
+        builder.Property(x => x.RequiresParty)
+            .HasDefaultValue(false);
+
+        builder.Property(x => x.AllowedPartyType)
+            .HasConversion<int>()      // اگر ترجیح می‌دهی string ذخیره شود، پایین توضیح داده‌ام
+            .IsRequired(false);
     }
 }

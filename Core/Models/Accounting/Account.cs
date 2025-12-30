@@ -16,6 +16,12 @@ public class Account: AuditableEntity
 
     public int? ParentAccountId { get; set; }              // حساب والد
     public Account? ParentAccount { get; set; }
+    // اگر روی این حساب سند/آرتیکل ثبت شود، PartyId باید حتماً مشخص باشد
+    public bool RequiresParty { get; set; }
+
+    // محدودیت نوع Party مجاز روی این حساب (اختیاری)
+    // اگر null باشد یعنی همه نوع Party مجاز است
+    public PartyType? AllowedPartyType { get; set; }
 
     public bool IsActive { get; set; } = true;
 }

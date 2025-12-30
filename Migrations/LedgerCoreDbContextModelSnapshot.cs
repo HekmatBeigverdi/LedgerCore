@@ -25,6 +25,9 @@ namespace LedgerCore.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
+                    b.Property<int?>("AllowedPartyType")
+                        .HasColumnType("int");
+
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -64,6 +67,11 @@ namespace LedgerCore.Migrations
 
                     b.Property<int?>("ParentAccountId")
                         .HasColumnType("int");
+
+                    b.Property<bool>("RequiresParty")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(false);
 
                     b.Property<int>("Type")
                         .HasColumnType("int");

@@ -1296,8 +1296,9 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
             .Include(l => l.JournalVoucher)
             .Where(l => l.JournalVoucher != null &&
                         l.JournalVoucher.Status == DocumentStatus.Posted &&
-                        l.PartyId != null);
-
+                        l.PartyId != null &&
+                        l.Account != null &&
+                        l.Account.RequiresParty);
         if (branchId.HasValue)
             baseLines = baseLines.Where(l => l.JournalVoucher!.BranchId == branchId.Value);
 
