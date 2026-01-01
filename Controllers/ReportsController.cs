@@ -124,6 +124,7 @@ public class ReportsController(IReportingService reportingService) : ControllerB
     /// کارتکس کالا.
     /// GET api/reports/stock-card?productId=1&warehouseId=&fromDate=...&toDate=...&branchId=
     /// </summary>
+    [HasPermission(PermissionCodes.Reports_Inventory_StockCard_View)]
     [HttpGet("stock-card")]
     public async Task<ActionResult<IReadOnlyList<StockCardRowDto>>> GetStockCard(
         [FromQuery] int productId,
@@ -171,6 +172,7 @@ public class ReportsController(IReportingService reportingService) : ControllerB
     /// فروش به تفکیک طرف حساب.
     /// GET api/reports/sales-by-party?fromDate=...&toDate=...&branchId=
     /// </summary>
+    [HasPermission(PermissionCodes.Reports_Sales_ByParty_View)]
     [HttpGet("sales-by-party")]
     public async Task<ActionResult<IReadOnlyList<SalesByPartyRowDto>>> GetSalesByParty(
         [FromQuery] DateTime fromDate,
@@ -215,6 +217,7 @@ public class ReportsController(IReportingService reportingService) : ControllerB
     /// لیست حقوق به تفکیک پرسنل.
     /// GET api/reports/payroll-by-employee?fromDate=...&toDate=...&branchId=&costCenterId=
     /// </summary>
+    [HasPermission(PermissionCodes.Reports_Payroll_Summary_View)]
     [HttpGet("payroll-by-employee")]
     public async Task<ActionResult<IReadOnlyList<PayrollByEmployeeRowDto>>> GetPayrollByEmployee(
         [FromQuery] DateTime fromDate,
@@ -236,6 +239,7 @@ public class ReportsController(IReportingService reportingService) : ControllerB
     /// خلاصه هزینه حقوق به تفکیک شعبه و مرکز هزینه.
     /// GET api/reports/payroll-summary?fromDate=...&toDate=...&branchId=&costCenterId=
     /// </summary>
+    [HasPermission(PermissionCodes.Reports_Payroll_Summary_View)]
     [HttpGet("payroll-summary")]
     public async Task<ActionResult<IReadOnlyList<PayrollSummaryRowDto>>> GetPayrollSummary(
         [FromQuery] DateTime fromDate,
