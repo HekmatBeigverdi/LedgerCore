@@ -1411,7 +1411,9 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
             .Include(l => l.JournalVoucher)
             .Where(l => l.JournalVoucher != null &&
                         l.JournalVoucher.Status == DocumentStatus.Posted &&
-                        l.PartyId == partyId);
+                        l.PartyId == partyId &&
+                        l.Account != null &&
+                        l.Account.RequiresParty);
 
         if (branchId.HasValue)
             baseLines = baseLines.Where(l => l.JournalVoucher!.BranchId == branchId.Value);
@@ -1491,6 +1493,130 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
         return result;
     }
 
+    #endregion
+    
+    #region SubLedger Reports
+    public async Task<IReadOnlyList<AgingRowDto>> GetAgingAsync(
+        DateTime asOfDate,
+        int? partyId,
+        int? accountId,
+        PartyType? partyType,
+        int? branchId,
+        CancellationToken cancellationToken = default)
+    {
+        var q = _db.JournalLines
+            .Include(l => l.Account)
+            .Include(l => l.Party)
+            .Include(l => l.JournalVoucher)
+            .Where(l =>
+                l.JournalVoucher != null &&
+                l.JournalVoucher.Status == DocumentStatus.Posted &&
+                l.JournalVoucher.Date <= asOfDate &&
+                l.PartyId != null &&
+                l.Account != null &&
+                l.Account.RequiresParty);
+
+        if (branchId.HasValue)
+            q = q.Where(l => l.JournalVoucher!.BranchId == branchId.Value);
+
+        if (partyId.HasValue)
+            q = q.Where(l => l.PartyId == partyId.Value);
+
+        if (partyType.HasValue)
+            q = q.Where(l => l.Party != null && l.Party.Type == partyType.Value);
+
+        if (accountId.HasValue)
+            q = q.Where(l => l.AccountId == accountId.Value);
+
+        // تجمیع بر اساس Party + تاریخ سند برای bucket بندی
+        var rows = await q
+            .GroupBy(l => new
+            {
+                PartyId = l.PartyId!.Value,
+                PartyCode = l.Party!.Code,
+                PartyName = l.Party!.Name,
+                PartyType = l.Party!.Type,
+                DocDate = l.JournalVoucher!.Date.Date
+            })
+            .Select(g => new
+            {
+                g.Key.PartyId,
+                g.Key.PartyCode,
+                g.Key.PartyName,
+                g.Key.PartyType,
+                g.Key.DocDate,
+                Net = g.Sum(x => x.Debit - x.Credit) // + = مطالبات، - = بدهی
+            })
+            .ToListAsync(cancellationToken);
+
+        var dict = new Dictionary<int, AgingRowDto>();
+
+        AgingRowDto GetOrCreate(int id, string code, string name, PartyType type)
+        {
+            if (!dict.TryGetValue(id, out var dto))
+            {
+                dto = new AgingRowDto
+                {
+                    PartyId = id,
+                    PartyCode = code,
+                    PartyName = name,
+                    PartyType = type.ToString()
+                };
+                dict[id] = dto;
+            }
+            return dto;
+        }
+
+        static int BucketIndex(int days)
+        {
+            if (days <= 30) return 0;
+            if (days <= 60) return 1;
+            if (days <= 90) return 2;
+            if (days <= 120) return 3;
+            return 4;
+        }
+
+        foreach (var r in rows)
+        {
+            if (r.Net == 0) continue;
+
+            var ageDays = (asOfDate.Date - r.DocDate).Days;
+            if (ageDays < 0) ageDays = 0;
+
+            var idx = BucketIndex(ageDays);
+            var dto = GetOrCreate(r.PartyId, r.PartyCode, r.PartyName, r.PartyType);
+
+            if (r.Net > 0)
+            {
+                var amt = r.Net;
+                switch (idx)
+                {
+                    case 0: dto.Current_0_30 += amt; break;
+                    case 1: dto.Due_31_60 += amt; break;
+                    case 2: dto.Due_61_90 += amt; break;
+                    case 3: dto.Due_91_120 += amt; break;
+                    default: dto.Due_121_Plus += amt; break;
+                }
+                dto.TotalReceivable += amt;
+            }
+            else
+            {
+                var amt = Math.Abs(r.Net);
+                switch (idx)
+                {
+                    case 0: dto.Pay_Current_0_30 += amt; break;
+                    case 1: dto.Pay_31_60 += amt; break;
+                    case 2: dto.Pay_61_90 += amt; break;
+                    case 3: dto.Pay_91_120 += amt; break;
+                    default: dto.Pay_121_Plus += amt; break;
+                }
+                dto.TotalPayable += amt;
+            }
+        }
+
+        return dict.Values.OrderBy(x => x.PartyCode).ToList();
+    }
+    
     #endregion
     
 }

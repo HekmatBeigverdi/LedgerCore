@@ -26,6 +26,8 @@ public static class PermissionCodes
     public const string Reports_TrialBalance_View = "Reports.TrialBalance.View";
     public const string Reports_FiscalStatus_View = "Reports.FiscalStatus.View"; // جدید
     public const string Reports_SubLedger_View = "Reports.SubLedger.View";
+    public const string Reports_Aging_View = "Reports.Aging.View";
+
 
 
     // ========== Approval / Workflow ==========
@@ -66,4 +68,6 @@ public static class PermissionCodes
     public const string Assets_View = "Assets.View";
     public const string Assets_Manage = "Assets.Manage";
     public const string Assets_Depreciation_Post = "Assets.Depreciation.Post";
+    
+    
 }

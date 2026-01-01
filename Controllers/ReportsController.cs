@@ -1,5 +1,6 @@
 using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Accounting;
+using LedgerCore.Core.Models.Enums;
 using LedgerCore.Core.Models.Security;
 using LedgerCore.Core.ViewModels.Dashboard;
 using LedgerCore.Core.ViewModels.Reports;
@@ -371,5 +372,26 @@ public class ReportsController(IReportingService reportingService) : ControllerB
 
         return Ok(data);
     }
+    
+    /// <summary>
+    /// گزارش سنی بدهی/مطالبات (Aging).
+    /// GET api/v1/reports/aging?asOfDate=2025-12-29&partyId=&accountId=&partyType=&branchId=
+    /// </summary>
+    [HasPermission(PermissionCodes.Reports_Aging_View)]
+    [HttpGet("aging")]
+    public async Task<ActionResult<IReadOnlyList<AgingRowDto>>> GetAging(
+        [FromQuery] DateTime asOfDate,
+        [FromQuery] int? partyId,
+        [FromQuery] int? accountId,
+        [FromQuery] PartyType? partyType,
+        [FromQuery] int? branchId,
+        CancellationToken cancellationToken)
+    {
+        var data = await reportingService.GetAgingAsync(
+            asOfDate, partyId, accountId, partyType, branchId, cancellationToken);
+
+        return Ok(data);
+    }
+
     
 }

@@ -101,6 +101,12 @@ public static class PermissionSeedData
                 Name = "گزارش تفصیلی (مانده و گردش)",
                 Description = "امکان مشاهده گزارش‌های تفصیلی: مانده تفصیلی و دفتر معین تفصیلی"
             },
+            new()
+            {
+                Code = PermissionCodes.Reports_Aging_View,
+                Name = "گزارش سنی بدهی/مطالبات",
+                Description = "امکان مشاهده گزارش سنی بدهی/مطالبات برای حساب‌های RequiresParty"
+            },
 
 
             // ================= Approval =================

@@ -1,4 +1,5 @@
 using LedgerCore.Core.Models.Accounting;
+using LedgerCore.Core.Models.Enums;
 using LedgerCore.Core.ViewModels.Dashboard;
 using LedgerCore.Core.ViewModels.Reports;
 
@@ -173,4 +174,16 @@ public interface IReportingService
         int? accountId,
         int? branchId,
         CancellationToken cancellationToken = default);
+    
+    /// <summary>
+    ///  گزارش سنی بدهی / مطالبات
+    /// </summary>
+    Task<IReadOnlyList<AgingRowDto>> GetAgingAsync(
+        DateTime asOfDate,
+        int? partyId,
+        int? accountId,
+        PartyType? partyType,
+        int? branchId,
+        CancellationToken cancellationToken = default);
+
 }
