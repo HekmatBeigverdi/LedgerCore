@@ -107,6 +107,36 @@ public static class PermissionSeedData
                 Name = "گزارش سنی بدهی/مطالبات",
                 Description = "امکان مشاهده گزارش سنی بدهی/مطالبات برای حساب‌های RequiresParty"
             },
+            new()
+            {
+                Code = PermissionCodes.Reports_Inventory_StockCard_View,
+                Name = "گزارش کارتکس کالا",
+                Description = "مشاهده گزارش کارتکس/گردش انبار (Stock Card)"
+            },
+            new()
+            {
+                Code = PermissionCodes.Reports_Sales_ByParty_View,
+                Name = "گزارش فروش به تفکیک طرف حساب",
+                Description = "مشاهده گزارش فروش بر اساس Party"
+            },
+            new()
+            {
+                Code = PermissionCodes.Reports_Purchases_ByParty_View,
+                Name = "گزارش خرید به تفکیک طرف حساب",
+                Description = "مشاهده گزارش خرید بر اساس Party"
+            },
+            new()
+            {
+                Code = PermissionCodes.Reports_Payroll_Summary_View,
+                Name = "گزارش خلاصه حقوق و دستمزد",
+                Description = "مشاهده گزارش Summary حقوق و دستمزد"
+            },
+            new()
+            {
+                Code = PermissionCodes.Reports_Payroll_Details_View,
+                Name = "گزارش ریز حقوق و دستمزد",
+                Description = "مشاهده گزارش Details حقوق و دستمزد"
+            },
 
 
             // ================= Approval =================

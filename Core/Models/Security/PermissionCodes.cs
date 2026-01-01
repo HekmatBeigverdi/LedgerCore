@@ -27,6 +27,12 @@ public static class PermissionCodes
     public const string Reports_FiscalStatus_View = "Reports.FiscalStatus.View"; // جدید
     public const string Reports_SubLedger_View = "Reports.SubLedger.View";
     public const string Reports_Aging_View = "Reports.Aging.View";
+    public const string Reports_Inventory_StockCard_View = "Reports.Inventory.StockCard.View";
+    public const string Reports_Sales_ByParty_View = "Reports.Sales.ByParty.View";
+    public const string Reports_Purchases_ByParty_View = "Reports.Purchases.ByParty.View";
+    public const string Reports_Payroll_Summary_View = "Reports.Payroll.Summary.View";
+    public const string Reports_Payroll_Details_View = "Reports.Payroll.Details.View";
+
 
 
 
