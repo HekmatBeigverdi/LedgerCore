@@ -18,6 +18,8 @@ public class InventoryService(LedgerCoreDbContext db, IStockRepository stockRepo
 
     private readonly IStockRepository _stock =
         stockRepository ?? throw new ArgumentNullException(nameof(stockRepository));
+    
+    
 
     /// <summary>
     /// کارتکس یک کالا در یک انبار (اختیاری).
@@ -196,12 +198,16 @@ public class InventoryService(LedgerCoreDbContext db, IStockRepository stockRepo
                 // اگر کاهش موجودی: Debit Adjustment / Credit Inventory
                 var debitAccountId = totalDifferenceValue > 0 ? rule.DebitAccountId : rule.CreditAccountId;
                 var creditAccountId = totalDifferenceValue > 0 ? rule.CreditAccountId : rule.DebitAccountId;
+                
+                var fiscalPeriodId = await GetOpenFiscalPeriodIdAsync(dbAdjustment.Date.Date, cancellationToken);
+
 
                 var journal = new JournalVoucher
                 {
                     Number = journalNumber,
                     Date = dbAdjustment.Date.Date,
                     BranchId = dbAdjustment.BranchId,
+                    FiscalPeriodId = fiscalPeriodId,
                     Description = $"Inventory adjustment {dbAdjustment.Number}",
                     Status = DocumentStatus.Posted,
                     Lines = new List<JournalLine>
@@ -274,4 +280,38 @@ public class InventoryService(LedgerCoreDbContext db, IStockRepository stockRepo
         // توجه: SaveChanges بیرون انجام می‌شود
         return number;
     }
+    
+    private async Task<int> GetOpenFiscalPeriodIdAsync(DateTime date, CancellationToken cancellationToken)
+    {
+        var d = date.Date;
+
+        // 1) FiscalYear مربوط به تاریخ
+        var year = await _db.FiscalYears
+            .AsNoTracking()
+            .Where(y => y.StartDate.Date <= d && y.EndDate.Date >= d)
+            .OrderByDescending(y => y.StartDate)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (year is null)
+            throw new InvalidOperationException($"No fiscal year found for date={d:yyyy-MM-dd}.");
+
+        if (year.IsClosed)
+            throw new InvalidOperationException($"Fiscal year '{year.Name}' is closed.");
+
+        // 2) FiscalPeriod مربوط به همان سال
+        var period = await _db.FiscalPeriods
+            .AsNoTracking()
+            .Where(p => p.FiscalYearId == year.Id && p.StartDate.Date <= d && p.EndDate.Date >= d)
+            .OrderByDescending(p => p.StartDate)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (period is null)
+            throw new InvalidOperationException($"No fiscal period found for date={d:yyyy-MM-dd} in fiscal year '{year.Name}'.");
+
+        if (period.IsClosed)
+            throw new InvalidOperationException($"Fiscal period '{period.Name}' is closed.");
+
+        return period.Id;
+    }
+
 }
