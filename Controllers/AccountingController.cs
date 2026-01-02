@@ -130,6 +130,26 @@ public class AccountingController(
     }
     
     /// <summary>
+    /// ایجاد سند معکوس (Reversal) برای سند روزنامه Posted.
+    /// </summary>
+    [HttpPost("journals/{id:int}/reverse")]
+    [HasPermission("Accounting.Journal.Post")]
+    public async Task<ActionResult<JournalVoucherDto>> ReverseJournal(
+        int id,
+        [FromBody] ReverseJournalRequest request,
+        CancellationToken cancellationToken)
+    {
+        var reversed = await accountingService.ReverseJournalAsync(
+            id,
+            request.ReversalDate,
+            request.Description,
+            cancellationToken);
+
+        var dto = mapper.Map<JournalVoucherDto>(reversed);
+        return Ok(dto);
+    }
+    
+    /// <summary>
     /// بستن سال مالی.
     /// </summary>
     [HttpPost("fiscal-years/close")]

@@ -12,6 +12,7 @@ public interface IAccountingService
     Task DeleteJournalAsync(int id, CancellationToken cancellationToken = default);
     Task PostJournalAsync(int id, CancellationToken cancellationToken = default);
     Task<bool> IsBalancedAsync(int journalId, CancellationToken cancellationToken = default);
+    Task<JournalVoucher> ReverseJournalAsync(int journalId, DateTime? reversalDate = null, string? description = null, CancellationToken cancellationToken = default);
     
     // ==== Fiscal ====
     Task CloseFiscalPeriodAsync(int fiscalPeriodId, int profitAndLossAccountId,  CancellationToken cancellationToken = default);

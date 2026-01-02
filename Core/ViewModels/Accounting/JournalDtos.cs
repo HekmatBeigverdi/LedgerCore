@@ -88,3 +88,8 @@ public class CloseFiscalPeriodRequest
     /// </summary>
     public int ProfitAndLossAccountId { get; set; }
 }
+public class ReverseJournalRequest
+{
+    public DateTime? ReversalDate { get; set; }
+    public string? Description { get; set; }
+}

@@ -13,6 +13,60 @@ public class AccountingService(
     IReportingService reportingService) : IAccountingService
 {
     // ===================== ژورنال =====================
+    
+    
+    private async Task<FiscalYear> GetFiscalYearByDateOrThrowAsync(
+        DateTime date,
+        CancellationToken ct)
+    {
+        var fyRepo = uow.Repository<FiscalYear>();
+
+        var page = await fyRepo.FindAsync(
+            y => y.StartDate <= date && y.EndDate >= date,
+            null,
+            ct);
+
+        var year = page.Items
+            .OrderByDescending(y => y.StartDate)
+            .FirstOrDefault();
+
+        if (year is null)
+            throw new InvalidOperationException($"No fiscal year found for date={date:yyyy-MM-dd}.");
+
+        if (year.IsClosed)
+            throw new InvalidOperationException($"Fiscal year '{year.Name}' is closed.");
+
+        return year;
+    }
+
+    private async Task<FiscalPeriod> GetOpenFiscalPeriodAsync(
+        DateTime date,
+        int? expectedFiscalPeriodId,
+        CancellationToken ct)
+    {
+        var year = await GetFiscalYearByDateOrThrowAsync(date, ct);
+
+        var fpRepo = uow.Repository<FiscalPeriod>();
+        var page = await fpRepo.FindAsync(
+            p => p.FiscalYearId == year.Id && p.StartDate <= date && p.EndDate >= date,
+            null,
+            ct);
+
+        var period = page.Items
+            .OrderByDescending(p => p.StartDate)
+            .FirstOrDefault();
+
+        if (period is null)
+            throw new InvalidOperationException($"No fiscal period found for date={date:yyyy-MM-dd} in fiscal year '{year.Name}'.");
+
+        if (period.IsClosed)
+            throw new InvalidOperationException($"Fiscal period '{period.Name}' is closed.");
+
+        if (expectedFiscalPeriodId.HasValue && expectedFiscalPeriodId.Value != period.Id)
+            throw new InvalidOperationException("FiscalPeriodId does not match the provided Date.");
+
+        return period;
+    }
 
     public async Task<JournalVoucher> CreateJournalAsync(
         JournalVoucher voucher,
@@ -23,6 +77,12 @@ public class AccountingService(
         {
             voucher.Number = await GenerateNextNumberAsync("Journal", voucher.BranchId, cancellationToken);
         }
+        
+        
+        // Fiscal lock + تعیین دوره
+        var period = await GetOpenFiscalPeriodAsync(voucher.Date, voucher.FiscalPeriodId, cancellationToken);
+        voucher.FiscalPeriodId = period.Id;
+        
         
         // اعتبارسنجی قواعد ژورنال + تفصیلی
         await ValidateJournalVoucherAsync(voucher, cancellationToken);
@@ -84,6 +144,10 @@ public class AccountingService(
             });
         }
         
+        var period = await GetOpenFiscalPeriodAsync(existing.Date, voucher.FiscalPeriodId, cancellationToken);
+        existing.FiscalPeriodId = period.Id;
+
+        
         // اعتبارسنجی قواعد ژورنال + تفصیلی
         await ValidateJournalVoucherAsync(existing, cancellationToken);
 
@@ -115,6 +179,7 @@ public class AccountingService(
         int journalId,
         CancellationToken cancellationToken = default)
     {
+        
         await uow.BeginTransactionAsync(cancellationToken);
         try
         {
@@ -124,6 +189,9 @@ public class AccountingService(
 
             if (journal.Status == DocumentStatus.Posted)
                 return;
+            
+            var period = await GetOpenFiscalPeriodAsync(journal.Date, journal.FiscalPeriodId, cancellationToken);
+            journal.FiscalPeriodId = period.Id;
             
             // اعتبارسنجی قواعد ژورنال + تفصیلی (قبل از Post)
             await ValidateJournalVoucherAsync(journal, cancellationToken);
@@ -143,7 +211,77 @@ public class AccountingService(
             throw;
         }
     }
+    
+    public async Task<JournalVoucher> ReverseJournalAsync(
+        int journalId,
+        DateTime? reversalDate = null,
+        string? description = null,
+        CancellationToken cancellationToken = default)
+    {
+        // اصل سند
+        var original = await uow.Journals.GetWithLinesAsync(journalId, cancellationToken);
+        if (original is null)
+            throw new InvalidOperationException($"JournalVoucher with id={journalId} not found.");
 
+        if (original.Status != DocumentStatus.Posted)
+            throw new InvalidOperationException("Only a posted journal can be reversed.");
+
+        var revDate = (reversalDate ?? DateTime.UtcNow).Date;
+
+        // Fiscal lock برای تاریخ ریورس
+        var period = await GetOpenFiscalPeriodAsync(revDate, null, cancellationToken);
+
+        // ساخت سند معکوس
+        var reversed = new JournalVoucher
+        {
+            Number = await GenerateNextNumberAsync("Journal", original.BranchId, cancellationToken),
+            Date = revDate,
+            BranchId = original.BranchId,
+            FiscalPeriodId = period.Id,
+            Description = description ?? $"Reversal of JV {original.Number} (id={original.Id})",
+            Status = DocumentStatus.Draft,
+            Lines = new List<JournalLine>()
+        };
+
+        var lineNo = 1;
+        foreach (var l in original.Lines.OrderBy(x => x.LineNumber))
+        {
+            reversed.Lines.Add(new JournalLine
+            {
+                LineNumber = lineNo++,
+                AccountId = l.AccountId,
+                Debit = l.Credit,
+                Credit = l.Debit,
+                PartyId = l.PartyId,
+                CostCenterId = l.CostCenterId,
+                ProjectId = l.ProjectId,
+                CurrencyId = l.CurrencyId,
+                FxRate = l.FxRate,
+                RefDocumentType = "JournalVoucher",
+                RefDocumentId = original.Id,
+                Description = $"Reversal line of {original.Number}"
+            });
+        }
+
+        // اعتبارسنجی و ذخیره
+        await ValidateJournalVoucherAsync(reversed, cancellationToken);
+
+        if (!IsBalanced(reversed))
+            throw new InvalidOperationException("Reversal journal is not balanced.");
+
+        await uow.Journals.AddAsync(reversed, cancellationToken);
+        await uow.SaveChangesAsync(cancellationToken);
+
+        // پست کردن سند معکوس (از همان مسیر استاندارد)
+        await PostJournalAsync(reversed.Id, cancellationToken);
+
+        // گرفتن نسخه نهایی با خطوط
+        var final = await uow.Journals.GetWithLinesAsync(reversed.Id, cancellationToken);
+        return final ?? reversed;
+    }
+
+    
+    
     public async Task CloseFiscalPeriodAsync(
         int fiscalPeriodId,
         int profitAndLossAccountId,
@@ -712,15 +850,19 @@ public class AccountingService(
 
         var rule = page.Items.FirstOrDefault()
                    ?? throw new InvalidOperationException("No posting rule defined for Receipt.");
+        
+        var period = await GetOpenFiscalPeriodAsync(receipt.Date, null, cancellationToken);
 
         var voucher = new JournalVoucher
         {
             Number = await GenerateNextNumberAsync("Journal", receipt.BranchId, cancellationToken),
             Date = receipt.Date,
             BranchId = receipt.BranchId,
-            Description = $"Receipt {receipt.Number}",
-            Status = DocumentStatus.Posted
+            FiscalPeriodId = period.Id,
+            Description = $"Posting Receipt {receipt.Number}",
+            Status = DocumentStatus.Draft
         };
+
 
         var lines = new List<JournalLine>();
         int lineNo = 1;
@@ -754,7 +896,7 @@ public class AccountingService(
         });
 
         voucher.Lines = lines;
-
+        
         await uow.Journals.AddAsync(voucher, cancellationToken);
         await uow.SaveChangesAsync(cancellationToken);
 
@@ -774,14 +916,18 @@ public class AccountingService(
         var rule = page.Items.FirstOrDefault()
                    ?? throw new InvalidOperationException("No posting rule defined for Payment.");
 
+        var period = await GetOpenFiscalPeriodAsync(payment.Date, null, cancellationToken);
+
         var voucher = new JournalVoucher
         {
             Number = await GenerateNextNumberAsync("Journal", payment.BranchId, cancellationToken),
             Date = payment.Date,
             BranchId = payment.BranchId,
-            Description = $"Payment {payment.Number}",
-            Status = DocumentStatus.Posted
+            FiscalPeriodId = period.Id,
+            Description = $"Posting Payment {payment.Number}",
+            Status = DocumentStatus.Draft
         };
+
 
         var lines = new List<JournalLine>();
         int lineNo = 1;
