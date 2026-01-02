@@ -133,6 +133,28 @@ public class SalesService(IUnitOfWork uow) : ISalesService
     #endregion
 
     #region Private helpers
+    
+    private async Task<int> GetOpenFiscalPeriodIdAsync(DateTime date, CancellationToken ct)
+    {
+        var fyRepo = uow.Repository<FiscalYear>();
+        var fyPage = await fyRepo.FindAsync(y => y.StartDate <= date && y.EndDate >= date, null, ct);
+        var year = fyPage.Items.OrderByDescending(y => y.StartDate).FirstOrDefault()
+                   ?? throw new InvalidOperationException($"No fiscal year found for date={date:yyyy-MM-dd}.");
+
+        if (year.IsClosed)
+            throw new InvalidOperationException($"Fiscal year '{year.Name}' is closed.");
+
+        var fpRepo = uow.Repository<FiscalPeriod>();
+        var fpPage = await fpRepo.FindAsync(p => p.FiscalYearId == year.Id && p.StartDate <= date && p.EndDate >= date, null, ct);
+        var period = fpPage.Items.OrderByDescending(p => p.StartDate).FirstOrDefault()
+                     ?? throw new InvalidOperationException($"No fiscal period found for date={date:yyyy-MM-dd}.");
+
+        if (period.IsClosed)
+            throw new InvalidOperationException($"Fiscal period '{period.Name}' is closed.");
+
+        return period.Id;
+    }
+
 
     private async Task ValidateCustomerAsync(int customerId, CancellationToken cancellationToken)
     {
@@ -276,16 +298,21 @@ public class SalesService(IUnitOfWork uow) : ISalesService
         var postingRule = postingRules.Items.FirstOrDefault();
         if (postingRule is null)
             throw new InvalidOperationException("No active posting rule found for SalesInvoice.");
+        
+        var fiscalPeriodId = await GetOpenFiscalPeriodIdAsync(invoice.Date, cancellationToken);
+
 
         // 2) ساخت JV
         var voucher = new JournalVoucher
         {
             Number = await GenerateNextNumberAsync("Journal", invoice.BranchId, cancellationToken),
             Date = invoice.Date,
-            Description = $"Posting Sales Invoice {invoice.Number}",
             BranchId = invoice.BranchId,
-            Status = DocumentStatus.Posted
+            FiscalPeriodId = fiscalPeriodId,
+            Description = $"Posting Sales Invoice {invoice.Number}",
+            Status = DocumentStatus.Draft
         };
+
 
         var lines = new List<JournalLine>();
         int lineNo = 1;

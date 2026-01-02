@@ -18,6 +18,28 @@ public class AssetService : IAssetService
         _uow = uow;
         _fixedAssets = fixedAssets;
     }
+    
+    private async Task<int> GetOpenFiscalPeriodIdAsync(DateTime date, CancellationToken ct)
+    {
+        var fyRepo = _uow.Repository<FiscalYear>();
+        var fyPage = await fyRepo.FindAsync(y => y.StartDate <= date && y.EndDate >= date, null, ct);
+        var year = fyPage.Items.OrderByDescending(y => y.StartDate).FirstOrDefault()
+                   ?? throw new InvalidOperationException($"No fiscal year found for date={date:yyyy-MM-dd}.");
+
+        if (year.IsClosed)
+            throw new InvalidOperationException($"Fiscal year '{year.Name}' is closed.");
+
+        var fpRepo = _uow.Repository<FiscalPeriod>();
+        var fpPage = await fpRepo.FindAsync(p => p.FiscalYearId == year.Id && p.StartDate <= date && p.EndDate >= date, null, ct);
+        var period = fpPage.Items.OrderByDescending(p => p.StartDate).FirstOrDefault()
+                     ?? throw new InvalidOperationException($"No fiscal period found for date={date:yyyy-MM-dd}.");
+
+        if (period.IsClosed)
+            throw new InvalidOperationException($"Fiscal period '{period.Name}' is closed.");
+
+        return period.Id;
+    }
+
 
     /// <summary>
     /// ایجاد دارایی ثابت جدید.
@@ -189,6 +211,9 @@ public class AssetService : IAssetService
 
             var rule = rulePage.Items.FirstOrDefault()
                        ?? throw new InvalidOperationException("No posting rule defined for AssetDepreciation.");
+            
+            var fiscalPeriodId = await GetOpenFiscalPeriodIdAsync(schedule.PeriodEnd, cancellationToken);
+
 
             // ساخت سند حسابداری
             var journal = new JournalVoucher
@@ -196,6 +221,7 @@ public class AssetService : IAssetService
                 Number = await GenerateNextNumberAsync("Journal", asset.BranchId, cancellationToken),
                 Date = schedule.PeriodEnd,
                 BranchId = asset.BranchId,
+                FiscalPeriodId = fiscalPeriodId,
                 Description = $"Depreciation for asset {asset.Code} - {periodStart:yyyy/MM/dd} to {periodEnd:yyyy/MM/dd}",
                 Status = DocumentStatus.Posted
             };
