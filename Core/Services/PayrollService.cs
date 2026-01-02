@@ -9,36 +9,6 @@ namespace LedgerCore.Core.Services;
 
 public class PayrollService(IUnitOfWork uow) : IPayrollService
 {
-    private async Task<int> GetOpenFiscalPeriodIdAsync(DateTime date, CancellationToken ct)
-    {
-        var fyRepo = uow.Repository<FiscalYear>();
-        var fyPage = await fyRepo.FindAsync(y => y.StartDate <= date && y.EndDate >= date, null, ct);
-
-        var year = fyPage.Items
-                       .OrderByDescending(y => y.StartDate)
-                       .FirstOrDefault()
-                   ?? throw new InvalidOperationException($"No fiscal year found for date={date:yyyy-MM-dd}.");
-
-        if (year.IsClosed)
-            throw new InvalidOperationException($"Fiscal year '{year.Name}' is closed.");
-
-        var fpRepo = uow.Repository<FiscalPeriod>();
-        var fpPage = await fpRepo.FindAsync(
-            p => p.FiscalYearId == year.Id && p.StartDate <= date && p.EndDate >= date,
-            null,
-            ct);
-
-        var period = fpPage.Items
-                         .OrderByDescending(p => p.StartDate)
-                         .FirstOrDefault()
-                     ?? throw new InvalidOperationException($"No fiscal period found for date={date:yyyy-MM-dd}.");
-
-        if (period.IsClosed)
-            throw new InvalidOperationException($"Fiscal period '{period.Name}' is closed.");
-
-        return period.Id;
-    }
-
     public async Task<PayrollDocument> CalculatePayrollAsync(
         PayrollDocument payroll,
         CancellationToken cancellationToken = default)
@@ -225,4 +195,34 @@ public class PayrollService(IUnitOfWork uow) : IPayrollService
         var num = series.CurrentNumber.ToString().PadLeft(series.Padding, '0');
         return $"{series.Prefix}{num}{series.Suffix}";
     }
+    private async Task<int> GetOpenFiscalPeriodIdAsync(DateTime date, CancellationToken ct)
+    {
+        var fyRepo = uow.Repository<FiscalYear>();
+        var fyPage = await fyRepo.FindAsync(y => y.StartDate <= date && y.EndDate >= date, null, ct);
+
+        var year = fyPage.Items
+                       .OrderByDescending(y => y.StartDate)
+                       .FirstOrDefault()
+                   ?? throw new InvalidOperationException($"No fiscal year found for date={date:yyyy-MM-dd}.");
+
+        if (year.IsClosed)
+            throw new InvalidOperationException($"Fiscal year '{year.Name}' is closed.");
+
+        var fpRepo = uow.Repository<FiscalPeriod>();
+        var fpPage = await fpRepo.FindAsync(
+            p => p.FiscalYearId == year.Id && p.StartDate <= date && p.EndDate >= date,
+            null,
+            ct);
+
+        var period = fpPage.Items
+                         .OrderByDescending(p => p.StartDate)
+                         .FirstOrDefault()
+                     ?? throw new InvalidOperationException($"No fiscal period found for date={date:yyyy-MM-dd}.");
+
+        if (period.IsClosed)
+            throw new InvalidOperationException($"Fiscal period '{period.Name}' is closed.");
+
+        return period.Id;
+    }
+
 }
