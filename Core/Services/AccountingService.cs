@@ -708,6 +708,58 @@ public class AccountingService(
             throw;
         }
     }
+    
+    public async Task<Receipt> ReverseReceiptAsync(
+        int receiptId,
+        DateTime? reversalDate = null,
+        string? description = null,
+        CancellationToken cancellationToken = default)
+    {
+        var receipt = await uow.Receipts.GetByIdAsync(receiptId, cancellationToken);
+        if (receipt is null)
+            throw new InvalidOperationException($"Receipt with id={receiptId} not found.");
+
+        if (receipt.Status != DocumentStatus.Posted)
+            throw new InvalidOperationException("Only a posted receipt can be reversed.");
+
+        if (receipt.JournalVoucherId is null)
+            throw new InvalidOperationException("Posted receipt has no JournalVoucherId.");
+
+        // 1) Reverse اثر حسابداری
+        var reversalJournal = await ReverseJournalAsync(
+            receipt.JournalVoucherId.Value,
+            reversalDate,
+            description ?? $"Void/Reverse receipt {receipt.Number} (id={receipt.Id})",
+            cancellationToken);
+
+        // 2) ابطال خود سند Receipt (بدون تغییر اسکیمای دیتابیس)
+        // توجه: این بخش را جدا ذخیره می‌کنیم چون ReverseJournalAsync خودش مسیر Post و تراکنش خودش را دارد.
+        await uow.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            receipt = await uow.Receipts.GetByIdAsync(receiptId, cancellationToken)
+                      ?? throw new InvalidOperationException($"Receipt with id={receiptId} not found.");
+
+            receipt.Status = DocumentStatus.Cancelled;
+
+            // اختیاری: توضیح را به سند اضافه کنید (اگر Description دارید)
+            receipt.Description = string.IsNullOrWhiteSpace(receipt.Description)
+                ? $"Reversed by JV {reversalJournal.Number}"
+                : $"{receipt.Description} | Reversed by JV {reversalJournal.Number}";
+
+            uow.Receipts.Update(receipt);
+            await uow.SaveChangesAsync(cancellationToken);
+
+            await uow.CommitTransactionAsync(cancellationToken);
+            return receipt;
+        }
+        catch
+        {
+            await uow.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
+    }
+
 
     // ===================== Payment =====================
 
@@ -802,6 +854,56 @@ public class AccountingService(
             throw;
         }
     }
+    
+    public async Task<Payment> ReversePaymentAsync(
+        int paymentId,
+        DateTime? reversalDate = null,
+        string? description = null,
+        CancellationToken cancellationToken = default)
+    {
+        var payment = await uow.Payments.GetByIdAsync(paymentId, cancellationToken);
+        if (payment is null)
+            throw new InvalidOperationException($"Payment with id={paymentId} not found.");
+
+        if (payment.Status != DocumentStatus.Posted)
+            throw new InvalidOperationException("Only a posted payment can be reversed.");
+
+        if (payment.JournalVoucherId is null)
+            throw new InvalidOperationException("Posted payment has no JournalVoucherId.");
+
+        // 1) Reverse اثر حسابداری
+        var reversalJournal = await ReverseJournalAsync(
+            payment.JournalVoucherId.Value,
+            reversalDate,
+            description ?? $"Void/Reverse payment {payment.Number} (id={payment.Id})",
+            cancellationToken);
+
+        // 2) ابطال خود سند Payment
+        await uow.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            payment = await uow.Payments.GetByIdAsync(paymentId, cancellationToken)
+                      ?? throw new InvalidOperationException($"Payment with id={paymentId} not found.");
+
+            payment.Status = DocumentStatus.Cancelled;
+
+            payment.Description = string.IsNullOrWhiteSpace(payment.Description)
+                ? $"Reversed by JV {reversalJournal.Number}"
+                : $"{payment.Description} | Reversed by JV {reversalJournal.Number}";
+
+            uow.Payments.Update(payment);
+            await uow.SaveChangesAsync(cancellationToken);
+
+            await uow.CommitTransactionAsync(cancellationToken);
+            return payment;
+        }
+        catch
+        {
+            await uow.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
+    }
+
 
     // ===================== Helpers =====================
 

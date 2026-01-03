@@ -23,12 +23,14 @@ public interface IAccountingService
     Task<Receipt?> GetReceiptAsync(int id, CancellationToken cancellationToken = default);
     Task<Receipt> UpdateReceiptAsync(Receipt receipt, CancellationToken cancellationToken = default);
     Task PostReceiptAsync(int receiptId, CancellationToken cancellationToken = default);
+    Task<Receipt> ReverseReceiptAsync(int receiptId, DateTime? reversalDate = null, string? description = null, CancellationToken cancellationToken = default);
 
     // ==== Payment ====
     Task<Payment> CreatePaymentAsync(Payment payment, CancellationToken cancellationToken = default);
     Task<Payment?> GetPaymentAsync(int id, CancellationToken cancellationToken = default);
     Task<Payment> UpdatePaymentAsync(Payment payment, CancellationToken cancellationToken = default);
     Task PostPaymentAsync(int paymentId, CancellationToken cancellationToken = default);
+    Task<Payment> ReversePaymentAsync(int paymentId, DateTime? reversalDate = null, string? description = null, CancellationToken cancellationToken = default);
     
     // ==== Inventory Adjustment Posting ====
 
