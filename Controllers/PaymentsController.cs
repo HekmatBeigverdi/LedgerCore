@@ -85,4 +85,20 @@ public class PaymentsController(
         await accountingService.PostPaymentAsync(id, cancellationToken);
         return NoContent();
     }
+    
+    [HttpPost("{id:int}/reverse")]
+    public async Task<ActionResult<PaymentDto>> Reverse(
+        int id,
+        [FromBody] ReversePostedDocumentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var payment = await accountingService.ReversePaymentAsync(
+            id,
+            request.ReversalDate,
+            request.Description,
+            cancellationToken);
+
+        return Ok(mapper.Map<PaymentDto>(payment));
+    }
+
 }

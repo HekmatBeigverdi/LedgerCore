@@ -85,4 +85,21 @@ public class ReceiptsController(
         await accountingService.PostReceiptAsync(id, cancellationToken);
         return NoContent();
     }
+    
+    [HttpPost("{id:int}/reverse")]
+    public async Task<ActionResult<ReceiptDto>> Reverse(
+        int id,
+        [FromBody] ReversePostedDocumentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var receipt = await accountingService.ReverseReceiptAsync(
+            id,
+            request.ReversalDate,
+            request.Description,
+            cancellationToken);
+
+        return Ok(mapper.Map<ReceiptDto>(receipt));
+    }
+    
+
 }
