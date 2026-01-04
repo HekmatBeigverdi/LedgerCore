@@ -731,12 +731,16 @@ public class AccountingService(
             reversalDate,
             description ?? $"Void/Reverse receipt {receipt.Number} (id={receipt.Id})",
             cancellationToken);
+        
+
 
         // 2) ابطال خود سند Receipt (بدون تغییر اسکیمای دیتابیس)
         // توجه: این بخش را جدا ذخیره می‌کنیم چون ReverseJournalAsync خودش مسیر Post و تراکنش خودش را دارد.
         await uow.BeginTransactionAsync(cancellationToken);
         try
         {
+            receipt.ReversalJournalVoucherId = reversalJournal.Id;
+
             receipt = await uow.Receipts.GetByIdAsync(receiptId, cancellationToken)
                       ?? throw new InvalidOperationException($"Receipt with id={receiptId} not found.");
 
@@ -882,6 +886,8 @@ public class AccountingService(
         await uow.BeginTransactionAsync(cancellationToken);
         try
         {
+            payment.ReversalJournalVoucherId = reversalJournal.Id;
+
             payment = await uow.Payments.GetByIdAsync(paymentId, cancellationToken)
                       ?? throw new InvalidOperationException($"Payment with id={paymentId} not found.");
 

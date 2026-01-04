@@ -13,6 +13,8 @@ public class PaymentRepository(LedgerCoreDbContext context) : RepositoryBase<Pay
         IQueryable<Payment> query = DbSet
             .Include(x => x.Party)
             .Include(x => x.BankAccount)
+            .Include(x => x.JournalVoucher)
+            .Include(x => x.ReversalJournalVoucher)
             .AsNoTracking();
 
         return await QueryHelpers.ApplyPagingAsync(query, paging, cancellationToken);
