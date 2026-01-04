@@ -49,4 +49,8 @@ public class ReceiptDto
 
     public int? JournalVoucherId { get; set; }
     public string? JournalVoucherNumber { get; set; }
+    
+    public int? ReversalJournalVoucherId { get; set; }
+    public string? ReversalJournalVoucherNumber { get; set; }
+
 }
