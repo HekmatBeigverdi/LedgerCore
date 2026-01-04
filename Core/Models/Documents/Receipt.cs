@@ -36,4 +36,7 @@ public class Receipt: AuditableEntity
 
     public int? JournalVoucherId { get; set; }
     public JournalVoucher? JournalVoucher { get; set; }
+    
+    public int? ReversalJournalVoucherId { get; set; }
+    public JournalVoucher? ReversalJournalVoucher { get; set; }
 }

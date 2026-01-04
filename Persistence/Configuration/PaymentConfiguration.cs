@@ -16,5 +16,16 @@ public class PaymentConfiguration : IEntityTypeConfiguration<Payment>
 
         builder.HasIndex(x => x.Number).IsUnique();
         builder.HasIndex(x => x.Date);
+        
+        builder.HasOne(x => x.JournalVoucher)
+            .WithMany()
+            .HasForeignKey(x => x.JournalVoucherId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(x => x.ReversalJournalVoucher)
+            .WithMany()
+            .HasForeignKey(x => x.ReversalJournalVoucherId)
+            .OnDelete(DeleteBehavior.Restrict);
+
     }
 }
