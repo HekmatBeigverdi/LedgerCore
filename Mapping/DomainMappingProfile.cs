@@ -81,21 +81,30 @@ public class DomainMappingProfile : Profile
             .ForMember(d => d.PartyName, m => m.MapFrom(s => s.Party!.Name))
             .ForMember(d => d.BranchName, m => m.MapFrom(s => s.Branch!.Name))
             .ForMember(d => d.CurrencyCode, m => m.MapFrom(s => s.Currency!.Code))
-            .ForMember(d => d.BankAccountTitle, m => m.MapFrom(s => s.BankAccount!.Title));
+            .ForMember(d => d.BankAccountTitle, m => m.MapFrom(s => s.BankAccount!.Title))
+            .ForMember(d => d.JournalVoucherNumber, m => m.MapFrom(s => s.JournalVoucher!.Number))
+            .ForMember(d => d.ReversalJournalVoucherNumber, m => m.MapFrom(s => s.ReversalJournalVoucher!.Number));
+
 
         CreateMap<CreateReceiptRequest, Receipt>()
             .ForMember(d => d.Id, m => m.Ignore())
             .ForMember(d => d.Number, m => m.Ignore())
             .ForMember(d => d.Status, m => m.Ignore())
             .ForMember(d => d.JournalVoucherId, m => m.Ignore())
-            .ForMember(d => d.JournalVoucher, m => m.Ignore());
+            .ForMember(d => d.JournalVoucher, m => m.Ignore())
+            .ForMember(d => d.ReversalJournalVoucherId, m => m.Ignore())
+            .ForMember(d => d.ReversalJournalVoucher, m => m.Ignore());
+
 
         CreateMap<UpdateReceiptRequest, Receipt>()
             .ForMember(d => d.Id, m => m.Ignore())
             .ForMember(d => d.Number, m => m.Ignore())
             .ForMember(d => d.Status, m => m.Ignore())
             .ForMember(d => d.JournalVoucherId, m => m.Ignore())
-            .ForMember(d => d.JournalVoucher, m => m.Ignore());
+            .ForMember(d => d.JournalVoucher, m => m.Ignore())
+            .ForMember(d => d.ReversalJournalVoucherId, m => m.Ignore())
+            .ForMember(d => d.ReversalJournalVoucher, m => m.Ignore());
+
 
         // ===== Payment =====
         CreateMap<Payment, PaymentDto>()
