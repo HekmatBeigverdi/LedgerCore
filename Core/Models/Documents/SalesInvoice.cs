@@ -37,6 +37,10 @@ public class SalesInvoice: AuditableEntity
     // ارتباط با سند حسابداری پست‌شده:
     public int? JournalVoucherId { get; set; }
     public JournalVoucher? JournalVoucher { get; set; }
+    
+    public int? ReversalJournalVoucherId { get; set; }
+    public JournalVoucher? ReversalJournalVoucher { get; set; }
+
 
     public ICollection<InvoiceLine> Lines { get; set; } = new List<InvoiceLine>();
 }

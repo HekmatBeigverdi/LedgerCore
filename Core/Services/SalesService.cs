@@ -129,6 +129,84 @@ public class SalesService(IUnitOfWork uow) : ISalesService
             throw;
         }
     }
+    public async Task VoidSalesInvoiceAsync(
+        int invoiceId,
+        DateTime? reversalDate = null,
+        string? description = null,
+        CancellationToken cancellationToken = default)
+    {
+        await uow.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            var invoice = await uow.Invoices.GetSalesInvoiceWithLinesAsync(invoiceId, cancellationToken);
+            if (invoice is null)
+                throw new InvalidOperationException($"SalesInvoice with id={invoiceId} not found.");
+
+            if (invoice.Status != DocumentStatus.Posted)
+                throw new InvalidOperationException("Only a posted sales invoice can be voided.");
+
+            if (invoice.JournalVoucherId is null)
+                throw new InvalidOperationException("Posted sales invoice has no JournalVoucherId.");
+
+            var revDate = (reversalDate ?? DateTime.UtcNow).Date;
+
+            // 1) برگشت انبار: StockMove های مرجع SalesInvoice را پیدا کن
+            var movesPage = await uow.Repository<StockMove>().FindAsync(
+                m => m.RefDocumentType == "SalesInvoice" && m.RefDocumentId == invoice.Id,
+                null,
+                cancellationToken);
+
+            var moves = movesPage.Items.ToList();
+            if (moves.Count == 0)
+                throw new InvalidOperationException("No stock moves found for this sales invoice.");
+
+            foreach (var mv in moves)
+            {
+                var item = await uow.Stock.GetStockItemAsync(mv.WarehouseId, mv.ProductId, cancellationToken);
+                if (item is null)
+                    throw new InvalidOperationException($"StockItem not found (warehouseId={mv.WarehouseId}, productId={mv.ProductId}).");
+
+                // فروش Outbound بوده، برای void باید برگردانیم (Inbound)
+                item.OnHand += mv.Quantity;
+                uow.Stock.UpdateStockItem(item);
+
+                var revMove = new StockMove
+                {
+                    Date = revDate,
+                    WarehouseId = mv.WarehouseId,
+                    ProductId = mv.ProductId,
+                    MoveType = StockMoveType.Inbound,
+                    Quantity = mv.Quantity,
+                    UnitCost = mv.UnitCost,
+                    RefDocumentType = "SalesInvoiceVoid",
+                    RefDocumentId = invoice.Id,
+                    RefDocumentLineId = mv.RefDocumentLineId
+                };
+
+                await uow.Stock.AddStockMoveAsync(revMove, cancellationToken);
+            }
+
+            // 2) برگشت حسابداری: ژورنال معکوس بساز
+            var reversalJournal = await ReverseJournalInternalAsync(
+                invoice.JournalVoucherId.Value,
+                revDate,
+                description ?? $"Void SalesInvoice {invoice.Number} (id={invoice.Id})",
+                cancellationToken);
+
+            // 3) وضعیت فاکتور
+            invoice.Status = DocumentStatus.Cancelled;
+            invoice.ReversalJournalVoucherId = reversalJournal.Id;
+
+            await uow.SaveChangesAsync(cancellationToken);
+            await uow.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await uow.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
+    }
+
 
     #endregion
 
@@ -400,6 +478,58 @@ public class SalesService(IUnitOfWork uow) : ISalesService
 
         return period.Id;
     }
+    private async Task<JournalVoucher> ReverseJournalInternalAsync(
+        int journalId,
+        DateTime reversalDate,
+        string description,
+        CancellationToken cancellationToken)
+    {
+        var original = await uow.Journals.GetWithLinesAsync(journalId, cancellationToken);
+        if (original is null)
+            throw new InvalidOperationException($"JournalVoucher with id={journalId} not found.");
+
+        if (original.Status != DocumentStatus.Posted)
+            throw new InvalidOperationException("Only a posted journal can be reversed.");
+
+        var fiscalPeriodId = await GetOpenFiscalPeriodIdAsync(reversalDate, cancellationToken);
+
+        var reversed = new JournalVoucher
+        {
+            Number = await GenerateNextNumberAsync("Journal", original.BranchId, cancellationToken),
+            Date = reversalDate.Date,
+            BranchId = original.BranchId,
+            FiscalPeriodId = fiscalPeriodId,
+            Description = description,
+            Status = DocumentStatus.Posted,
+            Lines = new List<JournalLine>()
+        };
+
+        var lineNo = 1;
+        foreach (var l in original.Lines.OrderBy(x => x.LineNumber))
+        {
+            reversed.Lines.Add(new JournalLine
+            {
+                LineNumber = lineNo++,
+                AccountId = l.AccountId,
+                Debit = l.Credit,
+                Credit = l.Debit,
+                PartyId = l.PartyId,
+                CostCenterId = l.CostCenterId,
+                ProjectId = l.ProjectId,
+                CurrencyId = l.CurrencyId,
+                FxRate = l.FxRate,
+                RefDocumentType = "JournalVoucher",
+                RefDocumentId = original.Id,
+                Description = $"Reversal of {original.Number}"
+            });
+        }
+
+        await uow.Journals.AddAsync(reversed, cancellationToken);
+        await uow.SaveChangesAsync(cancellationToken);
+
+        return reversed;
+    }
+
 
     #endregion
 }

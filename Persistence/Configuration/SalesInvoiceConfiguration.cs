@@ -21,5 +21,16 @@ public class SalesInvoiceConfiguration : IEntityTypeConfiguration<SalesInvoice>
             .WithOne(x => x.SalesInvoice!)
             .HasForeignKey(x => x.SalesInvoiceId)
             .OnDelete(DeleteBehavior.Cascade);
+        
+        builder.HasOne(x => x.JournalVoucher)
+            .WithMany()
+            .HasForeignKey(x => x.JournalVoucherId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(x => x.ReversalJournalVoucher)
+            .WithMany()
+            .HasForeignKey(x => x.ReversalJournalVoucherId)
+            .OnDelete(DeleteBehavior.Restrict);
+
     }
 }

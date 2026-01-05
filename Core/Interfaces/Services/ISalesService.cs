@@ -19,4 +19,11 @@ public interface ISalesService
     Task PostSalesInvoiceAsync(
         int invoiceId,
         CancellationToken cancellationToken = default);
+    
+    Task VoidSalesInvoiceAsync(
+        int invoiceId,
+        DateTime? reversalDate = null,
+        string? description = null,
+        CancellationToken cancellationToken = default);
+
 }
