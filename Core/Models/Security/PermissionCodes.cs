@@ -33,8 +33,7 @@ public static class PermissionCodes
     public const string Reports_Payroll_Summary_View = "Reports.Payroll.Summary.View";
     public const string Reports_Payroll_Details_View = "Reports.Payroll.Details.View";
 
-
-
+    
 
     // ========== Approval / Workflow ==========
     public const string Approval_Request_View = "Approval.Request.View";
