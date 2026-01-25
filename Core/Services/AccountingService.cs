@@ -14,7 +14,6 @@ public class AccountingService(
 {
     // ===================== ژورنال =====================
     
-    
     private async Task<FiscalYear> GetFiscalYearByDateOrThrowAsync(
         DateTime date,
         CancellationToken ct)
