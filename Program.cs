@@ -64,7 +64,6 @@ builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IChequeRepository, ChequeRepository>();
 
 
-
 // Services
 builder.Services.AddScoped<ISalesService, SalesService>();
 builder.Services.AddScoped<IAccountingService, AccountingService>();
@@ -79,8 +78,6 @@ builder.Services.AddScoped<IApprovalService, ApprovalService>();
 builder.Services.AddScoped<ICashTransferService, CashTransferService>();
 builder.Services.AddScoped<ISecurityActivityLogService, SecurityActivityLogService>();
 builder.Services.AddScoped<INumberSeriesService, NumberSeriesService>();
-
-
 
 
 
