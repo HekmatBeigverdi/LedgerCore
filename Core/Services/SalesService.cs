@@ -380,6 +380,7 @@ public class SalesService(IUnitOfWork uow) : ISalesService
             AccountId = postingRule.DebitAccountId,
             Debit = invoice.TotalAmount,
             Credit = 0,
+            PartyId = invoice.CustomerId, 
             RefDocumentType = "SalesInvoice",
             RefDocumentId = invoice.Id,
             CurrencyId = invoice.CurrencyId,
