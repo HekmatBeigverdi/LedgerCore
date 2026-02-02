@@ -351,9 +351,21 @@ public class SalesService(IUnitOfWork uow) : ISalesService
             null,
             cancellationToken);
 
-        var postingRule = postingRules.Items.FirstOrDefault();
+        PostingRule? postingRule = null;
+
+        // اگر نقدی بود، اول Rule نقدی را ترجیح بده
+        if (invoice.IsCashSale)
+            postingRule = postingRules.Items.FirstOrDefault(r => r.Code == "SalesInvoice_Cash");
+
+        // اگر پیدا نشد یا اعتباری بود، Rule اعتباری را بگیر
+        postingRule ??= postingRules.Items.FirstOrDefault(r => r.Code == "SalesInvoice_Credit");
+
+        // در نهایت fallback: اولین Rule فعال
+        postingRule ??= postingRules.Items.FirstOrDefault();
+
         if (postingRule is null)
             throw new InvalidOperationException("No active posting rule found for SalesInvoice.");
+
         
         var fiscalPeriodId = await GetOpenFiscalPeriodIdAsync(invoice.Date, cancellationToken);
 
