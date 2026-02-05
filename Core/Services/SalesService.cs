@@ -378,7 +378,7 @@ public class SalesService(IUnitOfWork uow) : ISalesService
             BranchId = invoice.BranchId,
             FiscalPeriodId = fiscalPeriodId,
             Description = $"Posting Sales Invoice {invoice.Number}",
-            Status = DocumentStatus.Draft
+            Status = DocumentStatus.Posted
         };
 
 
@@ -406,13 +406,30 @@ public class SalesService(IUnitOfWork uow) : ISalesService
             LineNumber = lineNo++,
             AccountId = postingRule.CreditAccountId,
             Debit = 0,
-            Credit = invoice.TotalNetAmount,
+            Credit = invoice.TotalNetAmount + invoice.TotalDiscount,
             RefDocumentType = "SalesInvoice",
             RefDocumentId = invoice.Id,
             CurrencyId = invoice.CurrencyId,
             FxRate = invoice.FxRate,
             Description = $"Sales revenue for invoice {invoice.Number}"
         });
+        // Debit: Sales Discount (Contra Revenue)
+        if (postingRule.DiscountAccountId.HasValue && invoice.TotalDiscount > 0)
+        {
+            lines.Add(new JournalLine
+            {
+                LineNumber = lineNo++,
+                AccountId = postingRule.DiscountAccountId.Value,
+                Debit = invoice.TotalDiscount,
+                Credit = 0,
+                RefDocumentType = "SalesInvoice",
+                RefDocumentId = invoice.Id,
+                CurrencyId = invoice.CurrencyId,
+                FxRate = invoice.FxRate,
+                Description = $"Discount for invoice {invoice.Number}"
+            });
+        }
+
 
         // Credit Tax
         if (postingRule.TaxAccountId.HasValue && invoice.TotalTaxAmount > 0)
@@ -432,6 +449,7 @@ public class SalesService(IUnitOfWork uow) : ISalesService
         }
 
         voucher.Lines = lines;
+        
 
         await uow.Journals.AddAsync(voucher, cancellationToken);
         await uow.SaveChangesAsync(cancellationToken);
