@@ -328,6 +328,7 @@ public class PurchaseService(IUnitOfWork uow) : IPurchaseService
             AccountId = postingRule.CreditAccountId,
             Debit = 0,
             Credit = invoice.TotalAmount,
+            PartyId = invoice.SupplierId,
             RefDocumentType = "PurchaseInvoice",
             RefDocumentId = invoice.Id,
             CurrencyId = invoice.CurrencyId,
