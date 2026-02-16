@@ -25,6 +25,12 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.HasIndex(x => x.UserName).IsUnique();
         builder.HasIndex(x => x.Email).IsUnique();
+        
+        builder.HasOne(u => u.DefaultBranch)
+            .WithMany()
+            .HasForeignKey(u => u.DefaultBranchId)
+            .OnDelete(DeleteBehavior.Restrict);
+
 
         builder.HasQueryFilter(u => u.Status == UserStatus.Active && !u.IsDeleted);
     }
