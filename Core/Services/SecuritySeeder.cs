@@ -2,6 +2,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using LedgerCore.Core.Interfaces;
+using LedgerCore.Core.Models.Master;
 using LedgerCore.Core.Models.Security;
 
 
@@ -17,6 +18,9 @@ public static class SeedPermissionsAsyncSecuritySeeder
         await SeedRolesAsync(uow, cancellationToken);
         await SeedRolePermissionsAsync(uow, cancellationToken); // Admin = all permissions
         await SeedRolePermissionForCustomRoles(uow, cancellationToken); // نقش‌های جدید
+        var defaultBranch = await EnsureHeadOfficeBranchAsync(uow, cancellationToken);
+        await SeedAdminUserAsync(uow, defaultBranch.Id.ToString(), cancellationToken: cancellationToken);
+
         await SeedAdminUserAsync(uow, cancellationToken: cancellationToken);
     }
 
@@ -214,6 +218,34 @@ public static class SeedPermissionsAsyncSecuritySeeder
         }
 
         await uow.SaveChangesAsync(cancellationToken);
+    }
+    private static async Task<Branch> EnsureHeadOfficeBranchAsync(
+        IUnitOfWork uow,
+        CancellationToken cancellationToken)
+    {
+        var branchRepo = uow.Repository<Branch>();
+
+        // اگر شعبه‌ای هست، اولی را به عنوان پیش‌فرض برگردان
+        var existing = await branchRepo.GetAllAsync(null, cancellationToken);
+        var first = existing.Items.FirstOrDefault();
+        if (first != null) return first;
+
+        // اگر هیچ شعبه‌ای نیست، دفتر مرکزی بساز
+        var headOffice = new Branch
+        {
+            Code = "HO",
+            Name = "Head Office",
+            IsHeadOffice = true,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            CreatedBy = "SystemSeeder",
+            IsDeleted = false
+        };
+
+        await branchRepo.AddAsync(headOffice, cancellationToken);
+        await uow.SaveChangesAsync(cancellationToken);
+
+        return headOffice;
     }
     public static async Task SeedAdminUserAsync(
         IUnitOfWork uow,
