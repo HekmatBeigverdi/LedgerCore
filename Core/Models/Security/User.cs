@@ -1,5 +1,6 @@
 using LedgerCore.Core.Models.Common;
 using LedgerCore.Core.Models.Enums;
+using LedgerCore.Core.Models.Master;
 
 namespace LedgerCore.Core.Models.Security;
 
@@ -15,6 +16,9 @@ public class User: AuditableEntity
     public UserStatus Status { get; set; } = UserStatus.Active;
 
     public DateTime? LastLoginAt { get; set; }
+    
+    public int? DefaultBranchId { get; set; }
+    public Branch? DefaultBranch { get; set; }
 
     public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
 }
