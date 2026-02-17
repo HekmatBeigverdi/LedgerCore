@@ -19,9 +19,9 @@ public static class SeedPermissionsAsyncSecuritySeeder
         await SeedRolePermissionsAsync(uow, cancellationToken); // Admin = all permissions
         await SeedRolePermissionForCustomRoles(uow, cancellationToken); // نقش‌های جدید
         var defaultBranch = await EnsureHeadOfficeBranchAsync(uow, cancellationToken);
-        await SeedAdminUserAsync(uow, defaultBranch.Id.ToString(), cancellationToken: cancellationToken);
+        await SeedAdminUserAsync(uow, defaultBranch.Id, cancellationToken: cancellationToken);
 
-        await SeedAdminUserAsync(uow, cancellationToken: cancellationToken);
+        await SeedAdminUserAsync(uow, defaultBranch.Id, cancellationToken: cancellationToken);
     }
 
     public static async Task SeedPermissionsAsync(
@@ -249,6 +249,7 @@ public static class SeedPermissionsAsyncSecuritySeeder
     }
     public static async Task SeedAdminUserAsync(
         IUnitOfWork uow,
+        int defaultBranchId,
         string adminUserName = "admin",
         string defaultPassword = "Admin@12345",
         CancellationToken cancellationToken = default)
