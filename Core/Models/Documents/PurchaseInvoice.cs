@@ -15,7 +15,7 @@ public class PurchaseInvoice: AuditableEntity
     public int SupplierId { get; set; }
     public Party? Supplier { get; set; }
 
-    public int? BranchId { get; set; }
+    public int BranchId { get; set; }
     public Branch? Branch { get; set; }
 
     public int? WarehouseId { get; set; }                    // انبار ورود کالا

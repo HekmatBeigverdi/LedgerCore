@@ -15,7 +15,7 @@ public class SalesInvoice: AuditableEntity
     public int CustomerId { get; set; }
     public Party? Customer { get; set; }
 
-    public int? BranchId { get; set; }
+    public int BranchId { get; set; }
     public Branch? Branch { get; set; }
 
     public int? WarehouseId { get; set; }                    // انبار خروج کالا

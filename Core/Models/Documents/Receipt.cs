@@ -13,7 +13,7 @@ public class Receipt: AuditableEntity
     public int? PartyId { get; set; }               // معمولا مشتری
     public Party? Party { get; set; }
 
-    public int? BranchId { get; set; }
+    public int BranchId { get; set; }
     public Branch? Branch { get; set; }
 
     public PaymentMethod Method { get; set; } = PaymentMethod.Cash;

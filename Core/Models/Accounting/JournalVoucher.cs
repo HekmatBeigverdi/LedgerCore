@@ -12,7 +12,7 @@ public class JournalVoucher: AuditableEntity
 
     public DocumentStatus Status { get; set; } = DocumentStatus.Draft;
 
-    public int? BranchId { get; set; }
+    public int BranchId { get; set; }
     public Branch? Branch { get; set; }
 
     public int? FiscalPeriodId { get; set; }

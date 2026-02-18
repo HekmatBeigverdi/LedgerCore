@@ -13,7 +13,7 @@ public class Payment: AuditableEntity
     public int? PartyId { get; set; }               // معمولاً تأمین‌کننده
     public Party? Party { get; set; }
 
-    public int? BranchId { get; set; }
+    public int BranchId { get; set; }
     public Branch? Branch { get; set; }
 
     public PaymentMethod Method { get; set; } = PaymentMethod.Cash;
