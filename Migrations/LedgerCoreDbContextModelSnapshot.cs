@@ -1023,6 +1023,9 @@ namespace LedgerCore.Migrations
                     b.Property<string>("ReferenceNo")
                         .HasColumnType("longtext");
 
+                    b.Property<int?>("ReversalJournalVoucherId")
+                        .HasColumnType("int");
+
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
@@ -1042,6 +1045,8 @@ namespace LedgerCore.Migrations
                         .IsUnique();
 
                     b.HasIndex("PartyId");
+
+                    b.HasIndex("ReversalJournalVoucherId");
 
                     b.ToTable("Payments", (string)null);
                 });
@@ -1193,6 +1198,9 @@ namespace LedgerCore.Migrations
                     b.Property<string>("ReferenceNo")
                         .HasColumnType("longtext");
 
+                    b.Property<int?>("ReversalJournalVoucherId")
+                        .HasColumnType("int");
+
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
@@ -1212,6 +1220,8 @@ namespace LedgerCore.Migrations
                         .IsUnique();
 
                     b.HasIndex("PartyId");
+
+                    b.HasIndex("ReversalJournalVoucherId");
 
                     b.ToTable("Receipts", (string)null);
                 });
@@ -1266,6 +1276,9 @@ namespace LedgerCore.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("varchar(50)");
 
+                    b.Property<int?>("ReversalJournalVoucherId")
+                        .HasColumnType("int");
+
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
@@ -1298,6 +1311,8 @@ namespace LedgerCore.Migrations
 
                     b.HasIndex("Number")
                         .IsUnique();
+
+                    b.HasIndex("ReversalJournalVoucherId");
 
                     b.HasIndex("WarehouseId");
 
@@ -2536,6 +2551,9 @@ namespace LedgerCore.Migrations
                     b.Property<string>("CreatedBy")
                         .HasColumnType("longtext");
 
+                    b.Property<int?>("DefaultBranchId")
+                        .HasColumnType("int");
+
                     b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -2575,6 +2593,8 @@ namespace LedgerCore.Migrations
                         .HasColumnType("varchar(100)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("DefaultBranchId");
 
                     b.HasIndex("Email")
                         .IsUnique();
@@ -3172,11 +3192,17 @@ namespace LedgerCore.Migrations
 
                     b.HasOne("LedgerCore.Core.Models.Accounting.JournalVoucher", "JournalVoucher")
                         .WithMany()
-                        .HasForeignKey("JournalVoucherId");
+                        .HasForeignKey("JournalVoucherId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("LedgerCore.Core.Models.Master.Party", "Party")
                         .WithMany()
                         .HasForeignKey("PartyId");
+
+                    b.HasOne("LedgerCore.Core.Models.Accounting.JournalVoucher", "ReversalJournalVoucher")
+                        .WithMany()
+                        .HasForeignKey("ReversalJournalVoucherId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("BankAccount");
 
@@ -3187,6 +3213,8 @@ namespace LedgerCore.Migrations
                     b.Navigation("JournalVoucher");
 
                     b.Navigation("Party");
+
+                    b.Navigation("ReversalJournalVoucher");
                 });
 
             modelBuilder.Entity("LedgerCore.Core.Models.Documents.PurchaseInvoice", b =>
@@ -3240,11 +3268,17 @@ namespace LedgerCore.Migrations
 
                     b.HasOne("LedgerCore.Core.Models.Accounting.JournalVoucher", "JournalVoucher")
                         .WithMany()
-                        .HasForeignKey("JournalVoucherId");
+                        .HasForeignKey("JournalVoucherId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("LedgerCore.Core.Models.Master.Party", "Party")
                         .WithMany()
                         .HasForeignKey("PartyId");
+
+                    b.HasOne("LedgerCore.Core.Models.Accounting.JournalVoucher", "ReversalJournalVoucher")
+                        .WithMany()
+                        .HasForeignKey("ReversalJournalVoucherId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("BankAccount");
 
@@ -3255,6 +3289,8 @@ namespace LedgerCore.Migrations
                     b.Navigation("JournalVoucher");
 
                     b.Navigation("Party");
+
+                    b.Navigation("ReversalJournalVoucher");
                 });
 
             modelBuilder.Entity("LedgerCore.Core.Models.Documents.SalesInvoice", b =>
@@ -3275,7 +3311,13 @@ namespace LedgerCore.Migrations
 
                     b.HasOne("LedgerCore.Core.Models.Accounting.JournalVoucher", "JournalVoucher")
                         .WithMany()
-                        .HasForeignKey("JournalVoucherId");
+                        .HasForeignKey("JournalVoucherId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("LedgerCore.Core.Models.Accounting.JournalVoucher", "ReversalJournalVoucher")
+                        .WithMany()
+                        .HasForeignKey("ReversalJournalVoucherId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("LedgerCore.Core.Models.Inventory.Warehouse", "Warehouse")
                         .WithMany()
@@ -3288,6 +3330,8 @@ namespace LedgerCore.Migrations
                     b.Navigation("Customer");
 
                     b.Navigation("JournalVoucher");
+
+                    b.Navigation("ReversalJournalVoucher");
 
                     b.Navigation("Warehouse");
                 });
@@ -3507,6 +3551,16 @@ namespace LedgerCore.Migrations
                     b.Navigation("Permission");
 
                     b.Navigation("Role");
+                });
+
+            modelBuilder.Entity("LedgerCore.Core.Models.Security.User", b =>
+                {
+                    b.HasOne("LedgerCore.Core.Models.Master.Branch", "DefaultBranch")
+                        .WithMany()
+                        .HasForeignKey("DefaultBranchId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("DefaultBranch");
                 });
 
             modelBuilder.Entity("LedgerCore.Core.Models.Security.UserRole", b =>

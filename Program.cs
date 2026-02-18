@@ -87,6 +87,10 @@ builder.Services.AddAutoMapper(typeof(DomainMappingProfile));
 // MVC / Controllers
 builder.Services.AddControllers();
 
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentBranchService, CurrentBranchService>();
+
+
 // OpenAPI / Swagger - keep standard setup (remove unknown AddOpenApi)
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
