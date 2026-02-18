@@ -18,6 +18,14 @@ public class JournalVoucherConfiguration : IEntityTypeConfiguration<JournalVouch
             .HasMaxLength(500);
 
         builder.HasIndex(x => x.Number).IsUnique();
+        
+        builder.Property(x => x.BranchId)
+            .IsRequired();
+
+        builder.HasOne(x => x.Branch)
+            .WithMany()
+            .HasForeignKey(x => x.BranchId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasMany(x => x.Lines)
             .WithOne(x => x.JournalVoucher!)

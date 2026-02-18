@@ -26,6 +26,15 @@ public class ReceiptConfiguration : IEntityTypeConfiguration<Receipt>
             .WithMany()
             .HasForeignKey(x => x.ReversalJournalVoucherId)
             .OnDelete(DeleteBehavior.Restrict);
+        
+        builder.Property(x => x.BranchId)
+            .IsRequired();
+
+        builder.HasOne(x => x.Branch)
+            .WithMany()
+            .HasForeignKey(x => x.BranchId)
+            .OnDelete(DeleteBehavior.Restrict);
+
 
     }
 }

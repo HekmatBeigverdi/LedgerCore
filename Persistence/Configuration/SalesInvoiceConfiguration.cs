@@ -16,6 +16,15 @@ public class SalesInvoiceConfiguration : IEntityTypeConfiguration<SalesInvoice>
 
         builder.HasIndex(x => x.Number).IsUnique();
         builder.HasIndex(x => x.Date);
+        
+        builder.Property(x => x.BranchId)
+            .IsRequired();
+
+        builder.HasOne(x => x.Branch)
+            .WithMany()
+            .HasForeignKey(x => x.BranchId)
+            .OnDelete(DeleteBehavior.Restrict);
+
 
         builder.HasMany(x => x.Lines)
             .WithOne(x => x.SalesInvoice!)
