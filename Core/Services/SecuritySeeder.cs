@@ -257,10 +257,19 @@ public static class SeedPermissionsAsyncSecuritySeeder
         var userRepo = uow.Repository<User>();
         var roleRepo = uow.Repository<Role>();
         var urRepo = uow.Repository<UserRole>();
-
-        // اگر admin موجود است، کاری نکن
-        var exists = await userRepo.AnyAsync(u => u.UserName == adminUserName, cancellationToken);
-        if (exists) return;
+        
+        
+        var adminPage = await userRepo.FindAsync(u => u.UserName == adminUserName, null, cancellationToken);
+        var existingAdmin = adminPage.Items.FirstOrDefault();
+        if (existingAdmin != null)
+        {
+            if (existingAdmin.DefaultBranchId == null)
+            {
+                existingAdmin.DefaultBranchId = defaultBranchId;
+                await uow.SaveChangesAsync(cancellationToken);
+            }
+            return;
+        }
 
         var adminRolePage = await roleRepo.FindAsync(r => r.Name == RoleSeedData.AdminRoleName, null, cancellationToken);
         var adminRole = adminRolePage.Items.FirstOrDefault();
@@ -276,7 +285,8 @@ public static class SeedPermissionsAsyncSecuritySeeder
             Email = "admin@local",
             PasswordHash = hash,
             PasswordSalt = salt,
-            Status = Core.Models.Enums.UserStatus.Active
+            Status = Core.Models.Enums.UserStatus.Active,
+            DefaultBranchId = defaultBranchId
         };
 
         await userRepo.AddAsync(admin, cancellationToken);
