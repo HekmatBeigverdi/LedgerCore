@@ -69,6 +69,11 @@ public class AuthService(
             new("displayName", user.DisplayName ?? string.Empty),
             new("email", user.Email ?? string.Empty)
         };
+        
+        if (user.DefaultBranchId.HasValue)
+        {
+            claims.Add(new Claim("branchId", user.DefaultBranchId.Value.ToString()));
+        }
 
         // ---------------------------
         // Roles + Permissions
