@@ -30,7 +30,7 @@ public class FixedAsset: AuditableEntity
 
     public AssetStatus Status { get; set; } = AssetStatus.Active;
 
-    public int? BranchId { get; set; }
+    public int BranchId { get; set; }
     public Branch? Branch { get; set; }
 
     public int? CostCenterId { get; set; }

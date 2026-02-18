@@ -16,7 +16,7 @@ public class InventoryAdjustment: AuditableEntity
 
     public DocumentStatus Status { get; set; } = DocumentStatus.Draft;
 
-    public int? BranchId { get; set; }
+    public int BranchId { get; set; }
     public Branch? Branch { get; set; }
 
     // جمع مقدار ریالی تعدیل (برای لینک با حسابداری)

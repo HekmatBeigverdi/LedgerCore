@@ -8,7 +8,7 @@ public class InventoryAdjustmentCreateDto
 
     public int WarehouseId { get; set; }
 
-    public int? BranchId { get; set; }
+    public int BranchId { get; set; }
 
     public string? Description { get; set; }
 

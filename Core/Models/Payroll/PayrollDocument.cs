@@ -13,7 +13,7 @@ public class PayrollDocument: AuditableEntity
     public int PayrollPeriodId { get; set; }
     public PayrollPeriod? PayrollPeriod { get; set; }
 
-    public int? BranchId { get; set; }
+    public int BranchId { get; set; }
     public Branch? Branch { get; set; }
 
     public PayrollStatus Status { get; set; } = PayrollStatus.Draft;
