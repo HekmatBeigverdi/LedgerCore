@@ -10,7 +10,8 @@ namespace LedgerCore.Core.Services;
 
 public class AccountingService(
     IUnitOfWork uow,
-    IReportingService reportingService) : IAccountingService
+    IReportingService reportingService,
+    ICurrentBranchService currentBranch) : IAccountingService
 {
     // ===================== ژورنال =====================
     
@@ -74,6 +75,9 @@ public class AccountingService(
         // اگر شماره ندارد، از NumberSeries بگیریم
         if (string.IsNullOrWhiteSpace(voucher.Number))
         {
+            if (voucher.BranchId == 0)
+                voucher.BranchId = currentBranch.GetRequiredBranchId();
+
             voucher.Number = await GenerateNextNumberAsync("Journal", voucher.BranchId, cancellationToken);
         }
         
@@ -119,7 +123,8 @@ public class AccountingService(
         // هدر سند را به‌روزرسانی می‌کنیم
         existing.Date = voucher.Date;
         existing.Description = voucher.Description;
-        existing.BranchId = voucher.BranchId;
+        if (voucher.BranchId != 0)
+            existing.BranchId = voucher.BranchId;
         existing.FiscalPeriodId = voucher.FiscalPeriodId;
 
         // سطرها را ساده ری‌بیلد می‌کنیم
@@ -619,6 +624,9 @@ public class AccountingService(
         Receipt receipt,
         CancellationToken cancellationToken = default)
     {
+        if (receipt.BranchId == 0)
+            receipt.BranchId = currentBranch.GetRequiredBranchId();
+
         await uow.BeginTransactionAsync(cancellationToken);
         try
         {
@@ -658,7 +666,8 @@ public class AccountingService(
 
         existing.Date = receipt.Date;
         existing.PartyId = receipt.PartyId;
-        existing.BranchId = receipt.BranchId;
+        if (receipt.BranchId != 0)
+            existing.BranchId = receipt.BranchId;
         existing.Amount = receipt.Amount;
         existing.CurrencyId = receipt.CurrencyId;
         existing.FxRate = receipt.FxRate;
@@ -777,6 +786,9 @@ public class AccountingService(
 
             payment.Number = await GenerateNextNumberAsync("Payment", payment.BranchId, cancellationToken);
             payment.Status = DocumentStatus.Draft;
+            if (payment.BranchId == 0)
+                payment.BranchId = currentBranch.GetRequiredBranchId();
+
 
             await uow.Payments.AddAsync(payment, cancellationToken);
             await uow.SaveChangesAsync(cancellationToken);
@@ -809,7 +821,8 @@ public class AccountingService(
 
         existing.Date = payment.Date;
         existing.PartyId = payment.PartyId;
-        existing.BranchId = payment.BranchId;
+        if (payment.BranchId != 0)
+            existing.BranchId = payment.BranchId;
         existing.Amount = payment.Amount;
         existing.CurrencyId = payment.CurrencyId;
         existing.FxRate = payment.FxRate;
