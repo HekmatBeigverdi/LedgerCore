@@ -9,7 +9,7 @@ using LedgerCore.Core.Models.Settings;
 
 namespace LedgerCore.Core.Services;
 
-public class PurchaseService(IUnitOfWork uow) : IPurchaseService
+public class PurchaseService(IUnitOfWork uow, ICurrentBranchService currentBranch) : IPurchaseService
 {
 
     #region Public API
@@ -18,6 +18,10 @@ public class PurchaseService(IUnitOfWork uow) : IPurchaseService
         PurchaseInvoice invoice,
         CancellationToken cancellationToken = default)
     {
+        
+        if (invoice.BranchId == 0)
+            invoice.BranchId = currentBranch.GetRequiredBranchId();
+
         await uow.BeginTransactionAsync(cancellationToken);
 
         try
@@ -54,7 +58,11 @@ public class PurchaseService(IUnitOfWork uow) : IPurchaseService
         PurchaseInvoice invoice,
         CancellationToken cancellationToken = default)
     {
+        
         var existing = await uow.Invoices.GetPurchaseInvoiceWithLinesAsync(invoice.Id, cancellationToken);
+        if (invoice.BranchId != 0)
+            existing!.BranchId = invoice.BranchId;
+
         if (existing is null)
             throw new InvalidOperationException($"PurchaseInvoice with id={invoice.Id} not found.");
 
