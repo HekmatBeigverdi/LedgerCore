@@ -44,7 +44,9 @@ public class DomainMappingProfile : Profile
         // UpdateSalesInvoiceRequest → SalesInvoice
         CreateMap<UpdateSalesInvoiceRequest, SalesInvoice>()
             .ForMember(d => d.Number, m => m.Ignore())
-            .ForMember(d => d.Lines, m => m.Ignore());
+            .ForMember(d => d.Lines, m => m.Ignore())
+            .ForMember(d => d.BranchId, m => m.Condition(src => src.BranchId.HasValue));
+
 
         CreateMap<UpdateSalesInvoiceLineRequest, InvoiceLine>()
             .ForMember(d => d.SalesInvoiceId, m => m.Ignore())
@@ -69,7 +71,9 @@ public class DomainMappingProfile : Profile
 
         CreateMap<UpdatePurchaseInvoiceRequest, PurchaseInvoice>()
             .ForMember(d => d.Number, m => m.Ignore())
-            .ForMember(d => d.Lines, m => m.Ignore());
+            .ForMember(d => d.Lines, m => m.Ignore())
+            .ForMember(d => d.BranchId, m => m.Condition(src => src.BranchId.HasValue));
+
 
         CreateMap<UpdatePurchaseInvoiceLineRequest, InvoiceLine>()
             .ForMember(d => d.SalesInvoiceId, m => m.Ignore())
