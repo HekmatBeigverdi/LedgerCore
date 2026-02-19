@@ -8,7 +8,8 @@ using LedgerCore.Core.Models.Settings;
 
 namespace LedgerCore.Core.Services;
 
-public class SalesService(IUnitOfWork uow) : ISalesService
+public class SalesService(IUnitOfWork uow, ICurrentBranchService currentBranch) : ISalesService
+
 {
     #region Public API
 
@@ -17,6 +18,10 @@ public class SalesService(IUnitOfWork uow) : ISalesService
         CancellationToken cancellationToken = default)
     {
         await uow.BeginTransactionAsync(cancellationToken);
+        
+        if (invoice.BranchId == 0)
+            invoice.BranchId = currentBranch.GetRequiredBranchId();
+
 
         try
         {
@@ -64,7 +69,8 @@ public class SalesService(IUnitOfWork uow) : ISalesService
         existing.Date = invoice.Date;
         existing.DueDate = invoice.DueDate;
         existing.CustomerId = invoice.CustomerId;
-        existing.BranchId = invoice.BranchId;
+        if (invoice.BranchId != 0)        // اگر 0 بود، شعبه قبلی را نگه می‌داریم
+            existing.BranchId = invoice.BranchId;
         existing.WarehouseId = invoice.WarehouseId;
         existing.CurrencyId = invoice.CurrencyId;
         existing.FxRate = invoice.FxRate;
