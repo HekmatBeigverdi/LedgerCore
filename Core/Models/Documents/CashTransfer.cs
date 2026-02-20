@@ -29,6 +29,8 @@ public class CashTransfer: AuditableEntity
 
     public DocumentStatus Status { get; set; } = DocumentStatus.Draft;
 
+    public int BranchId { get; set; }
+    public Branch? Branch { get; set; }
     public int? JournalVoucherId { get; set; }
     public JournalVoucher? JournalVoucher { get; set; }
 }
