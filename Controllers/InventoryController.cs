@@ -101,9 +101,18 @@ public class InventoryController : ControllerBase
 
         var adjustmentRepo = _unitOfWork.Repository<InventoryAdjustment>();
         var stockMoveRepo = _unitOfWork.Repository<StockMove>();
+        
+        var warehouse = await _unitOfWork.Warehouses.GetByIdAsync(dto.WarehouseId, cancellationToken);
+        if (warehouse is null)
+            return BadRequest("Warehouse not found.");
+
+        var branchId = (int)(dto.BranchId ?? warehouse.BranchId)!;
+        
+        if (warehouse.BranchId != branchId)
+            return BadRequest("BranchId does not match warehouse branch.");
 
         var number = string.IsNullOrWhiteSpace(dto.Number)
-            ? await _numberSeries.NextAsync("InventoryAdjustment", dto.BranchId, cancellationToken)
+            ? await _numberSeries.NextAsync("InventoryAdjustment", branchId, cancellationToken)
             : dto.Number!;
         
         // هدر سند تعدیل
@@ -112,7 +121,7 @@ public class InventoryController : ControllerBase
             Number = number,
             Date = dto.Date == default ? DateTime.Today : dto.Date.Date,
             WarehouseId = dto.WarehouseId,
-            BranchId = dto.BranchId,
+            BranchId = branchId,
             Description = dto.Description,
             Status = DocumentStatus.Draft
         };

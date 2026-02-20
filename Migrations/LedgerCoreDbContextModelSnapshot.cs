@@ -734,6 +734,9 @@ namespace LedgerCore.Migrations
                     b.Property<decimal>("Amount")
                         .HasColumnType("decimal(65,30)");
 
+                    b.Property<int>("BranchId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
@@ -786,6 +789,8 @@ namespace LedgerCore.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("BranchId");
+
                     b.HasIndex("CurrencyId");
 
                     b.HasIndex("Date");
@@ -812,6 +817,9 @@ namespace LedgerCore.Migrations
                         .HasColumnType("decimal(65,30)");
 
                     b.Property<int?>("BankAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("BranchId")
                         .HasColumnType("int");
 
                     b.Property<string>("ChequeNumber")
@@ -864,6 +872,8 @@ namespace LedgerCore.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("BankAccountId");
+
+                    b.HasIndex("BranchId");
 
                     b.HasIndex("ChequeNumber");
 
@@ -3092,6 +3102,12 @@ namespace LedgerCore.Migrations
 
             modelBuilder.Entity("LedgerCore.Core.Models.Documents.CashTransfer", b =>
                 {
+                    b.HasOne("LedgerCore.Core.Models.Master.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("LedgerCore.Core.Models.Master.Currency", "Currency")
                         .WithMany()
                         .HasForeignKey("CurrencyId");
@@ -3108,6 +3124,8 @@ namespace LedgerCore.Migrations
                         .WithMany()
                         .HasForeignKey("ToBankAccountId");
 
+                    b.Navigation("Branch");
+
                     b.Navigation("Currency");
 
                     b.Navigation("FromBankAccount");
@@ -3123,6 +3141,12 @@ namespace LedgerCore.Migrations
                         .WithMany()
                         .HasForeignKey("BankAccountId");
 
+                    b.HasOne("LedgerCore.Core.Models.Master.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("LedgerCore.Core.Models.Master.Currency", "Currency")
                         .WithMany()
                         .HasForeignKey("CurrencyId");
@@ -3132,6 +3156,8 @@ namespace LedgerCore.Migrations
                         .HasForeignKey("PartyId");
 
                     b.Navigation("BankAccount");
+
+                    b.Navigation("Branch");
 
                     b.Navigation("Currency");
 
