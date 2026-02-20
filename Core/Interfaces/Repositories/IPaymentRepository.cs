@@ -5,6 +5,5 @@ namespace LedgerCore.Core.Interfaces.Repositories;
 
 public interface IPaymentRepository : IRepository<Payment>
 {
-    Task<PagedResult<Payment>> QueryAsync(PagingParams? paging = null,
-        CancellationToken cancellationToken = default);
+    Task<PagedResult<Payment>> QueryAsync(int branchId, PagingParams? paging = null, CancellationToken cancellationToken = default);
 }

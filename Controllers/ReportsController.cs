@@ -10,8 +10,18 @@ namespace LedgerCore.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
-public class ReportsController(IReportingService reportingService) : ControllerBase
-{
+public class ReportsController(IReportingService reportingService, ICurrentBranchService currentBranch) : ControllerBase{
+    
+    private int ResolveBranchIdOrForbid(int? requestedBranchId)
+    {
+        var current = currentBranch.GetRequiredBranchId();
+
+        if (requestedBranchId.HasValue && requestedBranchId.Value != current)
+            throw new UnauthorizedAccessException("Cross-branch access is not allowed.");
+
+        return current;
+    }
+    
     // ==========================
     //  گزارش‌های مالی
     // ==========================
@@ -30,9 +40,9 @@ public class ReportsController(IReportingService reportingService) : ControllerB
     {
         if (fromDate > toDate)
             return BadRequest("fromDate cannot be greater than toDate.");
-
-        var data = await reportingService.GetTrialBalanceAsync(
-            fromDate, toDate, branchId, cancellationToken);
+        
+        var scopedBranchId = ResolveBranchIdOrForbid(branchId);
+        var data = await reportingService.GetTrialBalanceAsync(fromDate, toDate, scopedBranchId, cancellationToken);
 
         return Ok(data);
     }
@@ -52,9 +62,10 @@ public class ReportsController(IReportingService reportingService) : ControllerB
     {
         if (fromDate > toDate)
             return BadRequest("fromDate cannot be greater than toDate.");
-
+        
+        var scopedBranchId = ResolveBranchIdOrForbid(branchId);
         var data = await reportingService.GetGeneralLedgerAsync(
-            fromDate, toDate, accountId, branchId, cancellationToken);
+            fromDate, toDate, accountId, scopedBranchId, cancellationToken);
 
         return Ok(data);
     }
@@ -73,9 +84,12 @@ public class ReportsController(IReportingService reportingService) : ControllerB
     {
         if (fromDate > toDate)
             return BadRequest("fromDate cannot be greater than toDate.");
-
+        
+        
+        
+        var scopedBranchId = ResolveBranchIdOrForbid(branchId);
         var report = await reportingService.GetProfitAndLossAsync(
-            fromDate, toDate, branchId, cancellationToken);
+            fromDate, toDate, scopedBranchId, cancellationToken);
 
         return Ok(report);
     }
@@ -91,8 +105,10 @@ public class ReportsController(IReportingService reportingService) : ControllerB
         [FromQuery] int? branchId,
         CancellationToken cancellationToken)
     {
+        
+        var scopedBranchId = ResolveBranchIdOrForbid(branchId);
         var report = await reportingService.GetBalanceSheetAsync(
-            asOfDate, branchId, cancellationToken);
+            asOfDate, scopedBranchId, cancellationToken);
 
         return Ok(report);
     }
@@ -114,8 +130,10 @@ public class ReportsController(IReportingService reportingService) : ControllerB
         [FromQuery] int? branchId,
         CancellationToken cancellationToken)
     {
+        
+        var scopedBranchId = ResolveBranchIdOrForbid(branchId);
         var data = await reportingService.GetStockBalanceAsync(
-            asOfDate, warehouseId, productId, branchId, cancellationToken);
+            asOfDate, warehouseId, productId, scopedBranchId, cancellationToken);
 
         return Ok(data);
     }
@@ -136,9 +154,10 @@ public class ReportsController(IReportingService reportingService) : ControllerB
     {
         if (fromDate > toDate)
             return BadRequest("fromDate cannot be greater than toDate.");
-
+        
+        var scopedBranchId = ResolveBranchIdOrForbid(branchId);
         var data = await reportingService.GetStockCardAsync(
-            productId, warehouseId, fromDate, toDate, branchId, cancellationToken);
+            productId, warehouseId, fromDate, toDate, scopedBranchId, cancellationToken);
 
         return Ok(data);
     }
@@ -162,8 +181,9 @@ public class ReportsController(IReportingService reportingService) : ControllerB
         if (fromDate > toDate)
             return BadRequest("fromDate cannot be greater than toDate.");
 
+        var scopedBranchId = ResolveBranchIdOrForbid(branchId);
         var data = await reportingService.GetSalesByItemAsync(
-            fromDate, toDate, branchId, cancellationToken);
+            fromDate, toDate, scopedBranchId, cancellationToken);
 
         return Ok(data);
     }
@@ -182,9 +202,10 @@ public class ReportsController(IReportingService reportingService) : ControllerB
     {
         if (fromDate > toDate)
             return BadRequest("fromDate cannot be greater than toDate.");
-
+        
+        var scopedBranchId = ResolveBranchIdOrForbid(branchId);
         var data = await reportingService.GetSalesByPartyAsync(
-            fromDate, toDate, branchId, cancellationToken);
+            fromDate, toDate, scopedBranchId, cancellationToken);
 
         return Ok(data);
     }
@@ -203,8 +224,10 @@ public class ReportsController(IReportingService reportingService) : ControllerB
         if (fromDate > toDate)
             return BadRequest("fromDate cannot be greater than toDate.");
 
+
+        var scopedBranchId = ResolveBranchIdOrForbid(branchId);
         var data = await reportingService.GetPurchasesByItemAsync(
-            fromDate, toDate, branchId, cancellationToken);
+            fromDate, toDate, scopedBranchId, cancellationToken);
 
         return Ok(data);
     }
@@ -228,9 +251,10 @@ public class ReportsController(IReportingService reportingService) : ControllerB
     {
         if (fromDate > toDate)
             return BadRequest("fromDate cannot be greater than toDate.");
-
+        
+        var scopedBranchId = ResolveBranchIdOrForbid(branchId);
         var data = await reportingService.GetPayrollByEmployeeAsync(
-            fromDate, toDate, branchId, costCenterId, cancellationToken);
+            fromDate, toDate, scopedBranchId, costCenterId, cancellationToken);
 
         return Ok(data);
     }
@@ -250,9 +274,11 @@ public class ReportsController(IReportingService reportingService) : ControllerB
     {
         if (fromDate > toDate)
             return BadRequest("fromDate cannot be greater than toDate.");
+        
+        var scopedBranchId = ResolveBranchIdOrForbid(branchId);
 
         var data = await reportingService.GetPayrollSummaryByBranchAndCostCenterAsync(
-            fromDate, toDate, branchId, costCenterId, cancellationToken);
+            fromDate, toDate, scopedBranchId, costCenterId, cancellationToken);
 
         return Ok(data);
     }
@@ -270,7 +296,9 @@ public class ReportsController(IReportingService reportingService) : ControllerB
         [FromQuery] int? branchId,
         CancellationToken cancellationToken)
     {
-        var data = await reportingService.GetDashboardSummaryAsync(branchId, cancellationToken);
+        
+        var scopedBranchId = ResolveBranchIdOrForbid(branchId);
+        var data = await reportingService.GetDashboardSummaryAsync(scopedBranchId, cancellationToken);
         return Ok(data);
     } 
     
@@ -289,11 +317,12 @@ public class ReportsController(IReportingService reportingService) : ControllerB
         {
             return BadRequest("fromDate cannot be greater than toDate.");
         }
-
+        
+        var scopedBranchId = ResolveBranchIdOrForbid(branchId);
         var data = await reportingService.GetDailySalesTrendAsync(
             fromDate,
             toDate,
-            branchId,
+            scopedBranchId,
             cancellationToken);
 
         return Ok(data);
@@ -347,9 +376,10 @@ public class ReportsController(IReportingService reportingService) : ControllerB
     {
         if (fromDate > toDate)
             return BadRequest("fromDate cannot be greater than toDate.");
-
+        
+        var scopedBranchId = ResolveBranchIdOrForbid(branchId);
         var data = await reportingService.GetSubLedgerBalanceAsync(
-            fromDate, toDate, partyId, accountId, branchId, cancellationToken);
+            fromDate, toDate, partyId, accountId, scopedBranchId, cancellationToken);
 
         return Ok(data);
     }
@@ -370,9 +400,10 @@ public class ReportsController(IReportingService reportingService) : ControllerB
     {
         if (fromDate > toDate)
             return BadRequest("fromDate cannot be greater than toDate.");
-
+        
+        var scopedBranchId = ResolveBranchIdOrForbid(branchId);
         var data = await reportingService.GetSubLedgerLedgerAsync(
-            fromDate, toDate, partyId, accountId, branchId, cancellationToken);
+            fromDate, toDate, partyId, accountId, scopedBranchId, cancellationToken);
 
         return Ok(data);
     }
@@ -391,11 +422,12 @@ public class ReportsController(IReportingService reportingService) : ControllerB
         [FromQuery] int? branchId,
         CancellationToken cancellationToken)
     {
+        
+        var scopedBranchId = ResolveBranchIdOrForbid(branchId);
         var data = await reportingService.GetAgingAsync(
-            asOfDate, partyId, accountId, partyType, branchId, cancellationToken);
+            asOfDate, partyId, accountId, partyType, scopedBranchId, cancellationToken);
 
         return Ok(data);
     }
-
     
 }

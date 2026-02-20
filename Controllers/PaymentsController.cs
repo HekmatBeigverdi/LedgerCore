@@ -14,7 +14,8 @@ namespace LedgerCore.Controllers;
 public class PaymentsController(
     IAccountingService accountingService,
     IUnitOfWork uow,
-    IMapper mapper)
+    IMapper mapper,
+    ICurrentBranchService currentBranch)
     : ControllerBase
 {
     // GET api/payments/{id}
@@ -35,7 +36,9 @@ public class PaymentsController(
         [FromQuery] PagingParams paging,
         CancellationToken cancellationToken)
     {
-        var result = await uow.Payments.QueryAsync(paging, cancellationToken);
+        var branchId = currentBranch.GetRequiredBranchId();
+        var result = await uow.Payments.QueryAsync(branchId, paging, cancellationToken);
+        
         var dtoItems = result.Items.Select(x => mapper.Map<PaymentDto>(x)).ToList();
 
         var dtoPage = new PagedResult<PaymentDto>(
