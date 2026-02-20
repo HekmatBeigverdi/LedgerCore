@@ -298,7 +298,7 @@ namespace LedgerCore.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    b.Property<int?>("BranchId")
+                    b.Property<int>("BranchId")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
@@ -658,7 +658,7 @@ namespace LedgerCore.Migrations
                     b.Property<DateTime>("AcquisitionDate")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<int?>("BranchId")
+                    b.Property<int>("BranchId")
                         .HasColumnType("int");
 
                     b.Property<int>("CategoryId")
@@ -973,7 +973,7 @@ namespace LedgerCore.Migrations
                     b.Property<int?>("BankAccountId")
                         .HasColumnType("int");
 
-                    b.Property<int?>("BranchId")
+                    b.Property<int>("BranchId")
                         .HasColumnType("int");
 
                     b.Property<string>("CashDeskCode")
@@ -1057,7 +1057,7 @@ namespace LedgerCore.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    b.Property<int?>("BranchId")
+                    b.Property<int>("BranchId")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
@@ -1148,7 +1148,7 @@ namespace LedgerCore.Migrations
                     b.Property<int?>("BankAccountId")
                         .HasColumnType("int");
 
-                    b.Property<int?>("BranchId")
+                    b.Property<int>("BranchId")
                         .HasColumnType("int");
 
                     b.Property<string>("CashDeskCode")
@@ -1232,7 +1232,7 @@ namespace LedgerCore.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    b.Property<int?>("BranchId")
+                    b.Property<int>("BranchId")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
@@ -1325,7 +1325,7 @@ namespace LedgerCore.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    b.Property<int?>("BranchId")
+                    b.Property<int>("BranchId")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
@@ -2191,7 +2191,7 @@ namespace LedgerCore.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    b.Property<int?>("BranchId")
+                    b.Property<int>("BranchId")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
@@ -2971,7 +2971,9 @@ namespace LedgerCore.Migrations
                 {
                     b.HasOne("LedgerCore.Core.Models.Master.Branch", "Branch")
                         .WithMany()
-                        .HasForeignKey("BranchId");
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("LedgerCore.Core.Models.Accounting.FiscalPeriod", "FiscalPeriod")
                         .WithMany()
@@ -3053,7 +3055,9 @@ namespace LedgerCore.Migrations
                 {
                     b.HasOne("LedgerCore.Core.Models.Master.Branch", "Branch")
                         .WithMany()
-                        .HasForeignKey("BranchId");
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("LedgerCore.Core.Models.Assets.AssetCategory", "Category")
                         .WithMany()
@@ -3184,7 +3188,9 @@ namespace LedgerCore.Migrations
 
                     b.HasOne("LedgerCore.Core.Models.Master.Branch", "Branch")
                         .WithMany()
-                        .HasForeignKey("BranchId");
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("LedgerCore.Core.Models.Master.Currency", "Currency")
                         .WithMany()
@@ -3221,7 +3227,9 @@ namespace LedgerCore.Migrations
                 {
                     b.HasOne("LedgerCore.Core.Models.Master.Branch", "Branch")
                         .WithMany()
-                        .HasForeignKey("BranchId");
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("LedgerCore.Core.Models.Master.Currency", "Currency")
                         .WithMany()
@@ -3260,7 +3268,9 @@ namespace LedgerCore.Migrations
 
                     b.HasOne("LedgerCore.Core.Models.Master.Branch", "Branch")
                         .WithMany()
-                        .HasForeignKey("BranchId");
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("LedgerCore.Core.Models.Master.Currency", "Currency")
                         .WithMany()
@@ -3297,7 +3307,9 @@ namespace LedgerCore.Migrations
                 {
                     b.HasOne("LedgerCore.Core.Models.Master.Branch", "Branch")
                         .WithMany()
-                        .HasForeignKey("BranchId");
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("LedgerCore.Core.Models.Master.Currency", "Currency")
                         .WithMany()
@@ -3340,7 +3352,9 @@ namespace LedgerCore.Migrations
                 {
                     b.HasOne("LedgerCore.Core.Models.Master.Branch", "Branch")
                         .WithMany()
-                        .HasForeignKey("BranchId");
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("LedgerCore.Core.Models.Accounting.JournalVoucher", "JournalVoucher")
                         .WithMany()
@@ -3487,7 +3501,9 @@ namespace LedgerCore.Migrations
                 {
                     b.HasOne("LedgerCore.Core.Models.Master.Branch", "Branch")
                         .WithMany()
-                        .HasForeignKey("BranchId");
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("LedgerCore.Core.Models.Accounting.JournalVoucher", "JournalVoucher")
                         .WithMany()
