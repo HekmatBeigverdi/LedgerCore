@@ -26,7 +26,7 @@ public class SalesService(IUnitOfWork uow, ICurrentBranchService currentBranch) 
         try
         {
             await ValidateCustomerAsync(invoice.CustomerId, cancellationToken);
-            await ValidateWarehouseAsync(invoice.WarehouseId, cancellationToken);
+            await ValidateWarehouseAsync(invoice.WarehouseId, invoice.BranchId, cancellationToken);
 
             await CalculateInvoiceLinesAndTotalsAsync(invoice, cancellationToken);
 
@@ -75,6 +75,7 @@ public class SalesService(IUnitOfWork uow, ICurrentBranchService currentBranch) 
         existing.CurrencyId = invoice.CurrencyId;
         existing.FxRate = invoice.FxRate;
         existing.IsCashSale = invoice.IsCashSale;
+        
 
         // سطرها را به‌صورت ساده ری‌بیلد می‌کنیم (برای شروع)
         existing.Lines.Clear();
@@ -93,6 +94,8 @@ public class SalesService(IUnitOfWork uow, ICurrentBranchService currentBranch) 
         }
 
         await CalculateInvoiceLinesAndTotalsAsync(existing, cancellationToken);
+        await ValidateWarehouseAsync(existing.WarehouseId, existing.BranchId, cancellationToken);
+
 
         uow.Invoices.UpdateSalesInvoice(existing);
         await uow.SaveChangesAsync(cancellationToken);
@@ -228,12 +231,17 @@ public class SalesService(IUnitOfWork uow, ICurrentBranchService currentBranch) 
             throw new InvalidOperationException("Customer is not active.");
     }
 
-    private async Task ValidateWarehouseAsync(int? warehouseId, CancellationToken cancellationToken)
+    private async Task ValidateWarehouseAsync(int? warehouseId, int branchId, CancellationToken cancellationToken)
     {
+        
         if (warehouseId is null)
             throw new InvalidOperationException("WarehouseId is required.");
 
         var warehouse = await uow.Warehouses.GetByIdAsync(warehouseId.Value, cancellationToken);
+        
+        if (warehouse!.BranchId != branchId)
+            throw new InvalidOperationException("Selected warehouse does not belong to invoice branch.");
+        
         if (warehouse is null)
             throw new InvalidOperationException($"Warehouse with id={warehouseId} not found.");
         if (!warehouse.IsActive)
