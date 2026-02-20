@@ -27,7 +27,7 @@ public class PurchaseService(IUnitOfWork uow, ICurrentBranchService currentBranc
         try
         {
             await ValidateSupplierAsync(invoice.SupplierId, cancellationToken);
-            await ValidateWarehouseIfSetAsync(invoice.WarehouseId, cancellationToken);
+            await ValidateWarehouseIfSetAsync(invoice.WarehouseId, invoice.BranchId, cancellationToken);
 
             await CalculateInvoiceLinesAndTotalsAsync(invoice, cancellationToken);
 
@@ -73,7 +73,8 @@ public class PurchaseService(IUnitOfWork uow, ICurrentBranchService currentBranc
         existing.Date = invoice.Date;
         existing.DueDate = invoice.DueDate;
         existing.SupplierId = invoice.SupplierId;
-        existing.BranchId = invoice.BranchId;
+        if (invoice.BranchId != 0)
+            existing.BranchId = invoice.BranchId;
         existing.WarehouseId = invoice.WarehouseId;
         existing.CurrencyId = invoice.CurrencyId;
         existing.FxRate = invoice.FxRate;
@@ -95,6 +96,7 @@ public class PurchaseService(IUnitOfWork uow, ICurrentBranchService currentBranc
         }
 
         await CalculateInvoiceLinesAndTotalsAsync(existing, cancellationToken);
+        await ValidateWarehouseIfSetAsync(existing.WarehouseId, existing.BranchId, cancellationToken);
 
         uow.Invoices.UpdatePurchaseInvoice(existing);
         await uow.SaveChangesAsync(cancellationToken);
@@ -151,7 +153,7 @@ public class PurchaseService(IUnitOfWork uow, ICurrentBranchService currentBranc
             throw new InvalidOperationException("Supplier is not active.");
     }
 
-    private async Task ValidateWarehouseIfSetAsync(int? warehouseId, CancellationToken cancellationToken)
+    private async Task ValidateWarehouseIfSetAsync(int? warehouseId, int branchId, CancellationToken cancellationToken)
     {
         if (warehouseId is null)
             return;
@@ -159,6 +161,9 @@ public class PurchaseService(IUnitOfWork uow, ICurrentBranchService currentBranc
         // اگر خواستی، IWarehouseRepository را هم روی IUnitOfWork اضافه کن
         var warehouseRepo = uow.Repository<Warehouse>();
         var warehouse = await warehouseRepo.GetByIdAsync(warehouseId.Value, cancellationToken);
+        
+        if (warehouse!.BranchId != branchId)
+            throw new InvalidOperationException("Selected warehouse does not belong to invoice branch.");
         if (warehouse is null)
             throw new InvalidOperationException($"Warehouse with id={warehouseId} not found.");
         if (!warehouse.IsActive)
