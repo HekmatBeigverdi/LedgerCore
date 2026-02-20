@@ -29,7 +29,8 @@ public class Cheque: AuditableEntity
     public ChequeStatus Status { get; set; } = ChequeStatus.Issued;
 
     public string? Description { get; set; }
-
+    public int BranchId { get; set; }
+    public Branch? Branch { get; set; }
     public ICollection<ChequeHistory> History { get; set; } = new List<ChequeHistory>();
     
 }
