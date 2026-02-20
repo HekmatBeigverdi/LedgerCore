@@ -13,6 +13,13 @@ public class ChequeConfiguration : IEntityTypeConfiguration<Cheque>
         builder.Property(x => x.ChequeNumber)
             .HasMaxLength(100)
             .IsRequired();
+        
+        builder.Property(x => x.BranchId).IsRequired();
+
+        builder.HasOne(x => x.Branch)
+            .WithMany()
+            .HasForeignKey(x => x.BranchId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(x => x.ChequeNumber);
         builder.HasIndex(x => x.DueDate);
