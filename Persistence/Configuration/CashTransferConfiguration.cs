@@ -13,6 +13,13 @@ public class CashTransferConfiguration : IEntityTypeConfiguration<CashTransfer>
         builder.Property(x => x.Number)
             .HasMaxLength(50)
             .IsRequired();
+        
+        builder.Property(x => x.BranchId).IsRequired();
+
+        builder.HasOne(x => x.Branch)
+            .WithMany()
+            .HasForeignKey(x => x.BranchId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(x => x.Number).IsUnique();
         builder.HasIndex(x => x.Date);
