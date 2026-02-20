@@ -5,6 +5,6 @@ namespace LedgerCore.Core.Interfaces.Repositories;
 
 public interface IReceiptRepository : IRepository<Receipt>
 {
-    Task<PagedResult<Receipt>> QueryAsync(PagingParams? paging = null,
+    Task<PagedResult<Receipt>> QueryAsync(int branchId, PagingParams? paging = null,
         CancellationToken cancellationToken = default);
 }

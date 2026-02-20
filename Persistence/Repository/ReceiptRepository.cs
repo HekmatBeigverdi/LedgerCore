@@ -7,7 +7,9 @@ namespace LedgerCore.Persistence.Repository;
 
 public class ReceiptRepository(LedgerCoreDbContext context) : RepositoryBase<Receipt>(context), IReceiptRepository
 {
-    public async Task<PagedResult<Receipt>> QueryAsync(PagingParams? paging = null,
+    public async Task<PagedResult<Receipt>> QueryAsync(
+        int branchId,
+        PagingParams? paging = null,
         CancellationToken cancellationToken = default)
     {
         IQueryable<Receipt> query = DbSet
@@ -15,6 +17,7 @@ public class ReceiptRepository(LedgerCoreDbContext context) : RepositoryBase<Rec
             .Include(x => x.BankAccount)
             .Include(x => x.JournalVoucher)
             .Include(x => x.ReversalJournalVoucher)
+            .Where(x => x.BranchId == branchId)
             .AsNoTracking();
 
         return await QueryHelpers.ApplyPagingAsync(query, paging, cancellationToken);
