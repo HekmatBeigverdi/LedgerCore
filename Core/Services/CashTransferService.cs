@@ -10,8 +10,7 @@ namespace LedgerCore.Core.Services;
 /// سرویس دامین برای مدیریت انتقال وجه (بین حساب‌های بانکی / صندوق‌ها).
 /// این سرویس فقط از IUnitOfWork، CashTransfer و NumberSeries استفاده می‌کند.
 /// </summary>
-public class CashTransferService(IUnitOfWork uow) : ICashTransferService
-{
+public class CashTransferService(IUnitOfWork uow, ICurrentBranchService currentBranch) : ICashTransferService{
     /// <summary>
     /// ایجاد یک سند انتقال وجه جدید.
     /// </summary>
@@ -25,6 +24,9 @@ public class CashTransferService(IUnitOfWork uow) : ICashTransferService
             // اعتبارسنجی‌های پایه
             if (transfer.Amount <= 0)
                 throw new InvalidOperationException("مبلغ انتقال باید بزرگ‌تر از صفر باشد.");
+            
+            if (transfer.BranchId == 0)
+                transfer.BranchId = currentBranch.GetRequiredBranchId();
 
             var hasFrom =
                 transfer.FromBankAccountId.HasValue ||
@@ -49,6 +51,7 @@ public class CashTransferService(IUnitOfWork uow) : ICashTransferService
             {
                 transfer.Number = await GenerateNextNumberAsync(
                     "CashTransfer",
+                    transfer.BranchId,
                     cancellationToken);
             }
 
@@ -124,17 +127,20 @@ public class CashTransferService(IUnitOfWork uow) : ICashTransferService
     /// </summary>
     private async Task<string> GenerateNextNumberAsync(
         string entityType,
+        int branchId,
         CancellationToken cancellationToken)
     {
         var seriesRepo = uow.Repository<NumberSeries>();
 
         var page = await seriesRepo.FindAsync(
-            x => x.EntityType == entityType && x.IsActive,
+            x => x.EntityType == entityType
+                 && x.IsActive
+                 && (x.BranchId == null || x.BranchId == branchId),
             null,
             cancellationToken);
 
         var series = page.Items
-                         .OrderByDescending(x => x.BranchId.HasValue)
+                         .OrderByDescending(x => x.BranchId.HasValue) // اولویت با سریال شعبه‌ای
                          .FirstOrDefault()
                      ?? throw new InvalidOperationException($"No NumberSeries defined for entityType={entityType}.");
 
