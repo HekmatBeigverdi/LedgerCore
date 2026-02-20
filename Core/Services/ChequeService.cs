@@ -7,8 +7,7 @@ using LedgerCore.Core.Models.Settings;
 
 namespace LedgerCore.Core.Services;
 
-public class ChequeService(IUnitOfWork uow) : IChequeService
-{
+public class ChequeService(IUnitOfWork uow, ICurrentBranchService currentBranch) : IChequeService{
 
     /// <summary>
     /// ثبت یک چک جدید (دریافتی یا صادره).
@@ -36,6 +35,9 @@ public class ChequeService(IUnitOfWork uow) : IChequeService
             Description = cheque.Description,
             ChangedBy = "system" // بعداً می‌توانی از کاربر لاگین شده بگیری
         };
+        
+        if (cheque.BranchId == 0)
+            cheque.BranchId = currentBranch.GetRequiredBranchId();
 
         await uow.Cheques.AddHistoryAsync(history, cancellationToken);
         await uow.SaveChangesAsync(cancellationToken);
@@ -136,7 +138,8 @@ public class ChequeService(IUnitOfWork uow) : IChequeService
         // ساخت سند حسابداری
         var voucher = new JournalVoucher
         {
-            Number = await GenerateNextNumberAsync("Journal", null, cancellationToken),
+            BranchId = cheque.BranchId,
+            Number = await GenerateNextNumberAsync("Journal", cheque.BranchId, cancellationToken),
             Date = DateTime.UtcNow,
             FiscalPeriodId = fiscalPeriodId,
             Description = $"{documentType} for cheque {cheque.ChequeNumber}",
