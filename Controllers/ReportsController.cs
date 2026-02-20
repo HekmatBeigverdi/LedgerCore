@@ -4,6 +4,7 @@ using LedgerCore.Core.Models.Enums;
 using LedgerCore.Core.Models.Security;
 using LedgerCore.Core.ViewModels.Dashboard;
 using LedgerCore.Core.ViewModels.Reports;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LedgerCore.Controllers;
@@ -16,6 +17,7 @@ public class ReportsController(IReportingService reportingService, ICurrentBranc
     {
         var current = currentBranch.GetRequiredBranchId();
 
+        // اگر کاربر branchId فرستاد و با شعبه جاری متفاوت بود -> دسترسی غیرمجاز
         if (requestedBranchId.HasValue && requestedBranchId.Value != current)
             throw new UnauthorizedAccessException("Cross-branch access is not allowed.");
 
@@ -41,10 +43,16 @@ public class ReportsController(IReportingService reportingService, ICurrentBranc
         if (fromDate > toDate)
             return BadRequest("fromDate cannot be greater than toDate.");
         
-        var scopedBranchId = ResolveBranchIdOrForbid(branchId);
-        var data = await reportingService.GetTrialBalanceAsync(fromDate, toDate, scopedBranchId, cancellationToken);
-
-        return Ok(data);
+        try
+        {
+            var scopedBranchId = ResolveBranchIdOrForbid(branchId);
+            var data = await reportingService.GetTrialBalanceAsync(fromDate, toDate, scopedBranchId, cancellationToken);
+            return Ok(data);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, ex.Message);
+        }
     }
 
     /// <summary>
@@ -63,11 +71,16 @@ public class ReportsController(IReportingService reportingService, ICurrentBranc
         if (fromDate > toDate)
             return BadRequest("fromDate cannot be greater than toDate.");
         
-        var scopedBranchId = ResolveBranchIdOrForbid(branchId);
-        var data = await reportingService.GetGeneralLedgerAsync(
-            fromDate, toDate, accountId, scopedBranchId, cancellationToken);
-
-        return Ok(data);
+        try
+        {
+            var scopedBranchId = ResolveBranchIdOrForbid(branchId);
+            var data = await reportingService.GetGeneralLedgerAsync(fromDate, toDate, accountId, scopedBranchId, cancellationToken);
+            return Ok(data);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, ex.Message);
+        }
     }
 
     /// <summary>
@@ -85,13 +98,18 @@ public class ReportsController(IReportingService reportingService, ICurrentBranc
         if (fromDate > toDate)
             return BadRequest("fromDate cannot be greater than toDate.");
         
-        
-        
-        var scopedBranchId = ResolveBranchIdOrForbid(branchId);
-        var report = await reportingService.GetProfitAndLossAsync(
-            fromDate, toDate, scopedBranchId, cancellationToken);
+        try
+        {
+            var scopedBranchId = ResolveBranchIdOrForbid(branchId);
+            var report = await reportingService.GetProfitAndLossAsync(
+                fromDate, toDate, scopedBranchId, cancellationToken);
+            return Ok(report);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, ex.Message);
+        }
 
-        return Ok(report);
     }
 
     /// <summary>
@@ -105,12 +123,18 @@ public class ReportsController(IReportingService reportingService, ICurrentBranc
         [FromQuery] int? branchId,
         CancellationToken cancellationToken)
     {
-        
-        var scopedBranchId = ResolveBranchIdOrForbid(branchId);
-        var report = await reportingService.GetBalanceSheetAsync(
-            asOfDate, scopedBranchId, cancellationToken);
+        try
+        {
+            var scopedBranchId = ResolveBranchIdOrForbid(branchId);
+            var report = await reportingService.GetBalanceSheetAsync(
+                asOfDate, scopedBranchId, cancellationToken);
 
-        return Ok(report);
+            return Ok(report);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, ex.Message);
+        }
     }
 
     // ==========================
@@ -130,12 +154,18 @@ public class ReportsController(IReportingService reportingService, ICurrentBranc
         [FromQuery] int? branchId,
         CancellationToken cancellationToken)
     {
-        
-        var scopedBranchId = ResolveBranchIdOrForbid(branchId);
-        var data = await reportingService.GetStockBalanceAsync(
-            asOfDate, warehouseId, productId, scopedBranchId, cancellationToken);
+        try
+        {
+            var scopedBranchId = ResolveBranchIdOrForbid(branchId);
+            var data = await reportingService.GetStockBalanceAsync(
+                asOfDate, warehouseId, productId, scopedBranchId, cancellationToken);
 
-        return Ok(data);
+            return Ok(data);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, ex.Message);
+        }
     }
 
     /// <summary>
@@ -154,12 +184,19 @@ public class ReportsController(IReportingService reportingService, ICurrentBranc
     {
         if (fromDate > toDate)
             return BadRequest("fromDate cannot be greater than toDate.");
-        
-        var scopedBranchId = ResolveBranchIdOrForbid(branchId);
-        var data = await reportingService.GetStockCardAsync(
-            productId, warehouseId, fromDate, toDate, scopedBranchId, cancellationToken);
 
-        return Ok(data);
+        try
+        {
+            var scopedBranchId = ResolveBranchIdOrForbid(branchId);
+            var data = await reportingService.GetStockCardAsync(
+                productId, warehouseId, fromDate, toDate, scopedBranchId, cancellationToken);
+
+            return Ok(data);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, ex.Message);
+        }
     }
 
     // ==========================
@@ -181,11 +218,18 @@ public class ReportsController(IReportingService reportingService, ICurrentBranc
         if (fromDate > toDate)
             return BadRequest("fromDate cannot be greater than toDate.");
 
-        var scopedBranchId = ResolveBranchIdOrForbid(branchId);
-        var data = await reportingService.GetSalesByItemAsync(
-            fromDate, toDate, scopedBranchId, cancellationToken);
+        try
+        {
+            var scopedBranchId = ResolveBranchIdOrForbid(branchId);
+            var data = await reportingService.GetSalesByItemAsync(
+                fromDate, toDate, scopedBranchId, cancellationToken);
 
-        return Ok(data);
+            return Ok(data);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, ex.Message);
+        }
     }
 
     /// <summary>
@@ -202,12 +246,19 @@ public class ReportsController(IReportingService reportingService, ICurrentBranc
     {
         if (fromDate > toDate)
             return BadRequest("fromDate cannot be greater than toDate.");
-        
-        var scopedBranchId = ResolveBranchIdOrForbid(branchId);
-        var data = await reportingService.GetSalesByPartyAsync(
-            fromDate, toDate, scopedBranchId, cancellationToken);
 
-        return Ok(data);
+        try
+        {
+            var scopedBranchId = ResolveBranchIdOrForbid(branchId);
+            var data = await reportingService.GetSalesByPartyAsync(
+                fromDate, toDate, scopedBranchId, cancellationToken);
+
+            return Ok(data);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, ex.Message);
+        }
     }
 
     /// <summary>
@@ -224,12 +275,18 @@ public class ReportsController(IReportingService reportingService, ICurrentBranc
         if (fromDate > toDate)
             return BadRequest("fromDate cannot be greater than toDate.");
 
+        try
+        {
+            var scopedBranchId = ResolveBranchIdOrForbid(branchId);
+            var data = await reportingService.GetPurchasesByItemAsync(
+                fromDate, toDate, scopedBranchId, cancellationToken);
 
-        var scopedBranchId = ResolveBranchIdOrForbid(branchId);
-        var data = await reportingService.GetPurchasesByItemAsync(
-            fromDate, toDate, scopedBranchId, cancellationToken);
-
-        return Ok(data);
+            return Ok(data);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, ex.Message);
+        }
     }
     
     // ==========================
@@ -251,12 +308,20 @@ public class ReportsController(IReportingService reportingService, ICurrentBranc
     {
         if (fromDate > toDate)
             return BadRequest("fromDate cannot be greater than toDate.");
-        
-        var scopedBranchId = ResolveBranchIdOrForbid(branchId);
-        var data = await reportingService.GetPayrollByEmployeeAsync(
-            fromDate, toDate, scopedBranchId, costCenterId, cancellationToken);
 
-        return Ok(data);
+        try
+        {
+            var scopedBranchId = ResolveBranchIdOrForbid(branchId);
+            var data = await reportingService.GetPayrollByEmployeeAsync(
+                fromDate, toDate, scopedBranchId, costCenterId, cancellationToken);
+
+            return Ok(data);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, ex.Message);
+        }
+        
     }
 
     /// <summary>
@@ -274,13 +339,18 @@ public class ReportsController(IReportingService reportingService, ICurrentBranc
     {
         if (fromDate > toDate)
             return BadRequest("fromDate cannot be greater than toDate.");
-        
-        var scopedBranchId = ResolveBranchIdOrForbid(branchId);
 
-        var data = await reportingService.GetPayrollSummaryByBranchAndCostCenterAsync(
-            fromDate, toDate, scopedBranchId, costCenterId, cancellationToken);
-
-        return Ok(data);
+        try
+        {
+            var scopedBranchId = ResolveBranchIdOrForbid(branchId);
+            var data = await reportingService.GetPayrollSummaryByBranchAndCostCenterAsync(
+                fromDate, toDate, scopedBranchId, costCenterId, cancellationToken);
+            return Ok(data);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, ex.Message);
+        }
     }
     
     // ==========================
@@ -296,10 +366,16 @@ public class ReportsController(IReportingService reportingService, ICurrentBranc
         [FromQuery] int? branchId,
         CancellationToken cancellationToken)
     {
-        
-        var scopedBranchId = ResolveBranchIdOrForbid(branchId);
-        var data = await reportingService.GetDashboardSummaryAsync(scopedBranchId, cancellationToken);
-        return Ok(data);
+        try
+        {
+            var scopedBranchId = ResolveBranchIdOrForbid(branchId);
+            var data = await reportingService.GetDashboardSummaryAsync(scopedBranchId, cancellationToken);
+            return Ok(data);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, ex.Message);
+        }
     } 
     
     /// <summary>
@@ -317,15 +393,22 @@ public class ReportsController(IReportingService reportingService, ICurrentBranc
         {
             return BadRequest("fromDate cannot be greater than toDate.");
         }
-        
-        var scopedBranchId = ResolveBranchIdOrForbid(branchId);
-        var data = await reportingService.GetDailySalesTrendAsync(
-            fromDate,
-            toDate,
-            scopedBranchId,
-            cancellationToken);
 
-        return Ok(data);
+        try
+        {
+            var scopedBranchId = ResolveBranchIdOrForbid(branchId);
+            var data = await reportingService.GetDailySalesTrendAsync(
+                fromDate,
+                toDate,
+                scopedBranchId,
+                cancellationToken);
+
+            return Ok(data);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, ex.Message);
+        }
     }
     /// <summary>
     /// خلاصه داشبورد مدیریتی به تفکیک شعبه‌ها در بازهٔ زمانی مشخص.
@@ -342,12 +425,19 @@ public class ReportsController(IReportingService reportingService, ICurrentBranc
             return BadRequest("fromDate cannot be greater than toDate.");
         }
 
-        var data = await reportingService.GetBranchDashboardSummaryAsync(
-            fromDate,
-            toDate,
-            cancellationToken);
+        try
+        {
+            var data = await reportingService.GetBranchDashboardSummaryAsync(
+                fromDate,
+                toDate,
+                cancellationToken);
 
-        return Ok(data);
+            return Ok(data);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, ex.Message);
+        }
     }
     /// <summary>
     /// گزارش وضعیت سال‌ها و دوره‌های مالی (باز/بسته بودن).
@@ -357,8 +447,16 @@ public class ReportsController(IReportingService reportingService, ICurrentBranc
     public async Task<ActionResult<IReadOnlyList<FiscalStatusRowDto>>> GetFiscalStatus(
         CancellationToken cancellationToken)
     {
-        var data = await reportingService.GetFiscalStatusAsync(cancellationToken);
-        return Ok(data);
+        try
+        {
+            var data = await reportingService.GetFiscalStatusAsync(cancellationToken);
+            return Ok(data);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, ex.Message);
+        }
+
     }
     /// <summary>
     /// مانده تفصیلی.
@@ -376,12 +474,20 @@ public class ReportsController(IReportingService reportingService, ICurrentBranc
     {
         if (fromDate > toDate)
             return BadRequest("fromDate cannot be greater than toDate.");
-        
-        var scopedBranchId = ResolveBranchIdOrForbid(branchId);
-        var data = await reportingService.GetSubLedgerBalanceAsync(
-            fromDate, toDate, partyId, accountId, scopedBranchId, cancellationToken);
 
-        return Ok(data);
+        try
+        {
+            var scopedBranchId = ResolveBranchIdOrForbid(branchId);
+            var data = await reportingService.GetSubLedgerBalanceAsync(
+                fromDate, toDate, partyId, accountId, scopedBranchId, cancellationToken);
+
+            return Ok(data);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, ex.Message);
+        }
+        
     }
 
     /// <summary>
@@ -400,12 +506,19 @@ public class ReportsController(IReportingService reportingService, ICurrentBranc
     {
         if (fromDate > toDate)
             return BadRequest("fromDate cannot be greater than toDate.");
-        
-        var scopedBranchId = ResolveBranchIdOrForbid(branchId);
-        var data = await reportingService.GetSubLedgerLedgerAsync(
-            fromDate, toDate, partyId, accountId, scopedBranchId, cancellationToken);
 
-        return Ok(data);
+        try
+        {
+            var scopedBranchId = ResolveBranchIdOrForbid(branchId);
+            var data = await reportingService.GetSubLedgerLedgerAsync(
+                fromDate, toDate, partyId, accountId, scopedBranchId, cancellationToken);
+
+            return Ok(data);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, ex.Message);
+        }
     }
     
     /// <summary>
@@ -422,12 +535,19 @@ public class ReportsController(IReportingService reportingService, ICurrentBranc
         [FromQuery] int? branchId,
         CancellationToken cancellationToken)
     {
-        
-        var scopedBranchId = ResolveBranchIdOrForbid(branchId);
-        var data = await reportingService.GetAgingAsync(
-            asOfDate, partyId, accountId, partyType, scopedBranchId, cancellationToken);
 
-        return Ok(data);
+        try
+        {
+            var scopedBranchId = ResolveBranchIdOrForbid(branchId);
+            var data = await reportingService.GetAgingAsync(
+                asOfDate, partyId, accountId, partyType, scopedBranchId, cancellationToken);
+
+            return Ok(data);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, ex.Message);
+        }
     }
     
 }

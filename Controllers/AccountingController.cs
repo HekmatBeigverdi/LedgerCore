@@ -16,9 +16,11 @@ namespace LedgerCore.Controllers;
 public class AccountingController(
     IAccountingService accountingService,
     IUnitOfWork uow,
-    IMapper mapper)
+    IMapper mapper,
+    ICurrentBranchService currentBranch)
     : ControllerBase
 {
+    
     /// <summary>
     /// لیست سندهای روزنامه با Paging ساده.
     /// </summary>
@@ -34,8 +36,9 @@ public class AccountingController(
             PageNumber = pageNumber,
             PageSize = pageSize
         };
+        var branchId = currentBranch.GetRequiredBranchId();
 
-        var result = await uow.Journals.QueryAsync(paging, cancellationToken);
+        var result = await uow.Journals.QueryAsync(branchId, paging, cancellationToken);
 
         var items = result.Items
             .Select(j => mapper.Map<JournalVoucherDto>(j))

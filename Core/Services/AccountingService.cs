@@ -13,6 +13,8 @@ public class AccountingService(
     IReportingService reportingService,
     ICurrentBranchService currentBranch) : IAccountingService
 {
+    private int GetBranchIdOrThrow() => currentBranch.GetRequiredBranchId();
+
     // ===================== ژورنال =====================
     
     private async Task<FiscalYear> GetFiscalYearByDateOrThrowAsync(
@@ -72,12 +74,13 @@ public class AccountingService(
         JournalVoucher voucher,
         CancellationToken cancellationToken = default)
     {
+        // Branch scope is required
+        if (voucher.BranchId == 0)
+            voucher.BranchId = GetBranchIdOrThrow();
+
         // اگر شماره ندارد، از NumberSeries بگیریم
         if (string.IsNullOrWhiteSpace(voucher.Number))
         {
-            if (voucher.BranchId == 0)
-                voucher.BranchId = currentBranch.GetRequiredBranchId();
-
             voucher.Number = await GenerateNextNumberAsync("Journal", voucher.BranchId, cancellationToken);
         }
         
@@ -106,14 +109,16 @@ public class AccountingService(
         int id,
         CancellationToken cancellationToken = default)
     {
-        return uow.Journals.GetWithLinesAsync(id, cancellationToken);
+        var branchId = currentBranch.GetRequiredBranchId();
+        return uow.Journals.GetWithLinesAsync(id, branchId, cancellationToken);
     }
     
     public async Task<JournalVoucher> UpdateJournalAsync(
         JournalVoucher voucher,
         CancellationToken cancellationToken = default)
     {
-        var existing = await uow.Journals.GetWithLinesAsync(voucher.Id, cancellationToken);
+        var branchId = currentBranch.GetRequiredBranchId();
+        var existing = await uow.Journals.GetWithLinesAsync(voucher.Id, branchId, cancellationToken);
         if (existing is null)
             throw new InvalidOperationException($"JournalVoucher with id={voucher.Id} not found.");
 
@@ -187,7 +192,8 @@ public class AccountingService(
         await uow.BeginTransactionAsync(cancellationToken);
         try
         {
-            var journal = await uow.Journals.GetWithLinesAsync(journalId, cancellationToken);
+            var branchId = currentBranch.GetRequiredBranchId();
+            var journal = await uow.Journals.GetWithLinesAsync(journalId, branchId, cancellationToken);
             if (journal is null)
                 throw new InvalidOperationException($"JournalVoucher with id={journalId} not found.");
 
@@ -223,7 +229,8 @@ public class AccountingService(
         CancellationToken cancellationToken = default)
     {
         // اصل سند
-        var original = await uow.Journals.GetWithLinesAsync(journalId, cancellationToken);
+        var branchId = currentBranch.GetRequiredBranchId();
+        var original = await uow.Journals.GetWithLinesAsync(journalId, branchId, cancellationToken);
         if (original is null)
             throw new InvalidOperationException($"JournalVoucher with id={journalId} not found.");
 
@@ -280,7 +287,7 @@ public class AccountingService(
         await PostJournalAsync(reversed.Id, cancellationToken);
 
         // گرفتن نسخه نهایی با خطوط
-        var final = await uow.Journals.GetWithLinesAsync(reversed.Id, cancellationToken);
+        var final = await uow.Journals.GetWithLinesAsync(reversed.Id, branchId, cancellationToken);
         return final ?? reversed;
     }
 
@@ -415,9 +422,11 @@ public class AccountingService(
         await uow.BeginTransactionAsync(cancellationToken);
         try
         {
+            var branchId = GetBranchIdOrThrow();
             var closingVoucher = new JournalVoucher
             {
-                Number = await GenerateNextNumberAsync("ClosingJournal", null, cancellationToken),
+                BranchId = branchId,
+                Number = await GenerateNextNumberAsync("ClosingJournal", branchId, cancellationToken),
                 Date = period.EndDate,
                 Description = $"Closing entries for fiscal period {period.Name}",
                 Status = DocumentStatus.Posted,
@@ -587,10 +596,15 @@ public class AccountingService(
         if (decimal.Round(totalDebit, 2) != decimal.Round(totalCredit, 2))
             throw new InvalidOperationException("Opening journal is not balanced. Check postings and account types.");
 
+        var branchId = GetBranchIdOrThrow();
+        var period = await GetOpenFiscalPeriodAsync(nextYearStartDate, null, cancellationToken);
+
         var openingVoucher = new JournalVoucher
         {
-            Number = await GenerateNextNumberAsync("OpeningJournal", null, cancellationToken),
+            BranchId = branchId,
+            Number = await GenerateNextNumberAsync("OpeningJournal", branchId, cancellationToken),
             Date = nextYearStartDate,
+            FiscalPeriodId = period.Id,
             Description = $"Opening balances as of {nextYearStartDate:yyyy-MM-dd}",
             Status = DocumentStatus.Posted,
             Lines = openingLines
@@ -604,7 +618,8 @@ public class AccountingService(
         int journalId,
         CancellationToken cancellationToken = default)
     {
-        var journal = await uow.Journals.GetWithLinesAsync(journalId, cancellationToken);
+        var branchId = currentBranch.GetRequiredBranchId();
+        var journal = await uow.Journals.GetWithLinesAsync(journalId, branchId, cancellationToken);
         if (journal is null)
             throw new InvalidOperationException($"JournalVoucher with id={journalId} not found.");
 
@@ -779,6 +794,9 @@ public class AccountingService(
         Payment payment,
         CancellationToken cancellationToken = default)
     {
+        if (payment.BranchId == 0)
+            payment.BranchId = currentBranch.GetRequiredBranchId();
+
         await uow.BeginTransactionAsync(cancellationToken);
         try
         {
@@ -786,9 +804,6 @@ public class AccountingService(
 
             payment.Number = await GenerateNextNumberAsync("Payment", payment.BranchId, cancellationToken);
             payment.Status = DocumentStatus.Draft;
-            if (payment.BranchId == 0)
-                payment.BranchId = currentBranch.GetRequiredBranchId();
-
 
             await uow.Payments.AddAsync(payment, cancellationToken);
             await uow.SaveChangesAsync(cancellationToken);

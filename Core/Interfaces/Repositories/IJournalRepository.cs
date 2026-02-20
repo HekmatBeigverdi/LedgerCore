@@ -5,8 +5,8 @@ namespace LedgerCore.Core.Interfaces.Repositories;
 
 public interface IJournalRepository : IRepository<JournalVoucher>
 {
-    Task<JournalVoucher?> GetWithLinesAsync(int id, CancellationToken cancellationToken = default);
+    Task<JournalVoucher?> GetWithLinesAsync(int branchId, int id, CancellationToken cancellationToken = default);
 
-    Task<PagedResult<JournalVoucher>> QueryAsync(PagingParams? paging = null,
+    Task<PagedResult<JournalVoucher>> QueryAsync(int branchId,PagingParams? paging = null,
         CancellationToken cancellationToken = default);
 }

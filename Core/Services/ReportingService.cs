@@ -8,9 +8,18 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LedgerCore.Core.Services;
 
-public class ReportingService(LedgerCoreDbContext db) : IReportingService
+public class ReportingService(LedgerCoreDbContext db, ICurrentBranchService currentBranch) : IReportingService
 {
     private readonly LedgerCoreDbContext _db = db ?? throw new ArgumentNullException(nameof(db));
+    private readonly ICurrentBranchService _currentBranch = currentBranch ?? throw new ArgumentNullException(nameof(currentBranch));
+
+    private int ResolveBranchIdOrThrow(int? requestedBranchId)
+    {
+        var current = _currentBranch.GetRequiredBranchId();
+        if (requestedBranchId.HasValue && requestedBranchId.Value != current)
+            throw new UnauthorizedAccessException("Cross-branch access is not allowed.");
+        return current;
+    }
 
     #region Trial Balance
 
@@ -20,16 +29,15 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
         int? branchId,
         CancellationToken cancellationToken = default)
     {
+        var scopedBranchId = ResolveBranchIdOrThrow(branchId);
         var baseLines = _db.JournalLines
             .Include(l => l.Account)
             .Include(l => l.JournalVoucher)
             .Where(l => l.JournalVoucher != null &&
                         l.JournalVoucher.Status == DocumentStatus.Posted);
 
-        if (branchId.HasValue)
-        {
-            baseLines = baseLines.Where(l => l.JournalVoucher!.BranchId == branchId.Value);
-        }
+        // Always scope by current branch
+        baseLines = baseLines.Where(l => l.JournalVoucher!.BranchId == scopedBranchId);
 
         var openingQuery = baseLines.Where(l => l.JournalVoucher!.Date < fromDate);
 
@@ -117,14 +125,14 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
         int? branchId,
         CancellationToken cancellationToken = default)
     {
+        var scopedBranchId = ResolveBranchIdOrThrow(branchId);
         var baseLines = _db.JournalLines
             .Include(l => l.Account)
             .Include(l => l.JournalVoucher)
             .Where(l => l.JournalVoucher != null &&
                         l.JournalVoucher.Status == DocumentStatus.Posted);
 
-        if (branchId.HasValue)
-            baseLines = baseLines.Where(l => l.JournalVoucher!.BranchId == branchId.Value);
+        baseLines = baseLines.Where(l => l.JournalVoucher!.BranchId == scopedBranchId);
 
         if (accountId.HasValue)
             baseLines = baseLines.Where(l => l.AccountId == accountId.Value);
@@ -220,6 +228,7 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
         int? branchId,
         CancellationToken cancellationToken = default)
     {
+        var scopedBranchId = ResolveBranchIdOrThrow(branchId);
         var baseLines = _db.JournalLines
             .Include(l => l.Account)
             .Include(l => l.JournalVoucher)
@@ -230,8 +239,7 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
                         (l.Account!.Type == AccountType.Revenue ||
                          l.Account!.Type == AccountType.Expense));
 
-        if (branchId.HasValue)
-            baseLines = baseLines.Where(l => l.JournalVoucher!.BranchId == branchId.Value);
+        baseLines = baseLines.Where(l => l.JournalVoucher!.BranchId == scopedBranchId);
 
         var grouped = await baseLines
             .GroupBy(l => new
@@ -303,6 +311,7 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
         int? branchId,
         CancellationToken cancellationToken = default)
     {
+        var scopedBranchId = ResolveBranchIdOrThrow(branchId);
         var baseLines = _db.JournalLines
             .Include(l => l.Account)
             .Include(l => l.JournalVoucher)
@@ -310,8 +319,7 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
                         l.JournalVoucher.Status == DocumentStatus.Posted &&
                         l.JournalVoucher.Date <= asOfDate);
 
-        if (branchId.HasValue)
-            baseLines = baseLines.Where(l => l.JournalVoucher!.BranchId == branchId.Value);
+        baseLines = baseLines.Where(l => l.JournalVoucher!.BranchId == scopedBranchId);
 
         var grouped = await baseLines
             .Where(l =>
@@ -405,6 +413,7 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
         int? branchId,
         CancellationToken cancellationToken = default)
     {
+        var scopedBranchId = ResolveBranchIdOrThrow(branchId);
         var moves = _db.StockMoves
             .Include(m => m.Product)
             .Include(m => m.Warehouse)
@@ -416,8 +425,7 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
         if (productId.HasValue)
             moves = moves.Where(m => m.ProductId == productId.Value);
 
-        if (branchId.HasValue)
-            moves = moves.Where(m => m.Warehouse!.BranchId == branchId.Value);
+        moves = moves.Where(m => m.Warehouse!.BranchId == scopedBranchId);
 
         var grouped = await moves
             .GroupBy(m => new
@@ -468,6 +476,7 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
         int? branchId,
         CancellationToken cancellationToken = default)
     {
+        var scopedBranchId = ResolveBranchIdOrThrow(branchId);
         var moves = _db.StockMoves
             .Include(m => m.Warehouse)
             .Where(m => m.ProductId == productId &&
@@ -477,8 +486,7 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
         if (warehouseId.HasValue)
             moves = moves.Where(m => m.WarehouseId == warehouseId.Value);
 
-        if (branchId.HasValue)
-            moves = moves.Where(m => m.Warehouse!.BranchId == branchId.Value);
+        moves = moves.Where(m => m.Warehouse!.BranchId == scopedBranchId);
 
         var list = await moves
             .OrderBy(m => m.Date)
@@ -539,6 +547,7 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
         int? branchId,
         CancellationToken cancellationToken = default)
     {
+        var scopedBranchId = ResolveBranchIdOrThrow(branchId);
         var invoices = _db.SalesInvoices
             .Include(i => i.Lines)
             .ThenInclude(l => l.Product)
@@ -546,8 +555,7 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
                         i.Date <= toDate &&
                         i.Status == DocumentStatus.Posted);
 
-        if (branchId.HasValue)
-            invoices = invoices.Where(i => i.BranchId == branchId.Value);
+        invoices = invoices.Where(i => i.BranchId == scopedBranchId);
 
         var grouped = await invoices
             .SelectMany(i => i.Lines)
@@ -588,14 +596,14 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
         int? branchId,
         CancellationToken cancellationToken = default)
     {
+        var scopedBranchId = ResolveBranchIdOrThrow(branchId);
         var invoices = _db.SalesInvoices
             .Include(i => i.Customer)
             .Where(i => i.Date >= fromDate &&
                         i.Date <= toDate &&
                         i.Status == DocumentStatus.Posted);
 
-        if (branchId.HasValue)
-            invoices = invoices.Where(i => i.BranchId == branchId.Value);
+        invoices = invoices.Where(i => i.BranchId == scopedBranchId);
 
         var grouped = await invoices
             .GroupBy(i => new
@@ -634,6 +642,7 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
         int? branchId,
         CancellationToken cancellationToken = default)
     {
+        var scopedBranchId = ResolveBranchIdOrThrow(branchId);
         var invoices = _db.PurchaseInvoices
             .Include(i => i.Lines)
             .ThenInclude(l => l.Product)
@@ -641,8 +650,7 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
                         i.Date <= toDate &&
                         i.Status == DocumentStatus.Posted);
 
-        if (branchId.HasValue)
-            invoices = invoices.Where(i => i.BranchId == branchId.Value);
+        invoices = invoices.Where(i => i.BranchId == scopedBranchId);
 
         var grouped = await invoices
             .SelectMany(i => i.Lines)
@@ -685,6 +693,7 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
         int? costCenterId,
         CancellationToken cancellationToken = default)
     {
+        var scopedBranchId = ResolveBranchIdOrThrow(branchId);
         // فقط اسناد حقوقی پست شده یا پرداخت شده
         var docsQuery = _db.PayrollDocuments
             .Where(d =>
@@ -692,14 +701,15 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
                 d.Date <= toDate &&
                 (d.Status == PayrollStatus.Posted || d.Status == PayrollStatus.Paid));
 
-        // فیلتر شعبه/مرکز هزینه روی Employee
-        // برای کارایی، هم روی سند و هم روی سطر اعمال می‌کنیم
-        if (branchId.HasValue || costCenterId.HasValue)
+        // Scope by current branch (Employee scope)
+        docsQuery = docsQuery.Where(d =>
+            d.Lines.Any(l => l.Employee != null && l.Employee.BranchId == scopedBranchId));
+
+        // Optional cost center filter
+        if (costCenterId.HasValue)
         {
             docsQuery = docsQuery.Where(d =>
-                d.Lines.Any(l =>
-                    (!branchId.HasValue || l.Employee!.BranchId == branchId.Value) &&
-                    (!costCenterId.HasValue || l.Employee!.CostCenterId == costCenterId.Value)));
+                d.Lines.Any(l => l.Employee != null && l.Employee.CostCenterId == costCenterId.Value));
         }
 
         var grouped = await docsQuery
@@ -709,8 +719,7 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
                 Line = l,
                 Employee = l.Employee!
             }))
-            .Where(x =>
-                !branchId.HasValue || x.Employee.BranchId == branchId.Value)
+            .Where(x => x.Employee.BranchId == scopedBranchId)
             .Where(x =>
                 !costCenterId.HasValue || x.Employee.CostCenterId == costCenterId.Value)
             .GroupBy(x => new
@@ -758,18 +767,20 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
         int? costCenterId,
         CancellationToken cancellationToken = default)
     {
+        var scopedBranchId = ResolveBranchIdOrThrow(branchId);
         var docsQuery = _db.PayrollDocuments
             .Where(d =>
                 d.Date >= fromDate &&
                 d.Date <= toDate &&
                 (d.Status == PayrollStatus.Posted || d.Status == PayrollStatus.Paid));
 
-        if (branchId.HasValue || costCenterId.HasValue)
+        docsQuery = docsQuery.Where(d =>
+            d.Lines.Any(l => l.Employee != null && l.Employee.BranchId == scopedBranchId));
+
+        if (costCenterId.HasValue)
         {
             docsQuery = docsQuery.Where(d =>
-                d.Lines.Any(l =>
-                    (!branchId.HasValue || l.Employee!.BranchId == branchId.Value) &&
-                    (!costCenterId.HasValue || l.Employee!.CostCenterId == costCenterId.Value)));
+                d.Lines.Any(l => l.Employee != null && l.Employee.CostCenterId == costCenterId.Value));
         }
 
         var grouped = await docsQuery
@@ -779,8 +790,7 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
                 Line = l,
                 Employee = l.Employee!
             }))
-            .Where(x =>
-                !branchId.HasValue || x.Employee.BranchId == branchId.Value)
+            .Where(x => x.Employee.BranchId == scopedBranchId)
             .Where(x =>
                 !costCenterId.HasValue || x.Employee.CostCenterId == costCenterId.Value)
             .GroupBy(x => new
@@ -827,6 +837,7 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
         int? branchId,
         CancellationToken cancellationToken = default)
     {
+        var scopedBranchId = ResolveBranchIdOrThrow(branchId);
         // مبنا: امروز و ماه جاری
         var today = DateTime.Today;
         var monthStart = new DateTime(today.Year, today.Month, 1);
@@ -849,13 +860,10 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
             .AsNoTracking()
             .Where(x => x.Status == DocumentStatus.Posted);
 
-        if (branchId.HasValue)
-        {
-            salesQuery = salesQuery.Where(x => x.BranchId == branchId.Value);
-            purchasesQuery = purchasesQuery.Where(x => x.BranchId == branchId.Value);
-            receiptsQuery = receiptsQuery.Where(x => x.BranchId == branchId.Value);
-            paymentsQuery = paymentsQuery.Where(x => x.BranchId == branchId.Value);
-        }
+        salesQuery = salesQuery.Where(x => x.BranchId == scopedBranchId);
+        purchasesQuery = purchasesQuery.Where(x => x.BranchId == scopedBranchId);
+        receiptsQuery = receiptsQuery.Where(x => x.BranchId == scopedBranchId);
+        paymentsQuery = paymentsQuery.Where(x => x.BranchId == scopedBranchId);
 
         // ===== فروش امروز =====
         var todaySalesAgg = await salesQuery
@@ -949,7 +957,7 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
             Today = today,
             MonthStart = monthStart,
             MonthEnd = nextMonthStart.AddDays(-1),
-            BranchId = branchId,
+            BranchId = scopedBranchId,
 
             TodaySalesInvoiceCount = todaySalesAgg?.Count ?? 0,
             TodaySalesTotal = todaySalesAgg?.Total ?? 0m,
@@ -986,6 +994,7 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
         int? branchId,
         CancellationToken cancellationToken = default)
     {
+        var scopedBranchId = ResolveBranchIdOrThrow(branchId);
         fromDate = fromDate.Date;
         toDate = toDate.Date;
 
@@ -999,10 +1008,7 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
             .AsNoTracking()
             .Where(x => x.Status == DocumentStatus.Posted);
 
-        if (branchId.HasValue)
-        {
-            salesQuery = salesQuery.Where(x => x.BranchId == branchId.Value);
-        }
+        salesQuery = salesQuery.Where(x => x.BranchId == scopedBranchId);
 
         // جمع فروش به تفکیک روز (در دیتابیس)
         var aggregated = await salesQuery
@@ -1058,6 +1064,8 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
         DateTime toDate,
         CancellationToken cancellationToken = default)
     {
+        // In branch-scoped mode, restrict to current branch only
+        var scopedBranchId = _currentBranch.GetRequiredBranchId();
         fromDate = fromDate.Date;
         toDate = toDate.Date;
 
@@ -1072,6 +1080,7 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
         // لیست شعب
         var branches = await _db.Branches
             .AsNoTracking()
+            .Where(b => b.Id == scopedBranchId)
             .OrderBy(b => b.Id)
             .ToListAsync(cancellationToken);
 
@@ -1091,6 +1100,12 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
         var paymentsQuery = _db.Payments
             .AsNoTracking()
             .Where(x => x.Status == DocumentStatus.Posted);
+
+        // Always scope all aggregations to current branch
+        salesQuery = salesQuery.Where(x => x.BranchId == scopedBranchId);
+        purchasesQuery = purchasesQuery.Where(x => x.BranchId == scopedBranchId);
+        receiptsQuery = receiptsQuery.Where(x => x.BranchId == scopedBranchId);
+        paymentsQuery = paymentsQuery.Where(x => x.BranchId == scopedBranchId);
 
         // ===== فروش در بازهٔ زمانی به تفکیک شعبه =====
         var salesAgg = await salesQuery
@@ -1290,6 +1305,7 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
         int? branchId,
         CancellationToken cancellationToken = default)
     {
+        var scopedBranchId = ResolveBranchIdOrThrow(branchId);
         var baseLines = _db.JournalLines
             .Include(l => l.Account)
             .Include(l => l.Party)
@@ -1299,8 +1315,8 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
                         l.PartyId != null &&
                         l.Account != null &&
                         l.Account.RequiresParty);
-        if (branchId.HasValue)
-            baseLines = baseLines.Where(l => l.JournalVoucher!.BranchId == branchId.Value);
+
+        baseLines = baseLines.Where(l => l.JournalVoucher!.BranchId == scopedBranchId);
 
         if (partyId.HasValue)
             baseLines = baseLines.Where(l => l.PartyId == partyId.Value);
@@ -1405,6 +1421,7 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
         int? branchId,
         CancellationToken cancellationToken = default)
     {
+        var scopedBranchId = ResolveBranchIdOrThrow(branchId);
         var baseLines = _db.JournalLines
             .Include(l => l.Account)
             .Include(l => l.Party)
@@ -1416,8 +1433,7 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
                 l.Account != null &&
                 l.Account.RequiresParty);
 
-        if (branchId.HasValue)
-            baseLines = baseLines.Where(l => l.JournalVoucher!.BranchId == branchId.Value);
+        baseLines = baseLines.Where(l => l.JournalVoucher!.BranchId == scopedBranchId);
 
         if (accountId.HasValue)
             baseLines = baseLines.Where(l => l.AccountId == accountId.Value);
@@ -1505,6 +1521,7 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
         int? branchId,
         CancellationToken cancellationToken = default)
     {
+        var scopedBranchId = ResolveBranchIdOrThrow(branchId);
         var q = _db.JournalLines
             .Include(l => l.Account)
             .Include(l => l.Party)
@@ -1517,8 +1534,7 @@ public class ReportingService(LedgerCoreDbContext db) : IReportingService
                 l.Account != null &&
                 l.Account.RequiresParty);
 
-        if (branchId.HasValue)
-            q = q.Where(l => l.JournalVoucher!.BranchId == branchId.Value);
+        q = q.Where(l => l.JournalVoucher!.BranchId == scopedBranchId);
 
         if (partyId.HasValue)
             q = q.Where(l => l.PartyId == partyId.Value);

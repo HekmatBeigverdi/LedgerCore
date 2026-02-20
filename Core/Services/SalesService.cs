@@ -529,7 +529,9 @@ public class SalesService(IUnitOfWork uow, ICurrentBranchService currentBranch) 
         string description,
         CancellationToken cancellationToken)
     {
-        var original = await uow.Journals.GetWithLinesAsync(journalId, cancellationToken);
+        var branchId = currentBranch.GetRequiredBranchId();
+
+        var original = await uow.Journals.GetWithLinesAsync(journalId, branchId, cancellationToken);
         if (original is null)
             throw new InvalidOperationException($"JournalVoucher with id={journalId} not found.");
 
