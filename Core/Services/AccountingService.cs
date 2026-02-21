@@ -892,7 +892,7 @@ public class AccountingService(
         await uow.BeginTransactionAsync(cancellationToken);
         try
         {
-            var payment = await uow.Payments.GetByIdAsync(paymentId, cancellationToken);
+            var payment = await GetPaymentScopedOrThrowAsync(paymentId, cancellationToken);
             if (payment is null)
                 throw new InvalidOperationException($"Payment with id={paymentId} not found.");
 
@@ -922,7 +922,7 @@ public class AccountingService(
         string? description = null,
         CancellationToken cancellationToken = default)
     {
-        var payment = await uow.Payments.GetByIdAsync(paymentId, cancellationToken);
+        var payment = await GetPaymentScopedOrThrowAsync(paymentId, cancellationToken);
         if (payment is null)
             throw new InvalidOperationException($"Payment with id={paymentId} not found.");
 
