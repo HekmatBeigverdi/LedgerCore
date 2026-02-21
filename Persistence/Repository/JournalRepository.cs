@@ -9,8 +9,8 @@ public class JournalRepository(LedgerCoreDbContext context)
     : RepositoryBase<JournalVoucher>(context), IJournalRepository
 {
     public Task<JournalVoucher?> GetWithLinesAsync(
-        int id,
         int branchId,
+        int id,
         CancellationToken cancellationToken = default)
     {
         return DbSet

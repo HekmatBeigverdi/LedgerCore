@@ -662,17 +662,32 @@ public class AccountingService(
             throw;
         }
     }
+    
+    private async Task<Receipt?> GetReceiptScopedAsync(int id, CancellationToken ct)
+    {
+        var branchId = GetBranchIdOrThrow();
+        var receipt = await uow.Receipts.GetByIdAsync(id, ct);
+        return receipt != null && receipt.BranchId == branchId ? receipt : null;
+    }
+
+    private async Task<Receipt> GetReceiptScopedOrThrowAsync(int id, CancellationToken ct)
+    {
+        var receipt = await GetReceiptScopedAsync(id, ct);
+        if (receipt is null)
+            throw new InvalidOperationException($"Receipt with id={id} not found.");
+        return receipt;
+    }
 
     public Task<Receipt?> GetReceiptAsync(
         int id,
         CancellationToken cancellationToken = default)
-        => uow.Receipts.GetByIdAsync(id, cancellationToken);
+        => GetReceiptScopedAsync(id, cancellationToken);
 
     public async Task<Receipt> UpdateReceiptAsync(
         Receipt receipt,
         CancellationToken cancellationToken = default)
     {
-        var existing = await uow.Receipts.GetByIdAsync(receipt.Id, cancellationToken);
+        var existing = await GetReceiptScopedOrThrowAsync(receipt.Id, cancellationToken);
         if (existing is null)
             throw new InvalidOperationException($"Receipt with id={receipt.Id} not found.");
 
@@ -707,7 +722,7 @@ public class AccountingService(
         await uow.BeginTransactionAsync(cancellationToken);
         try
         {
-            var receipt = await uow.Receipts.GetByIdAsync(receiptId, cancellationToken);
+            var receipt = await GetReceiptScopedOrThrowAsync(receiptId, cancellationToken);
             if (receipt is null)
                 throw new InvalidOperationException($"Receipt with id={receiptId} not found.");
 
@@ -738,7 +753,7 @@ public class AccountingService(
         string? description = null,
         CancellationToken cancellationToken = default)
     {
-        var receipt = await uow.Receipts.GetByIdAsync(receiptId, cancellationToken);
+        var receipt = await GetReceiptScopedOrThrowAsync(receiptId, cancellationToken);
         if (receipt is null)
             throw new InvalidOperationException($"Receipt with id={receiptId} not found.");
 
