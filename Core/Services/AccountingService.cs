@@ -832,17 +832,32 @@ public class AccountingService(
             throw;
         }
     }
+    
+    private async Task<Payment?> GetPaymentScopedAsync(int id, CancellationToken ct)
+    {
+        var branchId = GetBranchIdOrThrow();
+        var payment = await uow.Payments.GetByIdAsync(id, ct);
+        return payment != null && payment.BranchId == branchId ? payment : null;
+    }
+
+    private async Task<Payment> GetPaymentScopedOrThrowAsync(int id, CancellationToken ct)
+    {
+        var payment = await GetPaymentScopedAsync(id, ct);
+        if (payment is null)
+            throw new InvalidOperationException($"Payment with id={id} not found.");
+        return payment;
+    }
 
     public Task<Payment?> GetPaymentAsync(
         int id,
         CancellationToken cancellationToken = default)
-        => uow.Payments.GetByIdAsync(id, cancellationToken);
+        => GetPaymentScopedAsync(id, cancellationToken);
 
     public async Task<Payment> UpdatePaymentAsync(
         Payment payment,
         CancellationToken cancellationToken = default)
     {
-        var existing = await uow.Payments.GetByIdAsync(payment.Id, cancellationToken);
+        var existing = await GetPaymentScopedOrThrowAsync(payment.Id, cancellationToken);
         if (existing is null)
             throw new InvalidOperationException($"Payment with id={payment.Id} not found.");
 
