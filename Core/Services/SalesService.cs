@@ -12,6 +12,25 @@ public class SalesService(IUnitOfWork uow, ICurrentBranchService currentBranch) 
 
 {
     #region Public API
+    private int GetBranchIdOrThrow()
+        => currentBranch.GetRequiredBranchId();
+
+    private async Task<SalesInvoice?> GetSalesInvoiceScopedAsync(int id, CancellationToken ct)
+    {
+        var branchId = GetBranchIdOrThrow();
+
+        // اگر Repository شما GetByIdAsync دارد:
+        var inv = await uow.Invoices.GetSalesInvoiceWithLinesAsync(id, ct);
+        return inv != null && inv.BranchId == branchId ? inv : null;
+    }
+
+    private async Task<SalesInvoice> GetSalesInvoiceScopedOrThrowAsync(int id, CancellationToken ct)
+    {
+        var inv = await GetSalesInvoiceScopedAsync(id, ct);
+        if (inv is null)
+            throw new InvalidOperationException($"Sales invoice with id={id} not found.");
+        return inv;
+    }
 
     public async Task<SalesInvoice> CreateSalesInvoiceAsync(
         SalesInvoice invoice,
@@ -51,14 +70,14 @@ public class SalesService(IUnitOfWork uow, ICurrentBranchService currentBranch) 
         int id,
         CancellationToken cancellationToken = default)
     {
-        return uow.Invoices.GetSalesInvoiceWithLinesAsync(id, cancellationToken);
+        return GetSalesInvoiceScopedAsync(id, cancellationToken);
     }
 
     public async Task<SalesInvoice> UpdateSalesInvoiceAsync(
         SalesInvoice invoice,
         CancellationToken cancellationToken = default)
     {
-        var existing = await uow.Invoices.GetSalesInvoiceWithLinesAsync(invoice.Id, cancellationToken);
+        var existing = await GetSalesInvoiceScopedAsync(invoice.Id, cancellationToken);
         if (existing is null)
             throw new InvalidOperationException($"SalesInvoice with id={invoice.Id} not found.");
 
@@ -111,7 +130,7 @@ public class SalesService(IUnitOfWork uow, ICurrentBranchService currentBranch) 
 
         try
         {
-            var invoice = await uow.Invoices.GetSalesInvoiceWithLinesAsync(invoiceId, cancellationToken);
+            var invoice = await GetSalesInvoiceScopedAsync(invoiceId, cancellationToken);
             if (invoice is null)
                 throw new InvalidOperationException($"SalesInvoice with id={invoiceId} not found.");
 
@@ -147,7 +166,7 @@ public class SalesService(IUnitOfWork uow, ICurrentBranchService currentBranch) 
         await uow.BeginTransactionAsync(cancellationToken);
         try
         {
-            var invoice = await uow.Invoices.GetSalesInvoiceWithLinesAsync(invoiceId, cancellationToken);
+            var invoice = await GetSalesInvoiceScopedAsync(invoiceId, cancellationToken);
             if (invoice is null)
                 throw new InvalidOperationException($"SalesInvoice with id={invoiceId} not found.");
 
