@@ -1,6 +1,7 @@
 using AutoMapper;
 using LedgerCore.Core.Interfaces;
 using LedgerCore.Core.Interfaces.Services;
+using LedgerCore.Core.Models.Common;
 using LedgerCore.Core.Models.Documents;
 using LedgerCore.Core.ViewModels.Documents;
 using Microsoft.AspNetCore.Mvc;
@@ -16,6 +17,23 @@ public class PurchaseInvoicesController(
     ICurrentBranchService currentBranch)
     : ControllerBase
 {
+    [HttpGet]
+    public async Task<ActionResult> Query([FromQuery] PagingParams paging, CancellationToken cancellationToken)
+    {
+        var branchId = currentBranch.GetRequiredBranchId();
+
+        var result = await uow.Invoices.QueryPurchaseAsync(branchId, paging, null, cancellationToken);
+
+        var dto = result.Items.Select(mapper.Map<PurchaseInvoiceDto>).ToList();
+
+        return Ok(new
+        {
+            result.PageNumber,
+            result.PageSize,
+            result.TotalCount,
+            Items = dto
+        });
+    }
     [HttpGet("{id:int}")]
     public async Task<ActionResult<PurchaseInvoiceDto>> Get(int id, CancellationToken cancellationToken)
     {
