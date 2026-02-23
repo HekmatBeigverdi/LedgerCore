@@ -12,7 +12,8 @@ namespace LedgerCore.Controllers;
 public class PurchaseInvoicesController(
     IPurchaseService purchaseService,
     IUnitOfWork uow,
-    IMapper mapper)
+    IMapper mapper,
+    ICurrentBranchService currentBranch)
     : ControllerBase
 {
     [HttpGet("{id:int}")]
@@ -38,8 +39,8 @@ public class PurchaseInvoicesController(
 
         var created = await purchaseService.CreatePurchaseInvoiceAsync(invoice, cancellationToken);
 
-        var dbInvoice = await uow.Invoices.GetPurchaseInvoiceWithLinesAsync(created.Id, cancellationToken)
-                       ?? created;
+        var branchId = currentBranch.GetRequiredBranchId();
+        var dbInvoice = await uow.Invoices.GetPurchaseInvoiceWithLinesAsync(created.Id, branchId, cancellationToken) ?? created;
 
         var dto = mapper.Map<PurchaseInvoiceDto>(dbInvoice);
         return CreatedAtAction(nameof(Get), new { id = dto.Id }, dto);
@@ -65,8 +66,8 @@ public class PurchaseInvoicesController(
 
         var updated = await purchaseService.UpdatePurchaseInvoiceAsync(existing, cancellationToken);
 
-        var dbInvoice = await uow.Invoices.GetPurchaseInvoiceWithLinesAsync(updated.Id, cancellationToken)
-                       ?? updated;
+        var branchId = currentBranch.GetRequiredBranchId();
+        var dbInvoice = await uow.Invoices.GetPurchaseInvoiceWithLinesAsync(updated.Id, branchId, cancellationToken) ?? updated;
 
         var dto = mapper.Map<PurchaseInvoiceDto>(dbInvoice);
         return Ok(dto);
