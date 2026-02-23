@@ -13,7 +13,8 @@ namespace LedgerCore.Controllers;
 public class SalesInvoicesController(
     ISalesService salesService,
     IUnitOfWork uow,
-    IMapper mapper)
+    IMapper mapper,
+    ICurrentBranchService currentBranch)
     : ControllerBase
 {
     [HttpGet("{id:int}")]
@@ -43,9 +44,9 @@ public class SalesInvoicesController(
         var created = await salesService.CreateSalesInvoiceAsync(invoice, cancellationToken);
 
         // Optionally read again from DB with navigations
-        var dbInvoice = await uow.Invoices.GetSalesInvoiceWithLinesAsync(created.Id, cancellationToken)
-                       ?? created;
-
+        var branchId = currentBranch.GetRequiredBranchId();
+        var dbInvoice = await uow.Invoices.GetSalesInvoiceWithLinesAsync(created.Id, branchId, cancellationToken) ?? created;
+        
         var dto = mapper.Map<SalesInvoiceDto>(dbInvoice);
 
         return CreatedAtAction(nameof(Get), new { id = dto.Id }, dto);
@@ -72,9 +73,10 @@ public class SalesInvoicesController(
         }
 
         var updated = await salesService.UpdateSalesInvoiceAsync(existing, cancellationToken);
-
-        var dbInvoice = await uow.Invoices.GetSalesInvoiceWithLinesAsync(updated.Id, cancellationToken)
-                       ?? updated;
+        
+        
+        var branchId = currentBranch.GetRequiredBranchId();
+        var dbInvoice = await uow.Invoices.GetSalesInvoiceWithLinesAsync(updated.Id, branchId, cancellationToken) ?? updated;
 
         var dto = mapper.Map<SalesInvoiceDto>(dbInvoice);
         return Ok(dto);

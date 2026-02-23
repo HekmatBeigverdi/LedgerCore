@@ -51,23 +51,25 @@ public class PurchaseService(IUnitOfWork uow, ICurrentBranchService currentBranc
         int id,
         CancellationToken cancellationToken = default)
     {
-        return uow.Invoices.GetPurchaseInvoiceWithLinesAsync(id, cancellationToken);
+        var branchId = currentBranch.GetRequiredBranchId();
+        return uow.Invoices.GetPurchaseInvoiceWithLinesAsync(id, branchId, cancellationToken);
     }
 
     public async Task<PurchaseInvoice> UpdatePurchaseInvoiceAsync(
         PurchaseInvoice invoice,
         CancellationToken cancellationToken = default)
     {
-        
-        var existing = await uow.Invoices.GetPurchaseInvoiceWithLinesAsync(invoice.Id, cancellationToken);
-        if (invoice.BranchId != 0)
-            existing!.BranchId = invoice.BranchId;
+        var branchId = currentBranch.GetRequiredBranchId();
 
+        var existing = await uow.Invoices.GetPurchaseInvoiceWithLinesAsync(invoice.Id, branchId, cancellationToken);
         if (existing is null)
             throw new InvalidOperationException($"PurchaseInvoice with id={invoice.Id} not found.");
 
         if (existing.Status == DocumentStatus.Posted)
             throw new InvalidOperationException("Posted purchase invoice cannot be updated.");
+        
+        if (invoice.BranchId != 0)
+            existing.BranchId = invoice.BranchId;
 
         // هدر
         existing.Date = invoice.Date;
@@ -108,11 +110,13 @@ public class PurchaseService(IUnitOfWork uow, ICurrentBranchService currentBranc
         int invoiceId,
         CancellationToken cancellationToken = default)
     {
+        var branchId = currentBranch.GetRequiredBranchId();
+
         await uow.BeginTransactionAsync(cancellationToken);
 
         try
         {
-            var invoice = await uow.Invoices.GetPurchaseInvoiceWithLinesAsync(invoiceId, cancellationToken);
+            var invoice = await uow.Invoices.GetPurchaseInvoiceWithLinesAsync(invoiceId, branchId, cancellationToken);
             if (invoice is null)
                 throw new InvalidOperationException($"PurchaseInvoice with id={invoiceId} not found.");
 
@@ -161,11 +165,13 @@ public class PurchaseService(IUnitOfWork uow, ICurrentBranchService currentBranc
         // اگر خواستی، IWarehouseRepository را هم روی IUnitOfWork اضافه کن
         var warehouseRepo = uow.Repository<Warehouse>();
         var warehouse = await warehouseRepo.GetByIdAsync(warehouseId.Value, cancellationToken);
-        
-        if (warehouse!.BranchId != branchId)
-            throw new InvalidOperationException("Selected warehouse does not belong to invoice branch.");
+
         if (warehouse is null)
             throw new InvalidOperationException($"Warehouse with id={warehouseId} not found.");
+
+        if (warehouse.BranchId != branchId)
+            throw new InvalidOperationException("Selected warehouse does not belong to invoice branch.");
+
         if (!warehouse.IsActive)
             throw new InvalidOperationException("Warehouse is not active.");
     }
