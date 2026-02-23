@@ -9,8 +9,8 @@ namespace LedgerCore.Core.Interfaces.Repositories;
 /// </summary>
 public interface IInvoiceRepository
 {
-    Task<SalesInvoice?> GetSalesInvoiceWithLinesAsync(int id, CancellationToken cancellationToken = default);
-    Task<PurchaseInvoice?> GetPurchaseInvoiceWithLinesAsync(int id, CancellationToken cancellationToken = default);
+    Task<SalesInvoice?> GetSalesInvoiceWithLinesAsync(int id, int branchId, CancellationToken cancellationToken = default);
+    Task<PurchaseInvoice?> GetPurchaseInvoiceWithLinesAsync(int id, int branchId, CancellationToken cancellationToken = default);
 
     Task AddSalesInvoiceAsync(SalesInvoice invoice, CancellationToken cancellationToken = default);
     Task AddPurchaseInvoiceAsync(PurchaseInvoice invoice, CancellationToken cancellationToken = default);
@@ -18,11 +18,11 @@ public interface IInvoiceRepository
     void UpdateSalesInvoice(SalesInvoice invoice);
     void UpdatePurchaseInvoice(PurchaseInvoice invoice);
 
-    Task<PagedResult<SalesInvoice>> QuerySalesAsync(PagingParams? paging = null,
+    Task<PagedResult<SalesInvoice>> QuerySalesAsync(int branchId, PagingParams? paging = null,
         Expression<Func<SalesInvoice, bool>>? predicate = null,
         CancellationToken cancellationToken = default);
 
-    Task<PagedResult<PurchaseInvoice>> QueryPurchaseAsync(PagingParams? paging = null,
+    Task<PagedResult<PurchaseInvoice>> QueryPurchaseAsync(int branchId, PagingParams? paging = null,
         Expression<Func<PurchaseInvoice, bool>>? predicate = null,
         CancellationToken cancellationToken = default);
 }
