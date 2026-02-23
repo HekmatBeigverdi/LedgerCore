@@ -2,6 +2,7 @@ using AutoMapper;
 using LedgerCore.Core.Interfaces;
 using LedgerCore.Core.Interfaces.Repositories;
 using LedgerCore.Core.Interfaces.Services;
+using LedgerCore.Core.Models.Common;
 using LedgerCore.Core.Models.Documents;
 using LedgerCore.Core.ViewModels.Documents;
 using Microsoft.AspNetCore.Mvc;
@@ -17,6 +18,26 @@ public class SalesInvoicesController(
     ICurrentBranchService currentBranch)
     : ControllerBase
 {
+    
+    [HttpGet]
+    public async Task<ActionResult> Query([FromQuery] PagingParams paging, CancellationToken cancellationToken)
+    {
+        var branchId = currentBranch.GetRequiredBranchId();
+
+        // اگر Search خواستی، می‌تونی predicate اضافه کنی
+        var result = await uow.Invoices.QuerySalesAsync(branchId, paging, null, cancellationToken);
+
+        // اگر DTO لازم داری، map کن
+        var dto = result.Items.Select(mapper.Map<SalesInvoiceDto>).ToList();
+
+        return Ok(new
+        {
+            result.PageNumber,
+            result.PageSize,
+            result.TotalCount,
+            Items = dto
+        });
+    }
     [HttpGet("{id:int}")]
     public async Task<ActionResult<SalesInvoiceDto>> Get(int id, CancellationToken cancellationToken)
     {
