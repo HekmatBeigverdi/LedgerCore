@@ -20,8 +20,8 @@ public class SalesService(IUnitOfWork uow, ICurrentBranchService currentBranch) 
         var branchId = GetBranchIdOrThrow();
 
         // اگر Repository شما GetByIdAsync دارد:
-        var inv = await uow.Invoices.GetSalesInvoiceWithLinesAsync(id, ct);
-        return inv != null && inv.BranchId == branchId ? inv : null;
+        var inv = await uow.Invoices.GetSalesInvoiceWithLinesAsync(id, branchId, ct);
+        return inv;
     }
 
     private async Task<SalesInvoice> GetSalesInvoiceScopedOrThrowAsync(int id, CancellationToken ct)
