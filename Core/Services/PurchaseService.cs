@@ -13,6 +13,8 @@ public class PurchaseService(IUnitOfWork uow, ICurrentBranchService currentBranc
 {
 
     #region Public API
+    
+    
 
     public async Task<PurchaseInvoice> CreatePurchaseInvoiceAsync(
         PurchaseInvoice invoice,
@@ -26,6 +28,9 @@ public class PurchaseService(IUnitOfWork uow, ICurrentBranchService currentBranc
 
         try
         {
+            _ = await GetOpenFiscalPeriodIdAsync(invoice.Date, cancellationToken);
+            ValidateInvoiceDates(invoice.Date, invoice.DueDate);
+            
             await ValidateSupplierAsync(invoice.SupplierId, cancellationToken);
             await ValidateWarehouseIfSetAsync(invoice.WarehouseId, invoice.BranchId, cancellationToken);
 
@@ -68,14 +73,15 @@ public class PurchaseService(IUnitOfWork uow, ICurrentBranchService currentBranc
         if (existing.Status == DocumentStatus.Posted)
             throw new InvalidOperationException("Posted purchase invoice cannot be updated.");
         
-
+        _ = await GetOpenFiscalPeriodIdAsync(invoice.Date, cancellationToken);
+        ValidateInvoiceDates(invoice.Date, invoice.DueDate);
 
         // هدر
         existing.Date = invoice.Date;
         existing.DueDate = invoice.DueDate;
         existing.SupplierId = invoice.SupplierId;
-        if (invoice.BranchId != 0)
-            existing.BranchId = invoice.BranchId;
+        if (invoice.BranchId != 0 && invoice.BranchId != existing.BranchId)
+            throw new InvalidOperationException("Changing BranchId of an existing purchase invoice is not allowed.");
         existing.WarehouseId = invoice.WarehouseId;
         existing.CurrencyId = invoice.CurrencyId;
         existing.FxRate = invoice.FxRate;
@@ -121,6 +127,9 @@ public class PurchaseService(IUnitOfWork uow, ICurrentBranchService currentBranc
 
             if (invoice.Status == DocumentStatus.Posted)
                 return;
+            
+            _ = await GetOpenFiscalPeriodIdAsync(invoice.Date, cancellationToken);
+            ValidateInvoiceDates(invoice.Date, invoice.DueDate);
 
             // 1) افزایش موجودی و ثبت StockMove
             await PostToInventoryAsync(invoice, cancellationToken);
@@ -171,8 +180,53 @@ public class PurchaseService(IUnitOfWork uow, ICurrentBranchService currentBranc
             throw new InvalidOperationException("Warehouse is not active.");
         if (warehouse.BranchId != branchId)
             throw new InvalidOperationException("Selected warehouse does not belong to invoice branch.");
+        
+    }
+    private static void ValidateInvoiceDates(DateTime date, DateTime? dueDate)
+    {
+        if (date == default)
+            throw new InvalidOperationException("Invoice date is required.");
 
+        if (dueDate.HasValue)
+        {
+            if (dueDate.Value == default)
+                throw new InvalidOperationException("Invoice due date is invalid.");
 
+            if (dueDate.Value.Date < date.Date)
+                throw new InvalidOperationException("Invoice due date cannot be earlier than invoice date.");
+        }
+    }
+    private async Task ValidateAccountPartyRulesAsync(
+        int accountId,
+        int? partyId,
+        PartyType? partyType,
+        CancellationToken ct)
+    {
+        var accountRepo = uow.Repository<Account>();
+        var account = await accountRepo.GetByIdAsync(accountId, ct);
+
+        if (account is null)
+            throw new InvalidOperationException($"Account with id={accountId} not found.");
+
+        // RequiresParty
+        if (account.RequiresParty)
+        {
+            if (!partyId.HasValue || partyId.Value <= 0)
+                throw new InvalidOperationException(
+                    $"Account '{account.Code} - {account.Name}' requires a party.");
+        }
+
+        // AllowedPartyType
+        if (account.AllowedPartyType is not null)
+        {
+            if (!partyType.HasValue)
+                throw new InvalidOperationException(
+                    $"Account '{account.Code} - {account.Name}' requires party type validation.");
+
+            if (account.AllowedPartyType != partyType.Value)
+                throw new InvalidOperationException(
+                    $"Account '{account.Code} - {account.Name}' does not allow party type '{partyType.Value}'.");
+        }
     }
 
     private async Task CalculateInvoiceLinesAndTotalsAsync(
@@ -295,6 +349,35 @@ public class PurchaseService(IUnitOfWork uow, ICurrentBranchService currentBranc
 
         var fiscalPeriodId = await GetOpenFiscalPeriodIdAsync(invoice.Date, cancellationToken);
 
+        // Supplier validation
+        await ValidateSupplierAsync(invoice.SupplierId, cancellationToken);
+
+        // برای خرید، نوع طرف حساب به صورت قراردادی Supplier است
+        var supplierPartyType = PartyType.Supplier;
+
+        // Debit account (Inventory/Expense) — معمولاً نباید Party بخواهد
+        await ValidateAccountPartyRulesAsync(
+            postingRule.DebitAccountId,
+            partyId: null,
+            partyType: null,
+            cancellationToken);
+
+        // Tax account — اگر وجود دارد
+        if (postingRule.TaxAccountId.HasValue && invoice.TotalTaxAmount > 0)
+        {
+            await ValidateAccountPartyRulesAsync(
+                postingRule.TaxAccountId.Value,
+                partyId: null,
+                partyType: null,
+                cancellationToken);
+        }
+
+        // Credit account (Payable) — باید Supplier داشته باشد
+        await ValidateAccountPartyRulesAsync(
+            postingRule.CreditAccountId,
+            partyId: invoice.SupplierId,
+            partyType: supplierPartyType,
+            cancellationToken);
         
         var voucher = new JournalVoucher
         {
