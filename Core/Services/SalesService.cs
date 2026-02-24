@@ -248,6 +248,9 @@ public class SalesService(IUnitOfWork uow, ICurrentBranchService currentBranch) 
 
         if (!customer.IsActive)
             throw new InvalidOperationException("Customer is not active.");
+
+        if (customer.Type != PartyType.Customer && customer.Type != PartyType.Both)
+            throw new InvalidOperationException("Selected party is not a Customer.");
     }
 
     private async Task ValidateWarehouseAsync(int? warehouseId, int branchId, CancellationToken cancellationToken)

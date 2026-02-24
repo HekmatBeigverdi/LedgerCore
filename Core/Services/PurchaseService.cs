@@ -161,8 +161,12 @@ public class PurchaseService(IUnitOfWork uow, ICurrentBranchService currentBranc
         var supplier = await uow.Parties.GetByIdAsync(supplierId, cancellationToken);
         if (supplier is null)
             throw new InvalidOperationException($"Supplier with id={supplierId} not found.");
+
         if (!supplier.IsActive)
             throw new InvalidOperationException("Supplier is not active.");
+
+        if (supplier.Type != PartyType.Supplier && supplier.Type != PartyType.Both)
+            throw new InvalidOperationException("Selected party is not a Supplier.");
     }
 
     private async Task ValidateWarehouseIfSetAsync(int? warehouseId, int branchId, CancellationToken cancellationToken)
