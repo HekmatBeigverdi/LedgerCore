@@ -8,8 +8,10 @@ using LedgerCore.Core.Models.Settings;
 
 namespace LedgerCore.Core.Services;
 
-public class SalesService(IUnitOfWork uow, ICurrentBranchService currentBranch) : ISalesService
-
+public class SalesService(
+    IUnitOfWork uow,
+    ICurrentBranchService currentBranch,
+    IAccountingService accountingService) : ISalesService
 {
     #region Public API
     private int GetBranchIdOrThrow()
@@ -380,7 +382,6 @@ public class SalesService(IUnitOfWork uow, ICurrentBranchService currentBranch) 
         SalesInvoice invoice,
         CancellationToken cancellationToken)
     {
-        // 1) پیدا کردن PostingRule مناسب برای SalesInvoice
         var postingRuleRepo = uow.Repository<PostingRule>();
         var postingRules = await postingRuleRepo.FindAsync(
             x => x.DocumentType == "SalesInvoice" && x.IsActive,
@@ -389,46 +390,26 @@ public class SalesService(IUnitOfWork uow, ICurrentBranchService currentBranch) 
 
         PostingRule? postingRule = null;
 
-        // اگر نقدی بود، اول Rule نقدی را ترجیح بده
         if (invoice.IsCashSale)
             postingRule = postingRules.Items.FirstOrDefault(r => r.Code == "SalesInvoice_Cash");
 
-        // اگر پیدا نشد یا اعتباری بود، Rule اعتباری را بگیر
         postingRule ??= postingRules.Items.FirstOrDefault(r => r.Code == "SalesInvoice_Credit");
-
-        // در نهایت fallback: اولین Rule فعال
         postingRule ??= postingRules.Items.FirstOrDefault();
 
         if (postingRule is null)
             throw new InvalidOperationException("No active posting rule found for SalesInvoice.");
 
-        
-        var fiscalPeriodId = await GetOpenFiscalPeriodIdAsync(invoice.Date, cancellationToken);
-
-
-        // 2) ساخت JV
-        var voucher = new JournalVoucher
-        {
-            Number = await GenerateNextNumberAsync("Journal", invoice.BranchId, cancellationToken),
-            Date = invoice.Date,
-            BranchId = invoice.BranchId,
-            FiscalPeriodId = fiscalPeriodId,
-            Description = $"Posting Sales Invoice {invoice.Number}",
-            Status = DocumentStatus.Posted
-        };
-
-
         var lines = new List<JournalLine>();
         int lineNo = 1;
 
-        // Debit: حساب مشتری / حساب نقدی (بسته به IsCashSale)
+        // Debit: Receivable / Cash
         lines.Add(new JournalLine
         {
             LineNumber = lineNo++,
             AccountId = postingRule.DebitAccountId,
             Debit = invoice.TotalAmount,
-            Credit = 0,
-            PartyId = invoice.CustomerId, 
+            Credit = 0m,
+            PartyId = invoice.CustomerId,
             RefDocumentType = "SalesInvoice",
             RefDocumentId = invoice.Id,
             CurrencyId = invoice.CurrencyId,
@@ -436,12 +417,12 @@ public class SalesService(IUnitOfWork uow, ICurrentBranchService currentBranch) 
             Description = $"Receivable/Cash for invoice {invoice.Number}"
         });
 
-        // Credit: Sales Revenue
+        // Credit: Revenue
         lines.Add(new JournalLine
         {
             LineNumber = lineNo++,
             AccountId = postingRule.CreditAccountId,
-            Debit = 0,
+            Debit = 0m,
             Credit = invoice.TotalNetAmount + invoice.TotalDiscount,
             RefDocumentType = "SalesInvoice",
             RefDocumentId = invoice.Id,
@@ -449,7 +430,8 @@ public class SalesService(IUnitOfWork uow, ICurrentBranchService currentBranch) 
             FxRate = invoice.FxRate,
             Description = $"Sales revenue for invoice {invoice.Number}"
         });
-        // Debit: Sales Discount (Contra Revenue)
+
+        // Debit: Discount
         if (postingRule.DiscountAccountId.HasValue && invoice.TotalDiscount > 0)
         {
             lines.Add(new JournalLine
@@ -457,7 +439,7 @@ public class SalesService(IUnitOfWork uow, ICurrentBranchService currentBranch) 
                 LineNumber = lineNo++,
                 AccountId = postingRule.DiscountAccountId.Value,
                 Debit = invoice.TotalDiscount,
-                Credit = 0,
+                Credit = 0m,
                 RefDocumentType = "SalesInvoice",
                 RefDocumentId = invoice.Id,
                 CurrencyId = invoice.CurrencyId,
@@ -466,15 +448,14 @@ public class SalesService(IUnitOfWork uow, ICurrentBranchService currentBranch) 
             });
         }
 
-
-        // Credit Tax
+        // Credit: Tax
         if (postingRule.TaxAccountId.HasValue && invoice.TotalTaxAmount > 0)
         {
             lines.Add(new JournalLine
             {
                 LineNumber = lineNo++,
                 AccountId = postingRule.TaxAccountId.Value,
-                Debit = 0,
+                Debit = 0m,
                 Credit = invoice.TotalTaxAmount,
                 RefDocumentType = "SalesInvoice",
                 RefDocumentId = invoice.Id,
@@ -484,13 +465,21 @@ public class SalesService(IUnitOfWork uow, ICurrentBranchService currentBranch) 
             });
         }
 
-        voucher.Lines = lines;
-        
+        var voucher = new JournalVoucher
+        {
+            Number = "",
+            Date = invoice.Date,
+            BranchId = invoice.BranchId,
+            FiscalPeriodId = null,
+            Description = $"Posting Sales Invoice {invoice.Number}",
+            Status = DocumentStatus.Draft,
+            Lines = lines
+        };
 
-        await uow.Journals.AddAsync(voucher, cancellationToken);
-        await uow.SaveChangesAsync(cancellationToken);
+        var created = await accountingService.CreateJournalAsync(voucher, cancellationToken);
+        await accountingService.PostJournalAsync(created.Id, cancellationToken);
 
-        return voucher;
+        return await accountingService.GetJournalAsync(created.Id, cancellationToken) ?? created;
     }
 
     /// <summary>
