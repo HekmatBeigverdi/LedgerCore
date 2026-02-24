@@ -9,13 +9,13 @@ using LedgerCore.Core.Models.Settings;
 
 namespace LedgerCore.Core.Services;
 
-public class PurchaseService(IUnitOfWork uow, ICurrentBranchService currentBranch) : IPurchaseService
-{
+public class PurchaseService(
+    IUnitOfWork uow,
+    ICurrentBranchService currentBranch,
+    IAccountingService accountingService) : IPurchaseService{
 
     #region Public API
     
-    
-
     public async Task<PurchaseInvoice> CreatePurchaseInvoiceAsync(
         PurchaseInvoice invoice,
         CancellationToken cancellationToken = default)
@@ -351,58 +351,16 @@ public class PurchaseService(IUnitOfWork uow, ICurrentBranchService currentBranc
         if (postingRule is null)
             throw new InvalidOperationException("No active posting rule found for PurchaseInvoice.");
 
-        var fiscalPeriodId = await GetOpenFiscalPeriodIdAsync(invoice.Date, cancellationToken);
-
-        // Supplier validation
-        await ValidateSupplierAsync(invoice.SupplierId, cancellationToken);
-
-        // برای خرید، نوع طرف حساب به صورت قراردادی Supplier است
-        var supplierPartyType = PartyType.Supplier;
-
-        // Debit account (Inventory/Expense) — معمولاً نباید Party بخواهد
-        await ValidateAccountPartyRulesAsync(
-            postingRule.DebitAccountId,
-            partyId: null,
-            partyType: null,
-            cancellationToken);
-
-        // Tax account — اگر وجود دارد
-        if (postingRule.TaxAccountId.HasValue && invoice.TotalTaxAmount > 0)
-        {
-            await ValidateAccountPartyRulesAsync(
-                postingRule.TaxAccountId.Value,
-                partyId: null,
-                partyType: null,
-                cancellationToken);
-        }
-
-        // Credit account (Payable) — باید Supplier داشته باشد
-        await ValidateAccountPartyRulesAsync(
-            postingRule.CreditAccountId,
-            partyId: invoice.SupplierId,
-            partyType: supplierPartyType,
-            cancellationToken);
-        
-        var voucher = new JournalVoucher
-        {
-            Number = await GenerateNextNumberAsync("Journal", invoice.BranchId, cancellationToken),
-            Date = invoice.Date,
-            Description = $"Posting Purchase Invoice {invoice.Number}",
-            BranchId = invoice.BranchId,
-            FiscalPeriodId = fiscalPeriodId,
-            Status = DocumentStatus.Posted
-        };
-
         var lines = new List<JournalLine>();
         int lineNo = 1;
 
-        // Debit: Inventory + Tax
+        // Debit: Inventory
         lines.Add(new JournalLine
         {
             LineNumber = lineNo++,
-            AccountId = postingRule.DebitAccountId, // Inventory
+            AccountId = postingRule.DebitAccountId,
             Debit = invoice.TotalNetAmount,
-            Credit = 0,
+            Credit = 0m,
             RefDocumentType = "PurchaseInvoice",
             RefDocumentId = invoice.Id,
             CurrencyId = invoice.CurrencyId,
@@ -410,6 +368,7 @@ public class PurchaseService(IUnitOfWork uow, ICurrentBranchService currentBranc
             Description = $"Inventory for purchase {invoice.Number}"
         });
 
+        // Debit: Tax
         if (postingRule.TaxAccountId.HasValue && invoice.TotalTaxAmount > 0)
         {
             lines.Add(new JournalLine
@@ -417,7 +376,7 @@ public class PurchaseService(IUnitOfWork uow, ICurrentBranchService currentBranc
                 LineNumber = lineNo++,
                 AccountId = postingRule.TaxAccountId.Value,
                 Debit = invoice.TotalTaxAmount,
-                Credit = 0,
+                Credit = 0m,
                 RefDocumentType = "PurchaseInvoice",
                 RefDocumentId = invoice.Id,
                 CurrencyId = invoice.CurrencyId,
@@ -431,7 +390,7 @@ public class PurchaseService(IUnitOfWork uow, ICurrentBranchService currentBranc
         {
             LineNumber = lineNo++,
             AccountId = postingRule.CreditAccountId,
-            Debit = 0,
+            Debit = 0m,
             Credit = invoice.TotalAmount,
             PartyId = invoice.SupplierId,
             RefDocumentType = "PurchaseInvoice",
@@ -441,12 +400,25 @@ public class PurchaseService(IUnitOfWork uow, ICurrentBranchService currentBranc
             Description = $"Payable/Cash for purchase {invoice.Number}"
         });
 
-        voucher.Lines = lines;
+        var voucher = new JournalVoucher
+        {
+            Number = "", // AccountingService خودش شماره می‌دهد
+            Date = invoice.Date,
+            Description = $"Posting Purchase Invoice {invoice.Number}",
+            BranchId = invoice.BranchId,
+            FiscalPeriodId = null, // AccountingService خودش تعیین می‌کند
+            Status = DocumentStatus.Draft,
+            Lines = lines
+        };
 
-        await uow.Journals.AddAsync(voucher, cancellationToken);
-        await uow.SaveChangesAsync(cancellationToken);
+        // مسیر استاندارد: Create => Validate/Balance/FiscalLock/RequiresParty => Draft
+        var created = await accountingService.CreateJournalAsync(voucher, cancellationToken);
 
-        return voucher;
+        // سپس Post استاندارد
+        await accountingService.PostJournalAsync(created.Id, cancellationToken);
+
+        // نسخه نهایی را برگردان (با خطوط)
+        return await accountingService.GetJournalAsync(created.Id, cancellationToken) ?? created;
     }
 
     private async Task<string> GenerateNextNumberAsync(
