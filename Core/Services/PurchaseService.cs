@@ -64,12 +64,14 @@ public class PurchaseService(IUnitOfWork uow, ICurrentBranchService currentBranc
         var existing = await uow.Invoices.GetPurchaseInvoiceWithLinesAsync(invoice.Id, branchId, cancellationToken);
         if (existing is null)
             throw new InvalidOperationException($"PurchaseInvoice with id={invoice.Id} not found.");
+        
+        if (invoice.BranchId != 0)
+            existing.BranchId = invoice.BranchId;
 
         if (existing.Status == DocumentStatus.Posted)
             throw new InvalidOperationException("Posted purchase invoice cannot be updated.");
         
-        if (invoice.BranchId != 0)
-            existing.BranchId = invoice.BranchId;
+
 
         // هدر
         existing.Date = invoice.Date;
@@ -168,12 +170,14 @@ public class PurchaseService(IUnitOfWork uow, ICurrentBranchService currentBranc
 
         if (warehouse is null)
             throw new InvalidOperationException($"Warehouse with id={warehouseId} not found.");
+        
+        if (!warehouse.IsActive)
+            throw new InvalidOperationException("Warehouse is not active.");
 
         if (warehouse.BranchId != branchId)
             throw new InvalidOperationException("Selected warehouse does not belong to invoice branch.");
 
-        if (!warehouse.IsActive)
-            throw new InvalidOperationException("Warehouse is not active.");
+
     }
 
     private async Task CalculateInvoiceLinesAndTotalsAsync(
