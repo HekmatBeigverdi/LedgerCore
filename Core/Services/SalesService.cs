@@ -257,17 +257,17 @@ public class SalesService(
 
     private async Task ValidateWarehouseAsync(int? warehouseId, int branchId, CancellationToken cancellationToken)
     {
-        
         if (warehouseId is null)
             throw new InvalidOperationException("WarehouseId is required.");
 
         var warehouse = await uow.Warehouses.GetByIdAsync(warehouseId.Value, cancellationToken);
-        
-        if (warehouse!.BranchId != branchId)
-            throw new InvalidOperationException("Selected warehouse does not belong to invoice branch.");
-        
+
         if (warehouse is null)
             throw new InvalidOperationException($"Warehouse with id={warehouseId} not found.");
+
+        if (warehouse.BranchId != branchId)
+            throw new InvalidOperationException("Selected warehouse does not belong to invoice branch.");
+
         if (!warehouse.IsActive)
             throw new InvalidOperationException("Warehouse is not active.");
     }

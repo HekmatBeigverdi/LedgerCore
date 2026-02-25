@@ -2761,6 +2761,11 @@ namespace LedgerCore.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("varchar(50)");
 
+                    b.Property<DateTime>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("timestamp(6)");
+
                     b.Property<string>("Suffix")
                         .HasMaxLength(50)
                         .HasColumnType("varchar(50)");

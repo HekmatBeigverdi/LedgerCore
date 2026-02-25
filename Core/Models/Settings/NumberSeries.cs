@@ -18,4 +18,5 @@ public class NumberSeries: AuditableEntity
     public long CurrentNumber { get; set; }        // آخرین شماره استفاده شده
 
     public bool IsActive { get; set; } = true;
+    public byte[] RowVersion { get; set; } = default!;
 }

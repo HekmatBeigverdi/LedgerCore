@@ -19,5 +19,8 @@ public class NumberSeriesConfiguration : IEntityTypeConfiguration<NumberSeries>
 
         builder.Property(x => x.Suffix)
             .HasMaxLength(50);
+        
+        builder.Property(x => x.RowVersion)
+            .IsRowVersion();
     }
 }
