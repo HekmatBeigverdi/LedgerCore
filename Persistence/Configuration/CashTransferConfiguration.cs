@@ -21,7 +21,8 @@ public class CashTransferConfiguration : IEntityTypeConfiguration<CashTransfer>
             .HasForeignKey(x => x.BranchId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasIndex(x => x.Number).IsUnique();
+        builder.HasIndex(x => new { x.BranchId, x.Number }).IsUnique();
+        
         builder.HasIndex(x => x.Date);
     }
 }

@@ -14,7 +14,7 @@ public class PayrollDocumentConfiguration : IEntityTypeConfiguration<PayrollDocu
             .HasMaxLength(50)
             .IsRequired();
 
-        builder.HasIndex(x => x.Number).IsUnique();
+        builder.HasIndex(x => new { x.BranchId, x.Number }).IsUnique();
 
         builder.HasMany(x => x.Lines)
             .WithOne(x => x.PayrollDocument!)

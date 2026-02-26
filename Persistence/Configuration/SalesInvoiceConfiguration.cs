@@ -14,7 +14,8 @@ public class SalesInvoiceConfiguration : IEntityTypeConfiguration<SalesInvoice>
             .HasMaxLength(50)
             .IsRequired();
 
-        builder.HasIndex(x => x.Number).IsUnique();
+        builder.HasIndex(x => new { x.BranchId, x.Number }).IsUnique();
+        
         builder.HasIndex(x => x.Date);
         
         builder.Property(x => x.BranchId)

@@ -14,6 +14,6 @@ public class InventoryAdjustmentConfiguration : IEntityTypeConfiguration<Invento
             .HasMaxLength(50)
             .IsRequired();
 
-        builder.HasIndex(x => x.Number).IsUnique();
+        builder.HasIndex(x => new { x.BranchId, x.Number }).IsUnique();
     }
 }

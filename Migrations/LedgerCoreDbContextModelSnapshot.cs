@@ -336,11 +336,9 @@ namespace LedgerCore.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BranchId");
-
                     b.HasIndex("FiscalPeriodId");
 
-                    b.HasIndex("Number")
+                    b.HasIndex("BranchId", "Number")
                         .IsUnique();
 
                     b.ToTable("JournalVouchers", (string)null);
@@ -789,8 +787,6 @@ namespace LedgerCore.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BranchId");
-
                     b.HasIndex("CurrencyId");
 
                     b.HasIndex("Date");
@@ -799,10 +795,10 @@ namespace LedgerCore.Migrations
 
                     b.HasIndex("JournalVoucherId");
 
-                    b.HasIndex("Number")
-                        .IsUnique();
-
                     b.HasIndex("ToBankAccountId");
+
+                    b.HasIndex("BranchId", "Number")
+                        .IsUnique();
 
                     b.ToTable("CashTransfers", (string)null);
                 });
@@ -1043,20 +1039,18 @@ namespace LedgerCore.Migrations
 
                     b.HasIndex("BankAccountId");
 
-                    b.HasIndex("BranchId");
-
                     b.HasIndex("CurrencyId");
 
                     b.HasIndex("Date");
 
                     b.HasIndex("JournalVoucherId");
 
-                    b.HasIndex("Number")
-                        .IsUnique();
-
                     b.HasIndex("PartyId");
 
                     b.HasIndex("ReversalJournalVoucherId");
+
+                    b.HasIndex("BranchId", "Number")
+                        .IsUnique();
 
                     b.ToTable("Payments", (string)null);
                 });
@@ -1128,20 +1122,18 @@ namespace LedgerCore.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BranchId");
-
                     b.HasIndex("CurrencyId");
 
                     b.HasIndex("Date");
 
                     b.HasIndex("JournalVoucherId");
 
-                    b.HasIndex("Number")
-                        .IsUnique();
-
                     b.HasIndex("SupplierId");
 
                     b.HasIndex("WarehouseId");
+
+                    b.HasIndex("BranchId", "Number")
+                        .IsUnique();
 
                     b.ToTable("PurchaseInvoices", (string)null);
                 });
@@ -1218,20 +1210,18 @@ namespace LedgerCore.Migrations
 
                     b.HasIndex("BankAccountId");
 
-                    b.HasIndex("BranchId");
-
                     b.HasIndex("CurrencyId");
 
                     b.HasIndex("Date");
 
                     b.HasIndex("JournalVoucherId");
 
-                    b.HasIndex("Number")
-                        .IsUnique();
-
                     b.HasIndex("PartyId");
 
                     b.HasIndex("ReversalJournalVoucherId");
+
+                    b.HasIndex("BranchId", "Number")
+                        .IsUnique();
 
                     b.ToTable("Receipts", (string)null);
                 });
@@ -1309,8 +1299,6 @@ namespace LedgerCore.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BranchId");
-
                     b.HasIndex("CurrencyId");
 
                     b.HasIndex("CustomerId");
@@ -1319,12 +1307,12 @@ namespace LedgerCore.Migrations
 
                     b.HasIndex("JournalVoucherId");
 
-                    b.HasIndex("Number")
-                        .IsUnique();
-
                     b.HasIndex("ReversalJournalVoucherId");
 
                     b.HasIndex("WarehouseId");
+
+                    b.HasIndex("BranchId", "Number")
+                        .IsUnique();
 
                     b.ToTable("SalesInvoices", (string)null);
                 });
@@ -1378,14 +1366,12 @@ namespace LedgerCore.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BranchId");
-
                     b.HasIndex("JournalVoucherId");
 
-                    b.HasIndex("Number")
-                        .IsUnique();
-
                     b.HasIndex("WarehouseId");
+
+                    b.HasIndex("BranchId", "Number")
+                        .IsUnique();
 
                     b.ToTable("InventoryAdjustments", (string)null);
                 });
@@ -2247,14 +2233,12 @@ namespace LedgerCore.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BranchId");
-
                     b.HasIndex("JournalVoucherId");
 
-                    b.HasIndex("Number")
-                        .IsUnique();
-
                     b.HasIndex("PayrollPeriodId");
+
+                    b.HasIndex("BranchId", "Number")
+                        .IsUnique();
 
                     b.ToTable("PayrollDocuments", (string)null);
                 });

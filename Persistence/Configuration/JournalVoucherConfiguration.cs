@@ -17,7 +17,7 @@ public class JournalVoucherConfiguration : IEntityTypeConfiguration<JournalVouch
         builder.Property(x => x.Description)
             .HasMaxLength(500);
 
-        builder.HasIndex(x => x.Number).IsUnique();
+        builder.HasIndex(x => new { x.BranchId, x.Number }).IsUnique();
         
         builder.Property(x => x.BranchId)
             .IsRequired();
