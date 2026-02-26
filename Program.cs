@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.Extensions.Logging; // added for LogLevel
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.OpenApi.Models;
 
 
 const string secretKey = "iNfgDmHLpUA552sqsjhqGbMRdRj5PVbH"; // todo: get this from somewhere secure
@@ -93,7 +94,36 @@ builder.Services.AddScoped<ICurrentBranchService, CurrentBranchService>();
 
 // OpenAPI / Swagger - keep standard setup (remove unknown AddOpenApi)
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "LedgerCore API", Version = "v1" });
+
+    // --- JWT Bearer ---
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "JWT Authorization header. Example: \"Bearer {token}\""
+    });
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
 
 builder.Services.AddSingleton(signingKey);
 
@@ -121,8 +151,12 @@ builder.Services.AddAuthorization(options =>
     // ساخت Policy برای تمام Permissionهای سیستم
     foreach (var permission in PermissionSeedData.GetAll())
     {
-        options.AddPolicy(permission.Code, policy =>
-            policy.RequireClaim("Permission", permission.Code));
+        // باید دقیقاً مطابق HasPermissionAttribute باشد: "Permission:<code>"
+        var policyName = HasPermissionAttribute.BuildPolicyName(permission.Code);
+
+        // Claim ای که در JWT صادر می‌شود "permission" است (حروف کوچک)
+        options.AddPolicy(policyName, policy =>
+            policy.RequireClaim("permission", permission.Code));
     }
 });
 

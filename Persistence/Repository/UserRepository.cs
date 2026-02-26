@@ -9,7 +9,12 @@ public class UserRepository(LedgerCoreDbContext context) : RepositoryBase<User>(
 {
     public Task<User?> GetByUserNameAsync(string userName, CancellationToken cancellationToken = default)
     {
-        return DbSet.FirstOrDefaultAsync(x => x.UserName == userName, cancellationToken);
+        return DbSet
+            .Include(u => u.UserRoles)
+            .ThenInclude(ur => ur.Role)
+            .ThenInclude(r => r.RolePermissions)
+            .ThenInclude(rp => rp.Permission)
+            .FirstOrDefaultAsync(x => x.UserName == userName, cancellationToken);
     }
 
     public async Task<PagedResult<User>> QueryAsync(PagingParams? paging = null,
