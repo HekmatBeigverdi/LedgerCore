@@ -29,19 +29,22 @@ var serverVersion = new MySqlServerVersion(new Version(8, 0, 32));
 
 
 // DbContext
-builder.Services.AddDbContext<LedgerCoreDbContext>(
-    dbContextOptions => dbContextOptions
-        .UseMySql(connectionString, serverVersion, mysqlOptions =>
-        {
-            mysqlOptions.EnableRetryOnFailure();
-            // set command timeout if needed: mysqlOptions.CommandTimeout(60);
-        })
-        // The following three options help with debugging, but should
-        // be changed or removed for production.
-        .LogTo(Console.WriteLine, LogLevel.Information)
-        .EnableSensitiveDataLogging()
-        .EnableDetailedErrors()
-);
+builder.Services.AddDbContext<LedgerCoreDbContext>(dbContextOptions =>
+{
+    dbContextOptions.UseMySql(connectionString, serverVersion, mysqlOptions =>
+    {
+        mysqlOptions.EnableRetryOnFailure();
+        // mysqlOptions.CommandTimeout(60);
+    });
+
+    if (builder.Environment.IsDevelopment())
+    {
+        dbContextOptions
+            .LogTo(Console.WriteLine, LogLevel.Information)
+            .EnableSensitiveDataLogging()
+            .EnableDetailedErrors();
+    }
+});
 
 // UnitOfWork
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
