@@ -14,6 +14,37 @@ public class CashTransferService(IUnitOfWork uow, ICurrentBranchService currentB
     /// <summary>
     /// ایجاد یک سند انتقال وجه جدید.
     /// </summary>
+    /// Helper Methods Start
+    private int GetBranchIdOrThrow()
+        => currentBranch.GetRequiredBranchId();
+
+    private async Task<CashTransfer?> GetCashTransferScopedAsync(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var branchId = GetBranchIdOrThrow();
+        var repo = uow.Repository<CashTransfer>();
+
+        var page = await repo.FindAsync(
+            x => x.Id == id && x.BranchId == branchId,
+            null,
+            cancellationToken);
+
+        return page.Items.FirstOrDefault();
+    }
+
+    private async Task<CashTransfer> GetCashTransferScopedOrThrowAsync(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var transfer = await GetCashTransferScopedAsync(id, cancellationToken);
+        if (transfer is null)
+            throw new InvalidOperationException($"CashTransfer with id={id} not found.");
+
+        return transfer;
+    }
+    /// Helper Methods End
+
     public async Task<CashTransfer> CreateCashTransferAsync(
         CashTransfer transfer,
         CancellationToken cancellationToken = default)
@@ -76,12 +107,11 @@ public class CashTransferService(IUnitOfWork uow, ICurrentBranchService currentB
     /// <summary>
     /// دریافت یک سند انتقال وجه بر اساس Id.
     /// </summary>
-    public async Task<CashTransfer?> GetCashTransferAsync(
+    public Task<CashTransfer?> GetCashTransferAsync(
         int id,
         CancellationToken cancellationToken = default)
     {
-        var repo = uow.Repository<CashTransfer>();
-        return await repo.GetByIdAsync(id, cancellationToken);
+        return GetCashTransferScopedAsync(id, cancellationToken);
     }
 
     /// <summary>
@@ -97,8 +127,7 @@ public class CashTransferService(IUnitOfWork uow, ICurrentBranchService currentB
         try
         {
             var repo = uow.Repository<CashTransfer>();
-            var transfer = await repo.GetByIdAsync(transferId, cancellationToken)
-                           ?? throw new InvalidOperationException("سند انتقال وجه یافت نشد.");
+            var transfer = await GetCashTransferScopedOrThrowAsync(transferId, cancellationToken);
 
             if (transfer.Status == DocumentStatus.Posted)
                 return;
@@ -108,6 +137,13 @@ public class CashTransferService(IUnitOfWork uow, ICurrentBranchService currentB
 
             // TODO: در آینده اینجا می‌توانی JournalVoucher برای انتقال وجه بسازی.
             transfer.Status = DocumentStatus.Posted;
+            
+            var currentBranchId = currentBranch.GetRequiredBranchId();
+
+            if (transfer.BranchId == 0)
+                transfer.BranchId = currentBranchId;
+            else if (transfer.BranchId != currentBranchId)
+                throw new InvalidOperationException("BranchId is not valid for current branch scope.");
 
             repo.Update(transfer);
             await uow.SaveChangesAsync(cancellationToken);

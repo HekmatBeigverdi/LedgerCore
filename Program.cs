@@ -7,26 +7,24 @@ using LedgerCore.Core.Services;
 using LedgerCore.Mapping;
 using LedgerCore.Persistence;
 using LedgerCore.Persistence.Repository;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
-using Microsoft.Extensions.Logging; // added for LogLevel
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
-
 
 var jwtKey = builder.Configuration["Jwt:Key"]
              ?? throw new InvalidOperationException("Jwt:Key is not configured.");
 
 var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
 
-
-// Add services to the container.
-var connectionString = builder.Configuration.GetConnectionString("Published");
+var connectionString =
+    builder.Configuration.GetConnectionString("Default")
+    ?? throw new InvalidOperationException("Connection string 'Default' is not configured.");
 
 var serverVersion = new MySqlServerVersion(new Version(8, 0, 32));
-
 
 // DbContext
 builder.Services.AddDbContext<LedgerCoreDbContext>(dbContextOptions =>
@@ -70,7 +68,6 @@ builder.Services.AddScoped<IReceiptRepository, ReceiptRepository>();
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IChequeRepository, ChequeRepository>();
 
-
 // Services
 builder.Services.AddScoped<ISalesService, SalesService>();
 builder.Services.AddScoped<IAccountingService, AccountingService>();
@@ -86,25 +83,17 @@ builder.Services.AddScoped<ICashTransferService, CashTransferService>();
 builder.Services.AddScoped<ISecurityActivityLogService, SecurityActivityLogService>();
 builder.Services.AddScoped<INumberSeriesService, NumberSeriesService>();
 
-
-
-// AutoMapper
 builder.Services.AddAutoMapper(typeof(DomainMappingProfile));
 
-// MVC / Controllers
 builder.Services.AddControllers();
-
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentBranchService, CurrentBranchService>();
 
-
-// OpenAPI / Swagger - keep standard setup (remove unknown AddOpenApi)
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "LedgerCore API", Version = "v1" });
 
-    // --- JWT Bearer ---
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -133,44 +122,36 @@ builder.Services.AddSwaggerGen(c =>
 
 builder.Services.AddSingleton(signingKey);
 
-
 builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
     {
-        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-    })
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKey = signingKey,   // همان کلید بالا
-            ValidateIssuer = false,
-            ValidateAudience = false,
-            ClockSkew = TimeSpan.Zero
-        };
-    });
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = signingKey,
+        ValidateIssuer = false,
+        ValidateAudience = false,
+        ClockSkew = TimeSpan.Zero
+    };
+});
 
-// ===== Authorization with dynamic permission loading =====
 builder.Services.AddAuthorization(options =>
 {
-    // ساخت Policy برای تمام Permissionهای سیستم
     foreach (var permission in PermissionSeedData.GetAll())
     {
-        // باید دقیقاً مطابق HasPermissionAttribute باشد: "Permission:<code>"
         var policyName = HasPermissionAttribute.BuildPolicyName(permission.Code);
 
-        // Claim ای که در JWT صادر می‌شود "permission" است (حروف کوچک)
         options.AddPolicy(policyName, policy =>
             policy.RequireClaim("permission", permission.Code));
     }
 });
 
-
-
 var app = builder.Build();
 
-// ===== Seed Permissions / Roles / RolePermissions =====
 await using (var scope = app.Services.CreateAsyncScope())
 {
     var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
@@ -178,8 +159,6 @@ await using (var scope = app.Services.CreateAsyncScope())
     await SettingsSeeder.SeedAsync(uow);
 }
 
-
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -188,7 +167,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseAuthentication();   // ⬅ حتماً قبل از UseAuthorization
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
