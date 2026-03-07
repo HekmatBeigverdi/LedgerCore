@@ -13,7 +13,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace LedgerCore.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/v1/[controller]")]
 [Authorize(Roles = "Admin")] // فعلاً فقط Admin
 public class RolesController : ControllerBase
 {

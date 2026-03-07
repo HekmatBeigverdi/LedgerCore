@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace LedgerCore.Controllers;
 
 [ApiController]
-[Route("api/security/logs")]
+[Route("api/v1/security/logs")]
 public class SecurityLogsController(IUnitOfWork uow) : ControllerBase
 {
     [HttpGet]

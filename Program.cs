@@ -13,11 +13,14 @@ using Microsoft.Extensions.Logging; // added for LogLevel
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.OpenApi.Models;
 
-
-const string secretKey = "iNfgDmHLpUA552sqsjhqGbMRdRj5PVbH"; // todo: get this from somewhere secure
-var signingKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(secretKey));
-
 var builder = WebApplication.CreateBuilder(args);
+
+
+var jwtKey = builder.Configuration["Jwt:Key"]
+             ?? throw new InvalidOperationException("Jwt:Key is not configured.");
+
+var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
+
 
 // Add services to the container.
 var connectionString = builder.Configuration.GetConnectionString("Published");

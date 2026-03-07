@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace LedgerCore.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/v1/[controller]")]
 public class AuthController(IAuthService authService) : ControllerBase
 {
     /// <summary>

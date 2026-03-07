@@ -15,7 +15,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace LedgerCore.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/v1/[controller]")]
 [Authorize(Roles = "Admin")]
 public class UsersController(IUnitOfWork uow) : ControllerBase
 {
