@@ -7,11 +7,14 @@ namespace LedgerCore.Core.Interfaces.Repositories;
 public interface IChequeRepository : IRepository<Cheque>
 {
     Task<IReadOnlyList<Cheque>> GetByStatusAsync(
+        int branchId,
         ChequeStatus status,
         CancellationToken cancellationToken = default);
 
     Task AddHistoryAsync(ChequeHistory history, CancellationToken cancellationToken = default);
 
-    Task<PagedResult<Cheque>> QueryAsync(PagingParams? paging = null,
+    Task<PagedResult<Cheque>> QueryAsync(
+        int branchId,
+        PagingParams? paging = null,
         CancellationToken cancellationToken = default);
 }
