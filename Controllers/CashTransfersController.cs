@@ -10,7 +10,6 @@ namespace LedgerCore.Controllers;
 [ApiController]
 [Route("api/v1/[controller]")]
 public class CashTransfersController(
-    IUnitOfWork uow,
     ICashTransferService cashTransferService,
     IMapper mapper)
     : ControllerBase
@@ -21,8 +20,7 @@ public class CashTransfersController(
         int id,
         CancellationToken cancellationToken)
     {
-        var repo = uow.Repository<CashTransfer>();
-        var transfer = await repo.GetByIdAsync(id, cancellationToken);
+        var transfer = await cashTransferService.GetCashTransferAsync(id, cancellationToken);
         if (transfer is null)
             return NotFound();
 
