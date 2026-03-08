@@ -18,6 +18,15 @@ public class WarehouseConfiguration : IEntityTypeConfiguration<Warehouse>
             .HasMaxLength(200)
             .IsRequired();
 
-        builder.HasIndex(x => x.Code).IsUnique();
+        builder.Property(x => x.BranchId)
+            .IsRequired();
+
+        builder.HasOne(x => x.Branch)
+            .WithMany()
+            .HasForeignKey(x => x.BranchId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(x => new { x.BranchId, x.Code })
+            .IsUnique();
     }
 }
