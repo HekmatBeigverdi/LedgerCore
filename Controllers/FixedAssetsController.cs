@@ -15,7 +15,8 @@ public class FixedAssetsController(
     IFixedAssetRepository fixedAssets,
     IAssetService assetService,
     IMapper mapper,
-    IUnitOfWork uow)
+    IUnitOfWork uow,
+    ICurrentBranchService currentBranch)
     : ControllerBase
 {
     private readonly IUnitOfWork _uow = uow;
@@ -24,7 +25,14 @@ public class FixedAssetsController(
     [HttpGet("{id:int}")]
     public async Task<ActionResult<FixedAssetDto>> Get(int id, CancellationToken cancellationToken)
     {
-        var asset = await fixedAssets.GetByIdAsync(id, cancellationToken);
+        var branchId = currentBranch.GetRequiredBranchId();
+
+        var page = await _uow.Repository<FixedAsset>().FindAsync(
+            x => x.Id == id && x.BranchId == branchId,
+            null,
+            cancellationToken);
+
+        var asset = page.Items.FirstOrDefault();
         if (asset is null)
             return NotFound();
 
@@ -38,7 +46,8 @@ public class FixedAssetsController(
         [FromQuery] PagingParams paging,
         CancellationToken cancellationToken)
     {
-        var result = await fixedAssets.QueryAsync(paging, cancellationToken);
+        var branchId = currentBranch.GetRequiredBranchId();
+        var result = await fixedAssets.QueryAsync(branchId, paging, cancellationToken);
         var dtoItems = result.Items.Select(a => mapper.Map<FixedAssetDto>(a)).ToList();
 
         var dtoPage = new PagedResult<FixedAssetDto>(
@@ -70,11 +79,23 @@ public class FixedAssetsController(
         [FromBody] UpdateFixedAssetRequest request,
         CancellationToken cancellationToken)
     {
-        var existing = await fixedAssets.GetByIdAsync(id, cancellationToken);
+        var branchId = currentBranch.GetRequiredBranchId();
+
+        var page = await _uow.Repository<FixedAsset>().FindAsync(
+            x => x.Id == id && x.BranchId == branchId,
+            null,
+            cancellationToken);
+
+        var existing = page.Items.FirstOrDefault();
+        
         if (existing is null)
             return NotFound();
 
         mapper.Map(request, existing);
+        
+        if (existing.BranchId != branchId)
+            return BadRequest("BranchId is not valid for current branch scope.");
+        
         // برای سادگی از همان CreateFixedAssetAsync استفاده نمی‌کنیم، مستقیم آپدیت می‌کنیم
         fixedAssets.Update(existing);
         await _uow.SaveChangesAsync(cancellationToken);
