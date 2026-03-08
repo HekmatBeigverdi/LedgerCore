@@ -30,6 +30,7 @@ public interface IFixedAssetRepository : IRepository<FixedAsset>
     /// جستجوی صفحه‌بندی‌شده‌ی دارایی‌ها (برای Grid فرانت‌اند).
     /// </summary>
     Task<PagedResult<FixedAsset>> QueryAsync(
+        int branchId,
         PagingParams? paging = null,
         CancellationToken cancellationToken = default);
 }
