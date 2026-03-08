@@ -14,7 +14,8 @@ namespace LedgerCore.Controllers;
 public class ChequesController(
     IUnitOfWork uow,
     IChequeService chequeService,
-    IMapper mapper)
+    IMapper mapper,
+    ICurrentBranchService currentBranch)
     : ControllerBase
 {
     // GET api/cheques/{id}
@@ -23,7 +24,7 @@ public class ChequesController(
         int id,
         CancellationToken cancellationToken)
     {
-        var cheque = await uow.Cheques.GetByIdAsync(id, cancellationToken);
+        var cheque = await chequeService.GetChequeAsync(id, cancellationToken);
         if (cheque is null)
             return NotFound();
 
@@ -37,7 +38,8 @@ public class ChequesController(
         [FromQuery] PagingParams paging,
         CancellationToken cancellationToken)
     {
-        var result = await uow.Cheques.QueryAsync(paging, cancellationToken);
+        var branchId = currentBranch.GetRequiredBranchId();
+        var result = await uow.Cheques.QueryAsync(branchId, paging, cancellationToken);
         var dtoItems = result.Items.Select(c => mapper.Map<ChequeDto>(c)).ToList();
 
         var dtoPage = new PagedResult<ChequeDto>(
@@ -55,7 +57,8 @@ public class ChequesController(
         ChequeStatus status,
         CancellationToken cancellationToken)
     {
-        var list = await uow.Cheques.GetByStatusAsync(status, cancellationToken);
+        var branchId = currentBranch.GetRequiredBranchId();
+        var list = await uow.Cheques.GetByStatusAsync(branchId, status, cancellationToken);
         var dtoList = list.Select(c => mapper.Map<ChequeDto>(c)).ToList();
         return Ok(dtoList);
     }
