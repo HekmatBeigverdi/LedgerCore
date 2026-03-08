@@ -8,6 +8,36 @@ using LedgerCore.Core.Models.Settings;
 namespace LedgerCore.Core.Services;
 
 public class ChequeService(IUnitOfWork uow, ICurrentBranchService currentBranch) : IChequeService{
+    
+    
+    /// Helper Methods Start
+    private int GetBranchIdOrThrow()
+        => currentBranch.GetRequiredBranchId();
+
+    private async Task<Cheque?> GetChequeScopedAsync(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var branchId = GetBranchIdOrThrow();
+        var page = await uow.Repository<Cheque>().FindAsync(
+            x => x.Id == id && x.BranchId == branchId,
+            null,
+            cancellationToken);
+
+        return page.Items.FirstOrDefault();
+    }
+
+    private async Task<Cheque> GetChequeScopedOrThrowAsync(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var cheque = await GetChequeScopedAsync(id, cancellationToken);
+        if (cheque is null)
+            throw new InvalidOperationException($"Cheque with id={id} not found.");
+
+        return cheque;
+    }
+    /// Helper Methods End
 
     /// <summary>
     /// ثبت یک چک جدید (دریافتی یا صادره).
@@ -21,6 +51,17 @@ public class ChequeService(IUnitOfWork uow, ICurrentBranchService currentBranch)
         // تعیین وضعیت اولیه بر اساس نوع چک
         // دریافتی: Received
         // صادره: Issued
+        cheque.Status = cheque.IsIncoming
+            ? ChequeStatus.Received
+            : ChequeStatus.Issued;
+
+        var currentBranchId = currentBranch.GetRequiredBranchId();
+
+        if (cheque.BranchId == 0)
+            cheque.BranchId = currentBranchId;
+        else if (cheque.BranchId != currentBranchId)
+            throw new InvalidOperationException("BranchId is not valid for current branch scope.");
+
         cheque.Status = cheque.IsIncoming
             ? ChequeStatus.Received
             : ChequeStatus.Issued;
@@ -54,9 +95,7 @@ public class ChequeService(IUnitOfWork uow, ICurrentBranchService currentBranch)
         string? comment,
         CancellationToken cancellationToken = default)
     {
-        var cheque = await uow.Cheques.GetByIdAsync(chequeId, cancellationToken);
-        if (cheque is null)
-            throw new InvalidOperationException($"Cheque with id={chequeId} not found.");
+        var cheque = await GetChequeScopedOrThrowAsync(chequeId, cancellationToken);
 
         // تغییر وضعیت
         cheque.Status = newStatus;
@@ -78,6 +117,25 @@ public class ChequeService(IUnitOfWork uow, ICurrentBranchService currentBranch)
         await CreateAccountingForStatusChangeAsync(cheque, newStatus, cancellationToken);
 
         await uow.SaveChangesAsync(cancellationToken);
+    }
+    public Task<Cheque?> GetChequeAsync(
+        int id,
+        CancellationToken cancellationToken = default)
+    {
+        return GetChequeScopedAsync(id, cancellationToken);
+    }
+    public async Task<IReadOnlyList<Cheque>> GetByStatusAsync(
+        ChequeStatus status,
+        CancellationToken cancellationToken = default)
+    {
+        var branchId = GetBranchIdOrThrow();
+
+        var page = await uow.Repository<Cheque>().FindAsync(
+            x => x.Status == status && x.BranchId == branchId,
+            null,
+            cancellationToken);
+
+        return page.Items.ToList();
     }
 
     #region Accounting helpers
