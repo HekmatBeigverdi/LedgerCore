@@ -11,11 +11,12 @@ public class ChequeRepository(LedgerCoreDbContext context) : RepositoryBase<Cheq
     private readonly LedgerCoreDbContext _context = context;
 
     public async Task<IReadOnlyList<Cheque>> GetByStatusAsync(
+        int branchId,
         ChequeStatus status,
         CancellationToken cancellationToken = default)
     {
         var list = await _context.Cheques
-            .Where(x => x.Status == status)
+            .Where(x => x.Status == status && x.BranchId == branchId)
             .AsNoTracking()
             .ToListAsync(cancellationToken);
 
@@ -27,12 +28,15 @@ public class ChequeRepository(LedgerCoreDbContext context) : RepositoryBase<Cheq
         await _context.ChequeHistories.AddAsync(history, cancellationToken);
     }
 
-    public async Task<PagedResult<Cheque>> QueryAsync(PagingParams? paging = null,
+    public async Task<PagedResult<Cheque>> QueryAsync(
+        int branchId,
+        PagingParams? paging = null,
         CancellationToken cancellationToken = default)
     {
         IQueryable<Cheque> query = _context.Cheques
             .Include(x => x.Party)
             .Include(x => x.BankAccount)
+            .Where(x => x.BranchId == branchId)
             .AsNoTracking();
 
         return await QueryHelpers.ApplyPagingAsync(query, paging, cancellationToken);
