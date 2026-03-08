@@ -8,20 +8,43 @@ using LedgerCore.Core.Models.Settings;
 
 namespace LedgerCore.Core.Services;
 
-public class AssetService : IAssetService
+public class AssetService(
+    IUnitOfWork uow,
+    IFixedAssetRepository fixedAssets,
+    ICurrentBranchService currentBranch)
+    : IAssetService
 {
-    private readonly IUnitOfWork _uow;
-    private readonly IFixedAssetRepository _fixedAssets;
-
-    public AssetService(IUnitOfWork uow, IFixedAssetRepository fixedAssets)
-    {
-        _uow = uow;
-        _fixedAssets = fixedAssets;
-    }
+    private readonly ICurrentBranchService _currentBranch = currentBranch;
     
+    /// Helper Methods Start
+    private int GetBranchIdOrThrow()
+        => _currentBranch.GetRequiredBranchId();
+
+    private async Task<FixedAsset?> GetFixedAssetScopedAsync(int id, CancellationToken ct)
+    {
+        var branchId = GetBranchIdOrThrow();
+        var page = await uow.Repository<FixedAsset>().FindAsync(
+            x => x.Id == id && x.BranchId == branchId,
+            null,
+            ct);
+
+        return page.Items.FirstOrDefault();
+    }
+
+    private async Task<FixedAsset> GetFixedAssetScopedOrThrowAsync(int id, CancellationToken ct)
+    {
+        var asset = await GetFixedAssetScopedAsync(id, ct);
+        if (asset is null)
+            throw new InvalidOperationException($"FixedAsset with id={id} not found.");
+
+        return asset;
+    }
+    /// Helper Methods End
+
+
     private async Task<int> GetOpenFiscalPeriodIdAsync(DateTime date, CancellationToken ct)
     {
-        var fyRepo = _uow.Repository<FiscalYear>();
+        var fyRepo = uow.Repository<FiscalYear>();
         var fyPage = await fyRepo.FindAsync(y => y.StartDate <= date && y.EndDate >= date, null, ct);
         var year = fyPage.Items.OrderByDescending(y => y.StartDate).FirstOrDefault()
                    ?? throw new InvalidOperationException($"No fiscal year found for date={date:yyyy-MM-dd}.");
@@ -29,7 +52,7 @@ public class AssetService : IAssetService
         if (year.IsClosed)
             throw new InvalidOperationException($"Fiscal year '{year.Name}' is closed.");
 
-        var fpRepo = _uow.Repository<FiscalPeriod>();
+        var fpRepo = uow.Repository<FiscalPeriod>();
         var fpPage = await fpRepo.FindAsync(p => p.FiscalYearId == year.Id && p.StartDate <= date && p.EndDate >= date, null, ct);
         var period = fpPage.Items.OrderByDescending(p => p.StartDate).FirstOrDefault()
                      ?? throw new InvalidOperationException($"No fiscal period found for date={date:yyyy-MM-dd}.");
@@ -50,11 +73,19 @@ public class AssetService : IAssetService
         FixedAsset asset,
         CancellationToken cancellationToken = default)
     {
-        await _uow.BeginTransactionAsync(cancellationToken);
+        
+        var currentBranchId = _currentBranch.GetRequiredBranchId();
+
+        if (asset.BranchId == 0)
+            asset.BranchId = currentBranchId;
+        else if (asset.BranchId != currentBranchId)
+            throw new InvalidOperationException("BranchId is not valid for current branch scope.");
+        
+        await uow.BeginTransactionAsync(cancellationToken);
         try
         {
             // خواندن دسته برای تنظیم عمر مفید و مقدار اسقاط در صورت نیاز
-            var categoryRepo = _uow.Repository<AssetCategory>();
+            var categoryRepo = uow.Repository<AssetCategory>();
             var category = await categoryRepo.GetByIdAsync(asset.CategoryId, cancellationToken)
                           ?? throw new InvalidOperationException($"AssetCategory with id={asset.CategoryId} not found.");
 
@@ -67,15 +98,15 @@ public class AssetService : IAssetService
             asset.Status = AssetStatus.Active;
             asset.AccumulatedDepreciation = 0m;
 
-            await _fixedAssets.AddAsync(asset, cancellationToken);
-            await _uow.SaveChangesAsync(cancellationToken);
+            await fixedAssets.AddAsync(asset, cancellationToken);
+            await uow.SaveChangesAsync(cancellationToken);
 
-            await _uow.CommitTransactionAsync(cancellationToken);
+            await uow.CommitTransactionAsync(cancellationToken);
             return asset;
         }
         catch
         {
-            await _uow.RollbackTransactionAsync(cancellationToken);
+            await uow.RollbackTransactionAsync(cancellationToken);
             throw;
         }
     }
@@ -88,17 +119,16 @@ public class AssetService : IAssetService
         int fixedAssetId,
         CancellationToken cancellationToken = default)
     {
-        await _uow.BeginTransactionAsync(cancellationToken);
+        await uow.BeginTransactionAsync(cancellationToken);
         try
         {
-            var asset = await _fixedAssets.GetByIdAsync(fixedAssetId, cancellationToken)
-                        ?? throw new InvalidOperationException($"FixedAsset with id={fixedAssetId} not found.");
+            var asset = await GetFixedAssetScopedOrThrowAsync(fixedAssetId, cancellationToken);
 
-            var existingSchedules = await _fixedAssets.GetSchedulesAsync(fixedAssetId, cancellationToken);
+            var existingSchedules = await fixedAssets.GetSchedulesAsync(fixedAssetId, cancellationToken);
             if (existingSchedules.Any())
                 throw new InvalidOperationException("Depreciation schedule already exists for this asset.");
 
-            var categoryRepo = _uow.Repository<AssetCategory>();
+            var categoryRepo = uow.Repository<AssetCategory>();
             var category = await categoryRepo.GetByIdAsync(asset.CategoryId, cancellationToken)
                           ?? throw new InvalidOperationException($"AssetCategory with id={asset.CategoryId} not found.");
 
@@ -161,15 +191,15 @@ public class AssetService : IAssetService
 
             foreach (var s in schedules)
             {
-                await _fixedAssets.AddScheduleAsync(s, cancellationToken);
+                await fixedAssets.AddScheduleAsync(s, cancellationToken);
             }
 
-            await _uow.SaveChangesAsync(cancellationToken);
-            await _uow.CommitTransactionAsync(cancellationToken);
+            await uow.SaveChangesAsync(cancellationToken);
+            await uow.CommitTransactionAsync(cancellationToken);
         }
         catch
         {
-            await _uow.RollbackTransactionAsync(cancellationToken);
+            await uow.RollbackTransactionAsync(cancellationToken);
             throw;
         }
     }
@@ -185,13 +215,12 @@ public class AssetService : IAssetService
         DateTime periodEnd,
         CancellationToken cancellationToken = default)
     {
-        await _uow.BeginTransactionAsync(cancellationToken);
+        await uow.BeginTransactionAsync(cancellationToken);
         try
         {
-            var asset = await _fixedAssets.GetByIdAsync(fixedAssetId, cancellationToken)
-                        ?? throw new InvalidOperationException($"FixedAsset with id={fixedAssetId} not found.");
+            var asset = await GetFixedAssetScopedOrThrowAsync(fixedAssetId, cancellationToken);
 
-            var schedules = await _fixedAssets.GetSchedulesAsync(fixedAssetId, cancellationToken);
+            var schedules = await fixedAssets.GetSchedulesAsync(fixedAssetId, cancellationToken);
             var schedule = schedules.FirstOrDefault(x =>
                 x.PeriodStart.Date == periodStart.Date &&
                 x.PeriodEnd.Date == periodEnd.Date);
@@ -203,7 +232,7 @@ public class AssetService : IAssetService
                 return; // قبلاً ثبت شده
 
             // خواندن PostingRule
-            var postingRuleRepo = _uow.Repository<PostingRule>();
+            var postingRuleRepo = uow.Repository<PostingRule>();
             var rulePage = await postingRuleRepo.FindAsync(
                 x => x.DocumentType == "AssetDepreciation" && x.IsActive,
                 null,
@@ -255,7 +284,7 @@ public class AssetService : IAssetService
 
             journal.Lines = lines;
 
-            await _uow.Journals.AddAsync(journal, cancellationToken);
+            await uow.Journals.AddAsync(journal, cancellationToken);
 
             // به‌روزرسانی برنامه استهلاک
             schedule.IsPosted = true;
@@ -270,8 +299,8 @@ public class AssetService : IAssetService
                 asset.Status = AssetStatus.FullyDepreciated;
             }
 
-            _fixedAssets.Update(asset);
-            await _uow.SaveChangesAsync(cancellationToken);
+            fixedAssets.Update(asset);
+            await uow.SaveChangesAsync(cancellationToken);
 
             // ثبت تراکنش دارایی
             var transaction = new AssetTransaction
@@ -284,14 +313,14 @@ public class AssetService : IAssetService
                 JournalVoucher = journal
             };
 
-            await _fixedAssets.AddTransactionAsync(transaction, cancellationToken);
-            await _uow.SaveChangesAsync(cancellationToken);
+            await fixedAssets.AddTransactionAsync(transaction, cancellationToken);
+            await uow.SaveChangesAsync(cancellationToken);
 
-            await _uow.CommitTransactionAsync(cancellationToken);
+            await uow.CommitTransactionAsync(cancellationToken);
         }
         catch
         {
-            await _uow.RollbackTransactionAsync(cancellationToken);
+            await uow.RollbackTransactionAsync(cancellationToken);
             throw;
         }
     }
@@ -301,7 +330,7 @@ public class AssetService : IAssetService
         int? branchId,
         CancellationToken cancellationToken)
     {
-        var seriesRepo = _uow.Repository<NumberSeries>();
+        var seriesRepo = uow.Repository<NumberSeries>();
 
         var page = await seriesRepo.FindAsync(
             x => x.EntityType == entityType
@@ -317,7 +346,7 @@ public class AssetService : IAssetService
 
         series.CurrentNumber += 1;
         seriesRepo.Update(series);
-        await _uow.SaveChangesAsync(cancellationToken);
+        await uow.SaveChangesAsync(cancellationToken);
 
         var num = series.CurrentNumber.ToString().PadLeft(series.Padding, '0');
         return $"{series.Prefix}{num}{series.Suffix}";
