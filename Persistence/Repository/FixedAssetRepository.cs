@@ -36,6 +36,7 @@ public class FixedAssetRepository(LedgerCoreDbContext context)
     }
 
     public async Task<PagedResult<FixedAsset>> QueryAsync(
+        int branchId,
         PagingParams? paging = null,
         CancellationToken cancellationToken = default)
     {
@@ -44,6 +45,7 @@ public class FixedAssetRepository(LedgerCoreDbContext context)
             .Include(x => x.Branch)
             .Include(x => x.CostCenter)
             .Include(x => x.Project)
+            .Where(x => x.BranchId == branchId)
             .AsNoTracking();
 
         return await QueryHelpers.ApplyPagingAsync(query, paging, cancellationToken);
