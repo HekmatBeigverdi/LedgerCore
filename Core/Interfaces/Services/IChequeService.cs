@@ -14,4 +14,12 @@ public interface IChequeService
         ChequeStatus newStatus,
         string? comment,
         CancellationToken cancellationToken = default);
+    
+    Task<Cheque?> GetChequeAsync(
+        int id,
+        CancellationToken cancellationToken = default);
+    
+    Task<IReadOnlyList<Cheque>> GetByStatusAsync(
+        ChequeStatus status,
+        CancellationToken cancellationToken = default);
 }
