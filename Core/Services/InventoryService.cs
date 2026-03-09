@@ -11,15 +11,16 @@ namespace LedgerCore.Core.Services;
 /// <summary>
 /// سرویس دامنه‌ی انبار: کارتکس، وضعیت موجودی کالا و پردازش سند تعدیل.
 /// </summary>
-public class InventoryService(LedgerCoreDbContext db, IStockRepository stockRepository) : IInventoryService
+public class InventoryService(
+    LedgerCoreDbContext db,
+    IStockRepository stockRepository,
+    ICurrentBranchService currentBranch) : IInventoryService
 {
     private readonly LedgerCoreDbContext _db =
         db ?? throw new ArgumentNullException(nameof(db));
 
     private readonly IStockRepository _stock =
         stockRepository ?? throw new ArgumentNullException(nameof(stockRepository));
-    
-    
 
     /// <summary>
     /// کارتکس یک کالا در یک انبار (اختیاری).
@@ -29,12 +30,22 @@ public class InventoryService(LedgerCoreDbContext db, IStockRepository stockRepo
         int? warehouseId,
         CancellationToken cancellationToken = default)
     {
+        var branchId = currentBranch.GetRequiredBranchId();
+
         var query = _db.StockMoves
             .AsNoTracking()
-            .Where(m => m.ProductId == productId);
+            .Include(m => m.Warehouse)
+            .Where(m => m.ProductId == productId && m.Warehouse!.BranchId == branchId);
 
         if (warehouseId.HasValue)
         {
+            var warehouse = await _db.Warehouses
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == warehouseId.Value && x.BranchId == branchId, cancellationToken);
+
+            if (warehouse is null)
+                return Array.Empty<StockMove>();
+
             query = query.Where(m => m.WarehouseId == warehouseId.Value);
         }
 
@@ -48,12 +59,21 @@ public class InventoryService(LedgerCoreDbContext db, IStockRepository stockRepo
     /// وضعیت موجودی یک کالا در یک انبار (OnHand / Reserved / AverageCost).
     /// اگر رکوردی نباشد، null برمی‌گردد.
     /// </summary>
-    public Task<StockItem?> GetStockItemAsync(
+    public async Task<StockItem?> GetStockItemAsync(
         int warehouseId,
         int productId,
         CancellationToken cancellationToken = default)
     {
-        return _stock.GetStockItemAsync(warehouseId, productId, cancellationToken);
+        var branchId = currentBranch.GetRequiredBranchId();
+
+        var warehouse = await _db.Warehouses
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == warehouseId && x.BranchId == branchId, cancellationToken);
+
+        if (warehouse is null)
+            return null;
+
+        return await _stock.GetStockItemAsync(warehouseId, productId, cancellationToken);
     }
 
     /// <summary>
@@ -73,9 +93,11 @@ public class InventoryService(LedgerCoreDbContext db, IStockRepository stockRepo
 
         // اطمینان از اینکه رکورد اصلی از دیتابیس خوانده می‌شود
 
+        var branchId = currentBranch.GetRequiredBranchId();
+
         var dbAdjustment = await _db.InventoryAdjustments
             .Include(x => x.Warehouse)
-            .FirstOrDefaultAsync(x => x.Id == adjustment.Id, cancellationToken);
+            .FirstOrDefaultAsync(x => x.Id == adjustment.Id && x.BranchId == branchId, cancellationToken);
 
         if (dbAdjustment is null)
             throw new InvalidOperationException($"InventoryAdjustment with Id={adjustment.Id} not found.");
@@ -85,9 +107,12 @@ public class InventoryService(LedgerCoreDbContext db, IStockRepository stockRepo
 
         // همه‌ی حرکات انبار مربوط به این سند تعدیل
         var moves = await _db.StockMoves
+            .Include(m => m.Warehouse)
             .Where(m =>
                 m.RefDocumentType == "InventoryAdjustment" &&
-                m.RefDocumentId == dbAdjustment.Id)
+                m.RefDocumentId == dbAdjustment.Id &&
+                m.Warehouse != null &&
+                m.Warehouse.BranchId == branchId)
             .OrderBy(m => m.ProductId)
             .ThenBy(m => m.Id)
             .ToListAsync(cancellationToken);
@@ -244,7 +269,7 @@ public class InventoryService(LedgerCoreDbContext db, IStockRepository stockRepo
             // 3) Finalize adjustment            
 
             dbAdjustment.TotalDifferenceValue = totalDifferenceValue;
-            dbAdjustment.Status = DocumentStatus.Approved;
+            dbAdjustment.Status = DocumentStatus.Posted;
             dbAdjustment.ModifiedAt = DateTime.UtcNow;
 
             await _db.SaveChangesAsync(cancellationToken);
