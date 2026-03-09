@@ -7,7 +7,9 @@ using LedgerCore.Core.Models.Settings;
 
 namespace LedgerCore.Core.Services;
 
-public class PayrollService(IUnitOfWork uow) : IPayrollService
+public class PayrollService(
+    IUnitOfWork uow,
+    ICurrentBranchService currentBranch) : IPayrollService
 {
     public async Task<PayrollDocument> CalculatePayrollAsync(
         PayrollDocument payroll,
@@ -16,6 +18,13 @@ public class PayrollService(IUnitOfWork uow) : IPayrollService
         await uow.BeginTransactionAsync(cancellationToken);
         try
         {
+            var currentBranchId = currentBranch.GetRequiredBranchId();
+
+            if (payroll.BranchId == 0)
+                payroll.BranchId = currentBranchId;
+            else if (payroll.BranchId != currentBranchId)
+                throw new InvalidOperationException("BranchId is not valid for current branch scope.");
+            
             // اگر جدید است، شماره بده
             if (string.IsNullOrWhiteSpace(payroll.Number))
             {
@@ -67,7 +76,9 @@ public class PayrollService(IUnitOfWork uow) : IPayrollService
         await uow.BeginTransactionAsync(cancellationToken);
         try
         {
-            var payroll = await uow.Payrolls.GetWithLinesAsync(payrollDocumentId, cancellationToken)
+            var branchId = currentBranch.GetRequiredBranchId();
+
+            var payroll = await uow.Payrolls.GetWithLinesAsync(payrollDocumentId, branchId, cancellationToken)
                           ?? throw new InvalidOperationException($"PayrollDocument with id={payrollDocumentId} not found.");
 
             if (payroll.Status == PayrollStatus.Posted)

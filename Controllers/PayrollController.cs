@@ -13,7 +13,8 @@ namespace LedgerCore.Controllers;
 public class PayrollController(
     IUnitOfWork uow,
     IPayrollService payrollService,
-    IMapper mapper)
+    IMapper mapper,
+    ICurrentBranchService currentBranch)
     : ControllerBase
 {
     // GET api/payroll/{id}
@@ -22,7 +23,9 @@ public class PayrollController(
         int id,
         CancellationToken cancellationToken)
     {
-        var payroll = await uow.Payrolls.GetWithLinesAsync(id, cancellationToken);
+        var branchId = currentBranch.GetRequiredBranchId();
+        var payroll = await uow.Payrolls.GetWithLinesAsync(id, branchId, cancellationToken);
+        
         if (payroll is null)
             return NotFound();
 
@@ -36,7 +39,8 @@ public class PayrollController(
         [FromQuery] PagingParams paging,
         CancellationToken cancellationToken)
     {
-        var result = await uow.Payrolls.QueryAsync(paging, cancellationToken);
+        var branchId = currentBranch.GetRequiredBranchId();
+        var result = await uow.Payrolls.QueryAsync(branchId, paging, cancellationToken);
 
         var dtoItems = result.Items
             .Select(p => mapper.Map<PayrollDocumentDto>(p))
