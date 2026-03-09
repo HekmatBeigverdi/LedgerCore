@@ -15,29 +15,36 @@ namespace LedgerCore.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
-public class InventoryController : ControllerBase
+public class InventoryController(
+    IInventoryService inventoryService,
+    IAccountingService accountingService,
+    IUnitOfWork unitOfWork,
+    INumberSeriesService numberSeries,
+    LedgerCoreDbContext dbContext,
+    ICurrentBranchService currentBranch
+    )
+    : ControllerBase
 {
-    private readonly IInventoryService _inventoryService;
-    private readonly IAccountingService _accountingService;
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly LedgerCoreDbContext _dbContext;
-    private readonly INumberSeriesService _numberSeries;
-
-
-    public InventoryController(
-        IInventoryService inventoryService,
-        IAccountingService accountingService,
-        IUnitOfWork unitOfWork,
-        INumberSeriesService numberSeries,
-        LedgerCoreDbContext dbContext)
+    private async Task<InventoryAdjustment?> GetAdjustmentScopedAsync(
+        int id,
+        CancellationToken cancellationToken)
     {
-        _inventoryService = inventoryService;
-        _accountingService = accountingService;
-        _unitOfWork = unitOfWork;
-        _numberSeries = numberSeries;
-        _dbContext = dbContext;
+        var branchId = currentBranch.GetRequiredBranchId();
+
+        return await dbContext.InventoryAdjustments
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id && x.BranchId == branchId, cancellationToken);
     }
 
+    private async Task<InventoryAdjustment?> GetAdjustmentTrackedScopedAsync(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var branchId = currentBranch.GetRequiredBranchId();
+
+        return await dbContext.InventoryAdjustments
+            .FirstOrDefaultAsync(x => x.Id == id && x.BranchId == branchId, cancellationToken);
+    }
     // ===================== Stock Info =====================
 
     /// <summary>
@@ -53,7 +60,7 @@ public class InventoryController : ControllerBase
         if (productId <= 0)
             return BadRequest("productId is required.");
 
-        var moves = await _inventoryService.GetStockCardAsync(
+        var moves = await inventoryService.GetStockCardAsync(
             productId,
             warehouseId,
             cancellationToken);
@@ -74,7 +81,7 @@ public class InventoryController : ControllerBase
         if (warehouseId <= 0 || productId <= 0)
             return BadRequest("warehouseId and productId are required.");
 
-        var item = await _inventoryService.GetStockItemAsync(
+        var item = await inventoryService.GetStockItemAsync(
             warehouseId,
             productId,
             cancellationToken);
@@ -99,20 +106,25 @@ public class InventoryController : ControllerBase
         if (dto.Lines == null || dto.Lines.Count == 0)
             return BadRequest("At least one adjustment line is required.");
 
-        var adjustmentRepo = _unitOfWork.Repository<InventoryAdjustment>();
-        var stockMoveRepo = _unitOfWork.Repository<StockMove>();
+        var adjustmentRepo = unitOfWork.Repository<InventoryAdjustment>();
+        var stockMoveRepo = unitOfWork.Repository<StockMove>();
         
-        var warehouse = await _unitOfWork.Warehouses.GetByIdAsync(dto.WarehouseId, cancellationToken);
+        var warehouse = await unitOfWork.Warehouses.GetByIdAsync(dto.WarehouseId, cancellationToken);
         if (warehouse is null)
             return BadRequest("Warehouse not found.");
 
-        var branchId = (int)(dto.BranchId ?? warehouse.BranchId)!;
-        
-        if (warehouse.BranchId != branchId)
-            return BadRequest("BranchId does not match warehouse branch.");
+        var currentBranchId = currentBranch.GetRequiredBranchId();
+
+        if (warehouse.BranchId != currentBranchId)
+            return BadRequest("Warehouse is not accessible in current branch scope.");
+
+        var branchId = dto.BranchId ?? warehouse.BranchId;
+
+        if (branchId != currentBranchId)
+            return BadRequest("BranchId is not valid for current branch scope.");
 
         var number = string.IsNullOrWhiteSpace(dto.Number)
-            ? await _numberSeries.NextAsync("InventoryAdjustment", branchId, cancellationToken)
+            ? await numberSeries.NextAsync("InventoryAdjustment", branchId, cancellationToken)
             : dto.Number!;
         
         // هدر سند تعدیل
@@ -127,7 +139,7 @@ public class InventoryController : ControllerBase
         };
 
         await adjustmentRepo.AddAsync(adjustment, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken); // برای گرفتن Id
+        await unitOfWork.SaveChangesAsync(cancellationToken); // برای گرفتن Id
 
         // خطوط تعدیل به صورت StockMove (نوع Adjustment)
         foreach (var line in dto.Lines)
@@ -151,7 +163,7 @@ public class InventoryController : ControllerBase
             await stockMoveRepo.AddAsync(move, cancellationToken);
         }
 
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
 
         var result = await MapToDtoAsync(adjustment.Id, cancellationToken);
 
@@ -188,9 +200,9 @@ public class InventoryController : ControllerBase
         int id,
         CancellationToken cancellationToken)
     {
-        var adjustmentRepo = _unitOfWork.Repository<InventoryAdjustment>();
+        var adjustmentRepo = unitOfWork.Repository<InventoryAdjustment>();
 
-        var adjustment = await adjustmentRepo.GetByIdAsync(id, cancellationToken);
+        var adjustment = await GetAdjustmentTrackedScopedAsync(id, cancellationToken);
         if (adjustment is null)
             return NotFound();
 
@@ -200,7 +212,7 @@ public class InventoryController : ControllerBase
             return BadRequest("Adjustment already processed.");
         }
 
-        await _inventoryService.ProcessInventoryAdjustmentAsync(adjustment, cancellationToken);
+        await inventoryService.ProcessInventoryAdjustmentAsync(adjustment, cancellationToken);
 
         return NoContent();
     }
@@ -214,8 +226,8 @@ public class InventoryController : ControllerBase
         int id,
         CancellationToken cancellationToken)
     {
-        var adjustmentRepo = _unitOfWork.Repository<InventoryAdjustment>();
-        var adjustment = await adjustmentRepo.GetByIdAsync(id, cancellationToken);
+        var adjustmentRepo = unitOfWork.Repository<InventoryAdjustment>();
+        var adjustment = await GetAdjustmentTrackedScopedAsync(id, cancellationToken);
 
         if (adjustment is null)
             return NotFound();
@@ -225,7 +237,7 @@ public class InventoryController : ControllerBase
             return BadRequest("Adjustment must be processed before posting to accounting.");
         }
 
-        await _accountingService.PostInventoryAdjustmentAsync(id, cancellationToken);
+        await accountingService.PostInventoryAdjustmentAsync(id, cancellationToken);
 
         return NoContent();
     }
@@ -237,15 +249,17 @@ public class InventoryController : ControllerBase
         CancellationToken cancellationToken)
     {
         // Use injected DbContext to load related data with EF Core.
-        var context = _dbContext;
+        var context = dbContext;
         if (context == null)
         {
             return null;
         }
 
+        var branchId = currentBranch.GetRequiredBranchId();
+
         var adjustment = await context.InventoryAdjustments
             .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+            .FirstOrDefaultAsync(x => x.Id == id && x.BranchId == branchId, cancellationToken);
 
         if (adjustment is null)
             return null;
