@@ -200,7 +200,6 @@ public class InventoryController(
         int id,
         CancellationToken cancellationToken)
     {
-        var adjustmentRepo = unitOfWork.Repository<InventoryAdjustment>();
 
         var adjustment = await GetAdjustmentTrackedScopedAsync(id, cancellationToken);
         if (adjustment is null)
@@ -226,7 +225,6 @@ public class InventoryController(
         int id,
         CancellationToken cancellationToken)
     {
-        var adjustmentRepo = unitOfWork.Repository<InventoryAdjustment>();
         var adjustment = await GetAdjustmentTrackedScopedAsync(id, cancellationToken);
 
         if (adjustment is null)
@@ -267,9 +265,12 @@ public class InventoryController(
         // خطوط مربوطه (StockMoves)
         var moves = await context.StockMoves
             .AsNoTracking()
+            .Include(m => m.Warehouse)
             .Where(m =>
                 m.RefDocumentType == "InventoryAdjustment" &&
-                m.RefDocumentId == id)
+                m.RefDocumentId == id &&
+                m.Warehouse != null &&
+                m.Warehouse.BranchId == branchId)
             .OrderBy(m => m.ProductId)
             .ThenBy(m => m.Id)
             .ToListAsync(cancellationToken);
