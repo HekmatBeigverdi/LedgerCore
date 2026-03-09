@@ -21,8 +21,12 @@ public class PurchaseService(
         CancellationToken cancellationToken = default)
     {
         
+        var currentBranchId = currentBranch.GetRequiredBranchId();
+
         if (invoice.BranchId == 0)
-            invoice.BranchId = currentBranch.GetRequiredBranchId();
+            invoice.BranchId = currentBranchId;
+        else if (invoice.BranchId != currentBranchId)
+            throw new InvalidOperationException("BranchId is not valid for current branch scope.");
 
         await uow.BeginTransactionAsync(cancellationToken);
 
@@ -80,8 +84,11 @@ public class PurchaseService(
         existing.Date = invoice.Date;
         existing.DueDate = invoice.DueDate;
         existing.SupplierId = invoice.SupplierId;
-        if (invoice.BranchId != 0 && invoice.BranchId != existing.BranchId)
-            throw new InvalidOperationException("Changing BranchId of an existing purchase invoice is not allowed.");
+        if (existing.BranchId != branchId)
+            throw new InvalidOperationException("PurchaseInvoice is not accessible in current branch scope.");
+
+        if (invoice.BranchId != 0 && invoice.BranchId != branchId)
+            throw new InvalidOperationException("BranchId cannot be changed across branches.");
         existing.WarehouseId = invoice.WarehouseId;
         existing.CurrencyId = invoice.CurrencyId;
         existing.FxRate = invoice.FxRate;
