@@ -38,10 +38,15 @@ public class SalesService(
         SalesInvoice invoice,
         CancellationToken cancellationToken = default)
     {
+        
         await uow.BeginTransactionAsync(cancellationToken);
         
+        var currentBranchId = GetBranchIdOrThrow();
+
         if (invoice.BranchId == 0)
-            invoice.BranchId = currentBranch.GetRequiredBranchId();
+            invoice.BranchId = currentBranchId;
+        else if (invoice.BranchId != currentBranchId)
+            throw new InvalidOperationException("BranchId is not valid for current branch scope.");
 
 
         try
@@ -86,12 +91,18 @@ public class SalesService(
         if (existing.Status == DocumentStatus.Posted)
             throw new InvalidOperationException("Posted invoice cannot be updated.");
 
+        var currentBranchId = GetBranchIdOrThrow();
+
+        if (existing.BranchId != currentBranchId)
+            throw new InvalidOperationException("SalesInvoice is not accessible in current branch scope.");
+
+        if (invoice.BranchId != 0 && invoice.BranchId != currentBranchId)
+            throw new InvalidOperationException("BranchId cannot be changed across branches.");
+
         // فیلدهای ساده هدر را آپدیت می‌کنیم
         existing.Date = invoice.Date;
         existing.DueDate = invoice.DueDate;
         existing.CustomerId = invoice.CustomerId;
-        if (invoice.BranchId != 0)        // اگر 0 بود، شعبه قبلی را نگه می‌داریم
-            existing.BranchId = invoice.BranchId;
         existing.WarehouseId = invoice.WarehouseId;
         existing.CurrencyId = invoice.CurrencyId;
         existing.FxRate = invoice.FxRate;
@@ -182,7 +193,9 @@ public class SalesService(
 
             // 1) برگشت انبار: StockMove های مرجع SalesInvoice را پیدا کن
             var movesPage = await uow.Repository<StockMove>().FindAsync(
-                m => m.RefDocumentType == "SalesInvoice" && m.RefDocumentId == invoice.Id,
+                m => m.RefDocumentType == "SalesInvoice"
+                     && m.RefDocumentId == invoice.Id
+                     && m.WarehouseId == invoice.WarehouseId,
                 null,
                 cancellationToken);
 
