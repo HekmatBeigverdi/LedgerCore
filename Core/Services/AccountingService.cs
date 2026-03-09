@@ -74,9 +74,12 @@ public class AccountingService(
         JournalVoucher voucher,
         CancellationToken cancellationToken = default)
     {
-        // Branch scope is required
+        var currentBranchId = GetBranchIdOrThrow();
+
         if (voucher.BranchId == 0)
-            voucher.BranchId = GetBranchIdOrThrow();
+            voucher.BranchId = currentBranchId;
+        else if (voucher.BranchId != currentBranchId)
+            throw new InvalidOperationException("BranchId is not valid for current branch scope.");
 
         // اگر شماره ندارد، از NumberSeries بگیریم
         if (string.IsNullOrWhiteSpace(voucher.Number))
@@ -117,7 +120,7 @@ public class AccountingService(
         JournalVoucher voucher,
         CancellationToken cancellationToken = default)
     {
-        var branchId = currentBranch.GetRequiredBranchId();
+        var branchId = GetBranchIdOrThrow();
         var existing = await uow.Journals.GetWithLinesAsync(voucher.Id, branchId, cancellationToken);
         if (existing is null)
             throw new InvalidOperationException($"JournalVoucher with id={voucher.Id} not found.");
@@ -125,11 +128,12 @@ public class AccountingService(
         if (existing.Status == DocumentStatus.Posted)
             throw new InvalidOperationException("Posted journal cannot be updated.");
 
+        if (voucher.BranchId != 0 && voucher.BranchId != branchId)
+            throw new InvalidOperationException("BranchId cannot be changed across branches.");
+
         // هدر سند را به‌روزرسانی می‌کنیم
         existing.Date = voucher.Date;
         existing.Description = voucher.Description;
-        if (voucher.BranchId != 0)
-            existing.BranchId = voucher.BranchId;
         existing.FiscalPeriodId = voucher.FiscalPeriodId;
 
         // سطرها را ساده ری‌بیلد می‌کنیم
@@ -173,7 +177,8 @@ public class AccountingService(
         int id,
         CancellationToken cancellationToken = default)
     {
-        var existing = await uow.Journals.GetByIdAsync(id, cancellationToken);
+        var branchId = GetBranchIdOrThrow();
+        var existing = await uow.Journals.GetWithLinesAsync(id, branchId, cancellationToken);
         if (existing is null)
             throw new InvalidOperationException($"JournalVoucher with id={id} not found.");
 
@@ -306,10 +311,12 @@ public class AccountingService(
             return;
 
         // 1) گرفتن تراز آزمایشی دوره از ReportingService
+        var currentBranchId = GetBranchIdOrThrow();
+
         var trialBalance = await reportingService.GetTrialBalanceAsync(
             period.StartDate,
             period.EndDate,
-            branchId: null,
+            branchId: currentBranchId,
             cancellationToken);
 
         // اگر هیچ حرکت درآمد/هزینه‌ای نداریم، فقط دوره را ببند
@@ -532,10 +539,12 @@ public class AccountingService(
         // Opening* = مانده قبل از شروع سال
         // Period*  = گردش داخل سال
         // Closing* = مانده تا انتهای سال (همان چیزی که برای افتتاحیه لازم داریم)
+        var currentBranchId = GetBranchIdOrThrow();
+
         var tb = await reportingService.GetTrialBalanceAsync(
             fiscalYearStartDate,
             fiscalYearEndDate,
-            branchId: null,
+            branchId: currentBranchId,
             cancellationToken: cancellationToken);
 
         if (tb is null || tb.Count == 0)
@@ -639,8 +648,12 @@ public class AccountingService(
         Receipt receipt,
         CancellationToken cancellationToken = default)
     {
+        var currentBranchId = GetBranchIdOrThrow();
+
         if (receipt.BranchId == 0)
-            receipt.BranchId = currentBranch.GetRequiredBranchId();
+            receipt.BranchId = currentBranchId;
+        else if (receipt.BranchId != currentBranchId)
+            throw new InvalidOperationException("BranchId is not valid for current branch scope.");
 
         await uow.BeginTransactionAsync(cancellationToken);
         try
@@ -688,16 +701,17 @@ public class AccountingService(
         CancellationToken cancellationToken = default)
     {
         var existing = await GetReceiptScopedOrThrowAsync(receipt.Id, cancellationToken);
-        if (existing is null)
-            throw new InvalidOperationException($"Receipt with id={receipt.Id} not found.");
 
         if (existing.Status == DocumentStatus.Posted)
             throw new InvalidOperationException("Posted receipt cannot be updated.");
 
+        var currentBranchId = GetBranchIdOrThrow();
+
+        if (receipt.BranchId != 0 && receipt.BranchId != currentBranchId)
+            throw new InvalidOperationException("BranchId cannot be changed across branches.");
+
         existing.Date = receipt.Date;
         existing.PartyId = receipt.PartyId;
-        if (receipt.BranchId != 0)
-            existing.BranchId = receipt.BranchId;
         existing.Amount = receipt.Amount;
         existing.CurrencyId = receipt.CurrencyId;
         existing.FxRate = receipt.FxRate;
@@ -723,8 +737,6 @@ public class AccountingService(
         try
         {
             var receipt = await GetReceiptScopedOrThrowAsync(receiptId, cancellationToken);
-            if (receipt is null)
-                throw new InvalidOperationException($"Receipt with id={receiptId} not found.");
 
             if (receipt.Status == DocumentStatus.Posted)
                 return;
@@ -754,8 +766,6 @@ public class AccountingService(
         CancellationToken cancellationToken = default)
     {
         var receipt = await GetReceiptScopedOrThrowAsync(receiptId, cancellationToken);
-        if (receipt is null)
-            throw new InvalidOperationException($"Receipt with id={receiptId} not found.");
 
         if (receipt.Status != DocumentStatus.Posted)
             throw new InvalidOperationException("Only a posted receipt can be reversed.");
@@ -777,14 +787,11 @@ public class AccountingService(
         await uow.BeginTransactionAsync(cancellationToken);
         try
         {
+            receipt = await GetReceiptScopedOrThrowAsync(receiptId, cancellationToken);
+
             receipt.ReversalJournalVoucherId = reversalJournal.Id;
-
-            receipt = await uow.Receipts.GetByIdAsync(receiptId, cancellationToken)
-                      ?? throw new InvalidOperationException($"Receipt with id={receiptId} not found.");
-
             receipt.Status = DocumentStatus.Cancelled;
 
-            // اختیاری: توضیح را به سند اضافه کنید (اگر Description دارید)
             receipt.Description = string.IsNullOrWhiteSpace(receipt.Description)
                 ? $"Reversed by JV {reversalJournal.Number}"
                 : $"{receipt.Description} | Reversed by JV {reversalJournal.Number}";
@@ -809,8 +816,12 @@ public class AccountingService(
         Payment payment,
         CancellationToken cancellationToken = default)
     {
+        var currentBranchId = GetBranchIdOrThrow();
+
         if (payment.BranchId == 0)
-            payment.BranchId = currentBranch.GetRequiredBranchId();
+            payment.BranchId = currentBranchId;
+        else if (payment.BranchId != currentBranchId)
+            throw new InvalidOperationException("BranchId is not valid for current branch scope.");
 
         await uow.BeginTransactionAsync(cancellationToken);
         try
@@ -858,16 +869,17 @@ public class AccountingService(
         CancellationToken cancellationToken = default)
     {
         var existing = await GetPaymentScopedOrThrowAsync(payment.Id, cancellationToken);
-        if (existing is null)
-            throw new InvalidOperationException($"Payment with id={payment.Id} not found.");
 
         if (existing.Status == DocumentStatus.Posted)
             throw new InvalidOperationException("Posted payment cannot be updated.");
 
+        var currentBranchId = GetBranchIdOrThrow();
+
+        if (payment.BranchId != 0 && payment.BranchId != currentBranchId)
+            throw new InvalidOperationException("BranchId cannot be changed across branches.");
+
         existing.Date = payment.Date;
         existing.PartyId = payment.PartyId;
-        if (payment.BranchId != 0)
-            existing.BranchId = payment.BranchId;
         existing.Amount = payment.Amount;
         existing.CurrencyId = payment.CurrencyId;
         existing.FxRate = payment.FxRate;
@@ -893,8 +905,6 @@ public class AccountingService(
         try
         {
             var payment = await GetPaymentScopedOrThrowAsync(paymentId, cancellationToken);
-            if (payment is null)
-                throw new InvalidOperationException($"Payment with id={paymentId} not found.");
 
             if (payment.Status == DocumentStatus.Posted)
                 return;
@@ -923,8 +933,6 @@ public class AccountingService(
         CancellationToken cancellationToken = default)
     {
         var payment = await GetPaymentScopedOrThrowAsync(paymentId, cancellationToken);
-        if (payment is null)
-            throw new InvalidOperationException($"Payment with id={paymentId} not found.");
 
         if (payment.Status != DocumentStatus.Posted)
             throw new InvalidOperationException("Only a posted payment can be reversed.");
@@ -943,11 +951,9 @@ public class AccountingService(
         await uow.BeginTransactionAsync(cancellationToken);
         try
         {
+            payment = await GetPaymentScopedOrThrowAsync(paymentId, cancellationToken);
+
             payment.ReversalJournalVoucherId = reversalJournal.Id;
-
-            payment = await uow.Payments.GetByIdAsync(paymentId, cancellationToken)
-                      ?? throw new InvalidOperationException($"Payment with id={paymentId} not found.");
-
             payment.Status = DocumentStatus.Cancelled;
 
             payment.Description = string.IsNullOrWhiteSpace(payment.Description)
@@ -1172,9 +1178,7 @@ public class AccountingService(
         {
             var adjustmentRepo = uow.Repository<InventoryAdjustment>();
 
-            var adjustment = await adjustmentRepo.GetByIdAsync(inventoryAdjustmentId, cancellationToken)
-                             ?? throw new InvalidOperationException(
-                                 $"InventoryAdjustment with id={inventoryAdjustmentId} not found.");
+            var adjustment = await GetInventoryAdjustmentScopedOrThrowAsync(inventoryAdjustmentId, cancellationToken);
 
             if (adjustment.Status == DocumentStatus.Posted)
                 return;
@@ -1381,4 +1385,27 @@ public class AccountingService(
             }
         }
     }
+    
+    // --------------------- Scope Helpers ---------------------
+    private async Task<InventoryAdjustment?> GetInventoryAdjustmentScopedAsync(int id, CancellationToken ct)
+    {
+        var branchId = GetBranchIdOrThrow();
+        var repo = uow.Repository<InventoryAdjustment>();
+
+        var page = await repo.FindAsync(
+            x => x.Id == id && x.BranchId == branchId,
+            null,
+            ct);
+
+        return page.Items.FirstOrDefault();
+    }
+
+    private async Task<InventoryAdjustment> GetInventoryAdjustmentScopedOrThrowAsync(int id, CancellationToken ct)
+    {
+        var adjustment = await GetInventoryAdjustmentScopedAsync(id, ct);
+        if (adjustment is null)
+            throw new InvalidOperationException($"InventoryAdjustment with id={id} not found.");
+        return adjustment;
+    }
+
 }
