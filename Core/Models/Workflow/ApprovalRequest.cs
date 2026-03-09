@@ -14,7 +14,7 @@ public class ApprovalRequest: AuditableEntity
     /// آیدی سند در جدول مربوطه
     /// </summary>
     public int EntityId { get; set; }
-
+    public int BranchId { get; set; }
     public ApprovalStatus Status { get; set; } = ApprovalStatus.Pending;
 
     public string? RequestedBy { get; set; }

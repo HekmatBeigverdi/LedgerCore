@@ -14,6 +14,5 @@ public class ApprovalRequestConfiguration : IEntityTypeConfiguration<ApprovalReq
             .HasMaxLength(100)
             .IsRequired();
 
-        builder.HasIndex(x => new { x.EntityType, x.EntityId });
-    }
+        builder.HasIndex(x => new { x.BranchId, x.EntityType, x.EntityId });    }
 }

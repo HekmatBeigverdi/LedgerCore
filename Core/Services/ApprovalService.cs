@@ -6,7 +6,9 @@ using LedgerCore.Core.Models.Workflow;
 
 namespace LedgerCore.Core.Services;
 
-public class ApprovalService(IUnitOfWork uow) : IApprovalService
+public class ApprovalService(
+    IUnitOfWork uow,
+    ICurrentBranchService currentBranch) : IApprovalService
 {
     public async Task<ApprovalRequest> CreateApprovalRequestAsync(
         string entityType,
@@ -16,8 +18,18 @@ public class ApprovalService(IUnitOfWork uow) : IApprovalService
         var approvalRepo = uow.Repository<ApprovalRequest>();
 
         // اگر درخواست pending برای این سند وجود داشته باشد، همان را برگردان
+        var branchId = GetBranchIdOrThrow();
+
+        // چک اینکه سند واقعاً در همین شعبه وجود دارد
+        await EnsureDocumentInCurrentBranchAsync(
+            entityType,
+            entityId,
+            cancellationToken);
+
+        // اگر درخواست pending برای این سند وجود داشته باشد
         var existing = await approvalRepo.FindAsync(
-            x => x.EntityType == entityType
+            x => x.BranchId == branchId
+                 && x.EntityType == entityType
                  && x.EntityId == entityId
                  && x.Status == ApprovalStatus.Pending,
             null,
@@ -29,9 +41,10 @@ public class ApprovalService(IUnitOfWork uow) : IApprovalService
 
         // اگر قبلاً ApprovalRequest دیگری برای این سند هست (مثلاً Approved/Rejected)،
         // مشکلی نیست، فقط درخواست جدید می‌سازیم.
-
+        
         var request = new ApprovalRequest
         {
+            BranchId = branchId,
             EntityType = entityType,
             EntityId = entityId,
             Status = ApprovalStatus.Pending,
@@ -42,8 +55,13 @@ public class ApprovalService(IUnitOfWork uow) : IApprovalService
         await approvalRepo.AddAsync(request, cancellationToken);
 
         // سند اصلی را Pending کن
-        await SetDocumentStatusAsync(entityType, entityId, DocumentStatus.Pending, cancellationToken);
-
+        await SetDocumentStatusAsync(
+            entityType,
+            entityId,
+            branchId,
+            DocumentStatus.Pending,
+            cancellationToken);
+        
         await uow.SaveChangesAsync(cancellationToken);
 
         return request;
@@ -61,16 +79,21 @@ public class ApprovalService(IUnitOfWork uow) : IApprovalService
             var approvalRepo = uow.Repository<ApprovalRequest>();
             var stepRepo = uow.Repository<ApprovalStep>();
 
-            var request = await approvalRepo.GetByIdAsync(approvalRequestId, cancellationToken)
-                          ?? throw new InvalidOperationException(
-                              $"ApprovalRequest with id={approvalRequestId} not found.");
+            var request = await GetApprovalRequestScopedOrThrowAsync(
+                approvalRequestId,
+                cancellationToken);
 
             if (request.Status is ApprovalStatus.Approved or ApprovalStatus.Rejected or ApprovalStatus.Cancelled)
                 throw new InvalidOperationException("ApprovalRequest is already completed.");
 
             // مرحله جدید به عنوان History
-            var nextOrder = request.Steps.Any()
-                ? request.Steps.Max(s => s.StepOrder) + 1
+            var existingSteps = await stepRepo.FindAsync(
+                x => x.ApprovalRequestId == request.Id,
+                null,
+                cancellationToken);
+
+            var nextOrder = existingSteps.Items.Any()
+                ? existingSteps.Items.Max(s => s.StepOrder) + 1
                 : 1;
 
             var step = new ApprovalStep
@@ -99,6 +122,7 @@ public class ApprovalService(IUnitOfWork uow) : IApprovalService
             await SetDocumentStatusAsync(
                 request.EntityType,
                 request.EntityId,
+                request.BranchId,
                 DocumentStatus.Approved,
                 cancellationToken);
 
@@ -124,15 +148,20 @@ public class ApprovalService(IUnitOfWork uow) : IApprovalService
             var approvalRepo = uow.Repository<ApprovalRequest>();
             var stepRepo = uow.Repository<ApprovalStep>();
 
-            var request = await approvalRepo.GetByIdAsync(approvalRequestId, cancellationToken)
-                          ?? throw new InvalidOperationException(
-                              $"ApprovalRequest with id={approvalRequestId} not found.");
+            var request = await GetApprovalRequestScopedOrThrowAsync(
+                approvalRequestId,
+                cancellationToken);
 
             if (request.Status is ApprovalStatus.Approved or ApprovalStatus.Rejected or ApprovalStatus.Cancelled)
                 throw new InvalidOperationException("ApprovalRequest is already completed.");
 
-            var nextOrder = request.Steps.Any()
-                ? request.Steps.Max(s => s.StepOrder) + 1
+            var existingSteps = await stepRepo.FindAsync(
+                x => x.ApprovalRequestId == request.Id,
+                null,
+                cancellationToken);
+
+            var nextOrder = existingSteps.Items.Any()
+                ? existingSteps.Items.Max(s => s.StepOrder) + 1
                 : 1;
 
             var step = new ApprovalStep
@@ -161,6 +190,7 @@ public class ApprovalService(IUnitOfWork uow) : IApprovalService
             await SetDocumentStatusAsync(
                 request.EntityType,
                 request.EntityId,
+                request.BranchId,
                 DocumentStatus.Cancelled,
                 cancellationToken);
 
@@ -175,10 +205,77 @@ public class ApprovalService(IUnitOfWork uow) : IApprovalService
     }
 
     // ===================== Helper =====================
+    private async Task<ApprovalRequest?> GetApprovalRequestScopedAsync(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var branchId = GetBranchIdOrThrow();
+        var approvalRepo = uow.Repository<ApprovalRequest>();
+
+        var page = await approvalRepo.FindAsync(
+            x => x.Id == id && x.BranchId == branchId,
+            null,
+            cancellationToken);
+
+        return page.Items.FirstOrDefault();
+    }
+
+    private async Task<ApprovalRequest> GetApprovalRequestScopedOrThrowAsync(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var request = await GetApprovalRequestScopedAsync(id, cancellationToken);
+        if (request is null)
+            throw new InvalidOperationException($"ApprovalRequest with id={id} not found.");
+
+        return request;
+    }
+    private async Task EnsureDocumentInCurrentBranchAsync(
+        string entityType,
+        int entityId,
+        CancellationToken cancellationToken)
+    {
+        var branchId = GetBranchIdOrThrow();
+
+        switch (entityType)
+        {
+            case "SalesInvoice":
+            {
+                var entity = await uow.Invoices
+                    .GetSalesInvoiceWithLinesAsync(entityId, branchId, cancellationToken);
+
+                if (entity is null)
+                    throw new InvalidOperationException(
+                        $"SalesInvoice with id={entityId} not found in current branch.");
+
+                break;
+            }
+
+            case "PurchaseInvoice":
+            {
+                var entity = await uow.Invoices
+                    .GetPurchaseInvoiceWithLinesAsync(entityId, branchId, cancellationToken);
+
+                if (entity is null)
+                    throw new InvalidOperationException(
+                        $"PurchaseInvoice with id={entityId} not found in current branch.");
+
+                break;
+            }
+
+            default:
+                throw new InvalidOperationException(
+                    $"Approval is not supported for entityType '{entityType}'.");
+        }
+    }
+    
+    private int GetBranchIdOrThrow()
+        => currentBranch.GetRequiredBranchId();
 
     private async Task SetDocumentStatusAsync(
         string entityType,
         int entityId,
+        int branchId,
         DocumentStatus newStatus,
         CancellationToken cancellationToken)
     {
@@ -186,21 +283,29 @@ public class ApprovalService(IUnitOfWork uow) : IApprovalService
         {
             case "SalesInvoice":
             {
-                var repo = uow.Repository<SalesInvoice>();
-                var entity = await repo.GetByIdAsync(entityId, cancellationToken)
-                             ?? throw new InvalidOperationException($"SalesInvoice with id={entityId} not found.");
+                var entity = await uow.Invoices.GetSalesInvoiceWithLinesAsync(
+                                 entityId,
+                                 branchId,
+                                 cancellationToken)
+                             ?? throw new InvalidOperationException(
+                                 $"SalesInvoice with id={entityId} not found in current branch.");
+
                 entity.Status = newStatus;
-                repo.Update(entity);
+                uow.Invoices.UpdateSalesInvoice(entity);
                 break;
             }
 
             case "PurchaseInvoice":
             {
-                var repo = uow.Repository<PurchaseInvoice>();
-                var entity = await repo.GetByIdAsync(entityId, cancellationToken)
-                             ?? throw new InvalidOperationException($"PurchaseInvoice with id={entityId} not found.");
+                var entity = await uow.Invoices.GetPurchaseInvoiceWithLinesAsync(
+                                 entityId,
+                                 branchId,
+                                 cancellationToken)
+                             ?? throw new InvalidOperationException(
+                                 $"PurchaseInvoice with id={entityId} not found in current branch.");
+
                 entity.Status = newStatus;
-                repo.Update(entity);
+                uow.Invoices.UpdatePurchaseInvoice(entity);
                 break;
             }
 
