@@ -11,7 +11,8 @@ namespace LedgerCore.Controllers;
 [Route("api/v1/[controller]")]
 public class ApprovalController(
     IApprovalService approvalService,
-    IUnitOfWork uow)
+    IUnitOfWork uow,
+    ICurrentBranchService currentBranch)
     : ControllerBase
 {
     // برای سادگی، fromBody مدل‌های ساده تعریف می‌کنیم
@@ -54,8 +55,15 @@ public class ApprovalController(
         int id,
         CancellationToken cancellationToken)
     {
+        var branchId = currentBranch.GetRequiredBranchId();
         var repo = uow.Repository<ApprovalRequest>();
-        var request = await repo.GetByIdAsync(id, cancellationToken);
+
+        var page = await repo.FindAsync(
+            x => x.Id == id && x.BranchId == branchId,
+            null,
+            cancellationToken);
+
+        var request = page.Items.FirstOrDefault();
 
         if (request is null)
             return NotFound();
@@ -77,9 +85,13 @@ public class ApprovalController(
         if (string.IsNullOrWhiteSpace(entityType) || entityId <= 0)
             return BadRequest("EntityType and EntityId are required.");
 
+        var branchId = currentBranch.GetRequiredBranchId();
         var repo = uow.Repository<ApprovalRequest>();
+
         var page = await repo.FindAsync(
-            x => x.EntityType == entityType && x.EntityId == entityId,
+            x => x.BranchId == branchId
+                 && x.EntityType == entityType
+                 && x.EntityId == entityId,
             null,
             cancellationToken);
 
@@ -128,9 +140,12 @@ public class ApprovalController(
     public async Task<ActionResult<IReadOnlyList<ApprovalRequest>>> GetPending(
         CancellationToken cancellationToken)
     {
+        var branchId = currentBranch.GetRequiredBranchId();
         var repo = uow.Repository<ApprovalRequest>();
+
         var page = await repo.FindAsync(
-            x => x.Status == ApprovalStatus.Pending,
+            x => x.BranchId == branchId
+                 && x.Status == ApprovalStatus.Pending,
             null,
             cancellationToken);
 
