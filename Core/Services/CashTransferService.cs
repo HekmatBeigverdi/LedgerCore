@@ -55,9 +55,13 @@ public class CashTransferService(IUnitOfWork uow, ICurrentBranchService currentB
             // اعتبارسنجی‌های پایه
             if (transfer.Amount <= 0)
                 throw new InvalidOperationException("مبلغ انتقال باید بزرگ‌تر از صفر باشد.");
-            
+
+            var currentBranchId = GetBranchIdOrThrow();
+
             if (transfer.BranchId == 0)
-                transfer.BranchId = currentBranch.GetRequiredBranchId();
+                transfer.BranchId = currentBranchId;
+            else if (transfer.BranchId != currentBranchId)
+                throw new InvalidOperationException("BranchId is not valid for current branch scope.");
 
             var hasFrom =
                 transfer.FromBankAccountId.HasValue ||
@@ -138,13 +142,6 @@ public class CashTransferService(IUnitOfWork uow, ICurrentBranchService currentB
             // TODO: در آینده اینجا می‌توانی JournalVoucher برای انتقال وجه بسازی.
             transfer.Status = DocumentStatus.Posted;
             
-            var currentBranchId = currentBranch.GetRequiredBranchId();
-
-            if (transfer.BranchId == 0)
-                transfer.BranchId = currentBranchId;
-            else if (transfer.BranchId != currentBranchId)
-                throw new InvalidOperationException("BranchId is not valid for current branch scope.");
-
             repo.Update(transfer);
             await uow.SaveChangesAsync(cancellationToken);
             await uow.CommitTransactionAsync(cancellationToken);
@@ -159,7 +156,6 @@ public class CashTransferService(IUnitOfWork uow, ICurrentBranchService currentB
     /// <summary>
     /// تولید شماره بعدی برای CashTransfer از جدول NumberSeries.
     /// مشابه متد GenerateNextNumberAsync در AccountingService،
-    /// ولی بدون BranchId (چون CashTransfer فعلاً Branch ندارد).
     /// </summary>
     private async Task<string> GenerateNextNumberAsync(
         string entityType,
