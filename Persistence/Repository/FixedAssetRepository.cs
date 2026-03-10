@@ -12,10 +12,12 @@ public class FixedAssetRepository(LedgerCoreDbContext context)
 
     public async Task<IReadOnlyList<DepreciationSchedule>> GetSchedulesAsync(
         int fixedAssetId,
+        int branchId,
         CancellationToken cancellationToken = default)
     {
         return await _context.DepreciationSchedules
-            .Where(x => x.FixedAssetId == fixedAssetId)
+            .Include(x => x.FixedAsset)
+            .Where(x => x.FixedAssetId == fixedAssetId && x.FixedAsset.BranchId == branchId)
             .OrderBy(x => x.PeriodStart)
             .AsNoTracking()
             .ToListAsync(cancellationToken);

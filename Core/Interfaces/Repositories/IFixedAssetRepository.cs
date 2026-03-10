@@ -10,6 +10,7 @@ public interface IFixedAssetRepository : IRepository<FixedAsset>
     /// </summary>
     Task<IReadOnlyList<DepreciationSchedule>> GetSchedulesAsync(
         int fixedAssetId,
+        int branchId,
         CancellationToken cancellationToken = default);
 
     /// <summary>

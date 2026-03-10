@@ -74,8 +74,8 @@ public class AssetService(
         CancellationToken cancellationToken = default)
     {
         
-        var currentBranchId = _currentBranch.GetRequiredBranchId();
-
+        var currentBranchId = GetBranchIdOrThrow();
+        
         if (asset.BranchId == 0)
             asset.BranchId = currentBranchId;
         else if (asset.BranchId != currentBranchId)
@@ -124,7 +124,12 @@ public class AssetService(
         {
             var asset = await GetFixedAssetScopedOrThrowAsync(fixedAssetId, cancellationToken);
 
-            var existingSchedules = await fixedAssets.GetSchedulesAsync(fixedAssetId, cancellationToken);
+            var branchId = GetBranchIdOrThrow();
+            var existingSchedules = await fixedAssets.GetSchedulesAsync(
+                fixedAssetId,
+                branchId,
+                cancellationToken);
+
             if (existingSchedules.Any())
                 throw new InvalidOperationException("Depreciation schedule already exists for this asset.");
 
@@ -220,7 +225,12 @@ public class AssetService(
         {
             var asset = await GetFixedAssetScopedOrThrowAsync(fixedAssetId, cancellationToken);
 
-            var schedules = await fixedAssets.GetSchedulesAsync(fixedAssetId, cancellationToken);
+            var branchId = GetBranchIdOrThrow();
+            var schedules = await fixedAssets.GetSchedulesAsync(
+                fixedAssetId,
+                branchId,
+                cancellationToken);
+
             var schedule = schedules.FirstOrDefault(x =>
                 x.PeriodStart.Date == periodStart.Date &&
                 x.PeriodEnd.Date == periodEnd.Date);
