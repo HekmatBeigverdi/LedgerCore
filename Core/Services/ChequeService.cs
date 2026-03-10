@@ -48,14 +48,7 @@ public class ChequeService(IUnitOfWork uow, ICurrentBranchService currentBranch)
         Cheque cheque,
         CancellationToken cancellationToken = default)
     {
-        // تعیین وضعیت اولیه بر اساس نوع چک
-        // دریافتی: Received
-        // صادره: Issued
-        cheque.Status = cheque.IsIncoming
-            ? ChequeStatus.Received
-            : ChequeStatus.Issued;
-
-        var currentBranchId = currentBranch.GetRequiredBranchId();
+        var currentBranchId = GetBranchIdOrThrow();
 
         if (cheque.BranchId == 0)
             cheque.BranchId = currentBranchId;
@@ -74,11 +67,8 @@ public class ChequeService(IUnitOfWork uow, ICurrentBranchService currentBranch)
             ChangeDate = DateTime.UtcNow,
             Status = cheque.Status,
             Description = cheque.Description,
-            ChangedBy = "system" // بعداً می‌توانی از کاربر لاگین شده بگیری
+            ChangedBy = "system"
         };
-        
-        if (cheque.BranchId == 0)
-            cheque.BranchId = currentBranch.GetRequiredBranchId();
 
         await uow.Cheques.AddHistoryAsync(history, cancellationToken);
         await uow.SaveChangesAsync(cancellationToken);
