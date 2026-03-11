@@ -91,13 +91,10 @@ public class FixedAssetsController(
         if (existing is null)
             return NotFound();
 
-        if (request.BranchId != 0 && request.BranchId != branchId)
-            return BadRequest("BranchId cannot be changed across branches.");
-
         mapper.Map(request, existing);
 
-        if (existing.BranchId != branchId)
-            return BadRequest("BranchId is not valid for current branch scope.");
+        // enforce نهایی برای جلوگیری از هرگونه تغییر ناخواسته
+        existing.BranchId = branchId;
 
         fixedAssets.Update(existing);
         await _uow.SaveChangesAsync(cancellationToken);

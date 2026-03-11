@@ -174,6 +174,7 @@ public class DomainMappingProfile : Profile
 
         CreateMap<UpdateFixedAssetRequest, FixedAsset>()
             .ForMember(d => d.Id, m => m.Ignore())
+            .ForMember(d => d.BranchId, m => m.Ignore()) // بسیار مهم
             .ForMember(d => d.Status, m => m.Ignore())
             .ForMember(d => d.AccumulatedDepreciation, m => m.Ignore())
             .ForMember(d => d.DepreciationSchedules, m => m.Ignore())

@@ -16,7 +16,7 @@ namespace LedgerCore.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "7.0.2")
+                .HasAnnotation("ProductVersion", "8.0.0")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
             modelBuilder.Entity("LedgerCore.Core.Models.Accounting.Account", b =>
@@ -1477,7 +1477,7 @@ namespace LedgerCore.Migrations
                     b.Property<string>("Address")
                         .HasColumnType("longtext");
 
-                    b.Property<int?>("BranchId")
+                    b.Property<int>("BranchId")
                         .HasColumnType("int");
 
                     b.Property<string>("Code")
@@ -1510,9 +1510,7 @@ namespace LedgerCore.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BranchId");
-
-                    b.HasIndex("Code")
+                    b.HasIndex("BranchId", "Code")
                         .IsUnique();
 
                     b.ToTable("Warehouses", (string)null);
@@ -2802,6 +2800,9 @@ namespace LedgerCore.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
+                    b.Property<int>("BranchId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
@@ -2845,7 +2846,7 @@ namespace LedgerCore.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("EntityType", "EntityId");
+                    b.HasIndex("BranchId", "EntityType", "EntityId");
 
                     b.ToTable("ApprovalRequests", (string)null);
                 });
@@ -3430,7 +3431,9 @@ namespace LedgerCore.Migrations
                 {
                     b.HasOne("LedgerCore.Core.Models.Master.Branch", "Branch")
                         .WithMany()
-                        .HasForeignKey("BranchId");
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.Navigation("Branch");
                 });
