@@ -11,7 +11,8 @@ namespace LedgerCore.Core.Services;
 public class AccountingService(
     IUnitOfWork uow,
     IReportingService reportingService,
-    ICurrentBranchService currentBranch) : IAccountingService
+    ICurrentBranchService currentBranch,
+    INumberSeriesService numberSeries) : IAccountingService
 {
     private int GetBranchIdOrThrow() => currentBranch.GetRequiredBranchId();
 
@@ -84,7 +85,7 @@ public class AccountingService(
         // اگر شماره ندارد، از NumberSeries بگیریم
         if (string.IsNullOrWhiteSpace(voucher.Number))
         {
-            voucher.Number = await GenerateNextNumberAsync("Journal", voucher.BranchId, cancellationToken);
+            voucher.Number = await numberSeries.NextAsync("Journal", voucher.BranchId, cancellationToken);
         }
         
         
@@ -250,7 +251,7 @@ public class AccountingService(
         // ساخت سند معکوس
         var reversed = new JournalVoucher
         {
-            Number = await GenerateNextNumberAsync("Journal", original.BranchId, cancellationToken),
+            Number = await numberSeries.NextAsync("Journal", original.BranchId, cancellationToken),
             Date = revDate,
             BranchId = original.BranchId,
             FiscalPeriodId = period.Id,
@@ -433,7 +434,7 @@ public class AccountingService(
             var closingVoucher = new JournalVoucher
             {
                 BranchId = branchId,
-                Number = await GenerateNextNumberAsync("ClosingJournal", branchId, cancellationToken),
+                Number = await numberSeries.NextAsync("ClosingJournal", branchId, cancellationToken),
                 Date = period.EndDate,
                 Description = $"Closing entries for fiscal period {period.Name}",
                 Status = DocumentStatus.Posted,
@@ -611,7 +612,7 @@ public class AccountingService(
         var openingVoucher = new JournalVoucher
         {
             BranchId = branchId,
-            Number = await GenerateNextNumberAsync("OpeningJournal", branchId, cancellationToken),
+            Number = await numberSeries.NextAsync("OpeningJournal", branchId, cancellationToken),
             Date = nextYearStartDate,
             FiscalPeriodId = period.Id,
             Description = $"Opening balances as of {nextYearStartDate:yyyy-MM-dd}",
@@ -660,7 +661,7 @@ public class AccountingService(
         {
             await ValidateReceiptAsync(receipt, cancellationToken);
 
-            receipt.Number = await GenerateNextNumberAsync("Receipt", receipt.BranchId, cancellationToken);
+            receipt.Number = await numberSeries.NextAsync("Receipt", receipt.BranchId, cancellationToken);
             receipt.Status = DocumentStatus.Draft;
 
             await uow.Receipts.AddAsync(receipt, cancellationToken);
@@ -828,7 +829,7 @@ public class AccountingService(
         {
             await ValidatePaymentAsync(payment, cancellationToken);
 
-            payment.Number = await GenerateNextNumberAsync("Payment", payment.BranchId, cancellationToken);
+            payment.Number = await numberSeries.NextAsync("Payment", payment.BranchId, cancellationToken);
             payment.Status = DocumentStatus.Draft;
 
             await uow.Payments.AddAsync(payment, cancellationToken);
@@ -1026,7 +1027,7 @@ public class AccountingService(
 
         var voucher = new JournalVoucher
         {
-            Number = await GenerateNextNumberAsync("Journal", receipt.BranchId, cancellationToken),
+            Number = await numberSeries.NextAsync("Journal", receipt.BranchId, cancellationToken),
             Date = receipt.Date,
             BranchId = receipt.BranchId,
             FiscalPeriodId = period.Id,
@@ -1091,7 +1092,7 @@ public class AccountingService(
 
         var voucher = new JournalVoucher
         {
-            Number = await GenerateNextNumberAsync("Journal", payment.BranchId, cancellationToken),
+            Number = await numberSeries.NextAsync("Journal", payment.BranchId, cancellationToken),
             Date = payment.Date,
             BranchId = payment.BranchId,
             FiscalPeriodId = period.Id,
@@ -1137,33 +1138,6 @@ public class AccountingService(
         await uow.SaveChangesAsync(cancellationToken);
 
         return voucher;
-    }
-
-    private async Task<string> GenerateNextNumberAsync(
-        string entityType,
-        int? branchId,
-        CancellationToken cancellationToken)
-    {
-        var seriesRepo = uow.Repository<NumberSeries>();
-
-        var page = await seriesRepo.FindAsync(
-            x => x.EntityType == entityType
-                 && x.IsActive
-                 && (x.BranchId == null || x.BranchId == branchId),
-            null,
-            cancellationToken);
-
-        var series = page.Items
-            .OrderByDescending(x => x.BranchId.HasValue)
-            .FirstOrDefault()
-            ?? throw new InvalidOperationException($"No NumberSeries defined for entityType={entityType}.");
-
-        series.CurrentNumber += 1;
-        seriesRepo.Update(series);
-        await uow.SaveChangesAsync(cancellationToken);
-
-        var num = series.CurrentNumber.ToString().PadLeft(series.Padding, '0');
-        return $"{series.Prefix}{num}{series.Suffix}";
     }
     
     // ===================== Inventory Adjustment =====================
@@ -1259,7 +1233,7 @@ public class AccountingService(
 
         var voucher = new JournalVoucher
         {
-            Number = await GenerateNextNumberAsync("Journal", adjustment.BranchId, cancellationToken),
+            Number = await numberSeries.NextAsync("Journal", adjustment.BranchId, cancellationToken),
             Date = adjustment.Date,
             BranchId = adjustment.BranchId,
             Description = $"Inventory Adjustment {adjustment.Number}",
