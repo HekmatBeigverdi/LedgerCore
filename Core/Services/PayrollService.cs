@@ -1,3 +1,4 @@
+using LedgerCore.Core.Constants;
 using LedgerCore.Core.Interfaces;
 using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Accounting;
@@ -30,7 +31,7 @@ public class PayrollService(
             if (string.IsNullOrWhiteSpace(payroll.Number))
             {
                 payroll.Number = await numberSeries.NextAsync(
-                    "Payroll",
+                    NumberSeriesKeys.Payroll,
                     payroll.BranchId,
                     cancellationToken);
             }
@@ -109,7 +110,10 @@ public class PayrollService(
             // ساخت سند حسابداری
             var journal = new JournalVoucher
             {
-                Number = await numberSeries.NextAsync("Journal", payroll.BranchId, cancellationToken),
+                Number = await numberSeries.NextAsync(
+                    NumberSeriesKeys.Journal,
+                    payroll.BranchId,
+                    cancellationToken),                
                 Date = payroll.Date,
                 BranchId = payroll.BranchId,
                 FiscalPeriodId = fiscalPeriodId,

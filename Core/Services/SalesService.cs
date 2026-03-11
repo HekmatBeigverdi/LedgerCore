@@ -1,3 +1,4 @@
+using LedgerCore.Core.Constants;
 using LedgerCore.Core.Interfaces;
 using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Accounting;
@@ -57,8 +58,13 @@ public class SalesService(
 
             await CalculateInvoiceLinesAndTotalsAsync(invoice, cancellationToken);
 
-            invoice.Number = await numberSeries.NextAsync("SalesInvoice", invoice.BranchId, cancellationToken);
-            invoice.Status = DocumentStatus.Draft;
+            if (string.IsNullOrWhiteSpace(invoice.Number))
+            {
+                invoice.Number = await numberSeries.NextAsync(
+                    NumberSeriesKeys.SalesInvoice,
+                    invoice.BranchId,
+                    cancellationToken);
+            }            invoice.Status = DocumentStatus.Draft;
 
             await uow.Invoices.AddSalesInvoiceAsync(invoice, cancellationToken);
             await uow.SaveChangesAsync(cancellationToken);
@@ -535,7 +541,7 @@ public class SalesService(
 
         var reversed = new JournalVoucher
         {
-            Number = await numberSeries.NextAsync("Journal", original.BranchId, cancellationToken),
+            Number = await numberSeries.NextAsync(NumberSeriesKeys.Journal, original.BranchId, cancellationToken),
             Date = reversalDate.Date,
             BranchId = original.BranchId,
             FiscalPeriodId = fiscalPeriodId,

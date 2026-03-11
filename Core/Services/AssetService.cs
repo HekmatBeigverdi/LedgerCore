@@ -1,3 +1,4 @@
+using LedgerCore.Core.Constants;
 using LedgerCore.Core.Interfaces;
 using LedgerCore.Core.Interfaces.Repositories;
 using LedgerCore.Core.Interfaces.Services;
@@ -257,7 +258,7 @@ public class AssetService(
             // ساخت سند حسابداری
             var journal = new JournalVoucher
             {
-                Number = await numberSeries.NextAsync("Journal", asset.BranchId, cancellationToken),
+                Number = await numberSeries.NextAsync(NumberSeriesKeys.Journal, asset.BranchId, cancellationToken),
                 Date = schedule.PeriodEnd,
                 BranchId = asset.BranchId,
                 FiscalPeriodId = fiscalPeriodId,

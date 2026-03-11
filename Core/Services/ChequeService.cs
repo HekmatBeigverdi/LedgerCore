@@ -1,3 +1,4 @@
+using LedgerCore.Core.Constants;
 using LedgerCore.Core.Interfaces;
 using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Accounting;
@@ -190,7 +191,7 @@ public class ChequeService(IUnitOfWork uow,
         var voucher = new JournalVoucher
         {
             BranchId = cheque.BranchId,
-            Number = await numberSeries.NextAsync("Journal", cheque.BranchId, cancellationToken),
+            Number = await numberSeries.NextAsync(NumberSeriesKeys.Journal, cheque.BranchId, cancellationToken),
             Date = DateTime.UtcNow,
             FiscalPeriodId = fiscalPeriodId,
             Description = $"{documentType} for cheque {cheque.ChequeNumber}",

@@ -1,3 +1,4 @@
+using LedgerCore.Core.Constants;
 using LedgerCore.Core.Interfaces.Repositories;
 using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Accounting;
@@ -216,7 +217,7 @@ public class InventoryService(
                 if (rule is null)
                     throw new InvalidOperationException("No posting rule defined for InventoryAdjustment.");
 
-                var journalNumber = await numberSeries.NextAsync("Journal", dbAdjustment.BranchId, cancellationToken);
+                var journalNumber = await numberSeries.NextAsync(NumberSeriesKeys.Journal, dbAdjustment.BranchId, cancellationToken);
 
                 var abs = Math.Abs(totalDifferenceValue);
 

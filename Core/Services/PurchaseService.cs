@@ -1,3 +1,4 @@
+using LedgerCore.Core.Constants;
 using LedgerCore.Core.Interfaces;
 using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Accounting;
@@ -41,8 +42,13 @@ public class PurchaseService(
 
             await CalculateInvoiceLinesAndTotalsAsync(invoice, cancellationToken);
 
-            invoice.Number = await numberSeries.NextAsync("PurchaseInvoice", invoice.BranchId, cancellationToken);
-            invoice.Status = DocumentStatus.Draft;
+            if (string.IsNullOrWhiteSpace(invoice.Number))
+            {
+                invoice.Number = await numberSeries.NextAsync(
+                    NumberSeriesKeys.PurchaseInvoice,
+                    invoice.BranchId,
+                    cancellationToken);
+            }            invoice.Status = DocumentStatus.Draft;
 
             await uow.Invoices.AddPurchaseInvoiceAsync(invoice, cancellationToken);
             await uow.SaveChangesAsync(cancellationToken);

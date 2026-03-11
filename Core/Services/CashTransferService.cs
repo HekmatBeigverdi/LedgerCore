@@ -1,3 +1,4 @@
+using LedgerCore.Core.Constants;
 using LedgerCore.Core.Interfaces;
 using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Documents;
@@ -88,7 +89,7 @@ public class CashTransferService(IUnitOfWork uow,
             if (string.IsNullOrWhiteSpace(transfer.Number))
             {
                 transfer.Number = await numberSeries.NextAsync(
-                    "CashTransfer",
+                    NumberSeriesKeys.CashTransfer,
                     transfer.BranchId,
                     cancellationToken);
             }
