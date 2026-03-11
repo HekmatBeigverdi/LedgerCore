@@ -11,7 +11,8 @@ namespace LedgerCore.Core.Services;
 public class SalesService(
     IUnitOfWork uow,
     ICurrentBranchService currentBranch,
-    IAccountingService accountingService) : ISalesService
+    IAccountingService accountingService,
+    INumberSeriesService numberSeries) : ISalesService
 {
     #region Public API
     private int GetBranchIdOrThrow()
@@ -56,7 +57,7 @@ public class SalesService(
 
             await CalculateInvoiceLinesAndTotalsAsync(invoice, cancellationToken);
 
-            invoice.Number = await GenerateNextNumberAsync("SalesInvoice", invoice.BranchId, cancellationToken);
+            invoice.Number = await numberSeries.NextAsync("SalesInvoice", invoice.BranchId, cancellationToken);
             invoice.Status = DocumentStatus.Draft;
 
             await uow.Invoices.AddSalesInvoiceAsync(invoice, cancellationToken);
@@ -494,39 +495,7 @@ public class SalesService(
 
         return await accountingService.GetJournalAsync(created.Id, cancellationToken) ?? created;
     }
-
-    /// <summary>
-    /// گرفتن شماره بعدی از NumberSeries برای یک EntityType خاص.
-    /// </summary>
-    private async Task<string> GenerateNextNumberAsync(
-        string entityType,
-        int? branchId,
-        CancellationToken cancellationToken)
-    {
-        var seriesRepo = uow.Repository<NumberSeries>();
-
-        var seriesPage = await seriesRepo.FindAsync(
-            x => x.EntityType == entityType
-                 && x.IsActive
-                 && (x.BranchId == null || x.BranchId == branchId),
-            null,
-            cancellationToken);
-
-        var series = seriesPage.Items
-            .OrderByDescending(x => x.BranchId.HasValue) // اول سریال مخصوص شعبه
-            .FirstOrDefault();
-
-        if (series is null)
-            throw new InvalidOperationException($"No NumberSeries defined for entityType={entityType}.");
-
-        series.CurrentNumber += 1;
-        seriesRepo.Update(series);
-
-        await uow.SaveChangesAsync(cancellationToken);
-
-        var number = series.CurrentNumber.ToString().PadLeft(series.Padding, '0');
-        return $"{series.Prefix}{number}{series.Suffix}";
-    }
+    
     private async Task<int> GetOpenFiscalPeriodIdAsync(DateTime date, CancellationToken ct)
     {
         var fyRepo = uow.Repository<FiscalYear>();
@@ -566,7 +535,7 @@ public class SalesService(
 
         var reversed = new JournalVoucher
         {
-            Number = await GenerateNextNumberAsync("Journal", original.BranchId, cancellationToken),
+            Number = await numberSeries.NextAsync("Journal", original.BranchId, cancellationToken),
             Date = reversalDate.Date,
             BranchId = original.BranchId,
             FiscalPeriodId = fiscalPeriodId,
