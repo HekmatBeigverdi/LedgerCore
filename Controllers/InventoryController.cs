@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using LedgerCore.Core.Constants;
 using LedgerCore.Core.Interfaces;
 using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Enums;
@@ -124,7 +125,7 @@ public class InventoryController(
             return BadRequest("BranchId is not valid for current branch scope.");
 
         var number = string.IsNullOrWhiteSpace(dto.Number)
-            ? await numberSeries.NextAsync("InventoryAdjustment", branchId, cancellationToken)
+            ? await numberSeries.NextAsync(NumberSeriesKeys.InventoryAdjustment, branchId, cancellationToken)
             : dto.Number!;
         
         // هدر سند تعدیل
