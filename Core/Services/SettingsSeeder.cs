@@ -1,6 +1,7 @@
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using LedgerCore.Core.Constants;
 using LedgerCore.Core.Interfaces;
 using LedgerCore.Core.Interfaces.Repositories;
 using LedgerCore.Core.Models.Settings;
@@ -21,7 +22,8 @@ public static class SettingsSeeder
         // سریال اختتامیه
         await EnsureSeriesAsync(
             seriesRepo,
-            entityType: "ClosingJournal",
+            entityType: NumberSeriesKeys.ClosingJournal,
+            code: "ClosingJournal",
             prefix: "CLO-",
             padding: 6,
             suffix: "",
@@ -30,11 +32,22 @@ public static class SettingsSeeder
         // سریال افتتاحیه
         await EnsureSeriesAsync(
             seriesRepo,
-            entityType: "OpeningJournal",
+            entityType: NumberSeriesKeys.OpeningJournal,
+            code: "OpeningJournal",
             prefix: "OPN-",
             padding: 6,
             suffix: "",
             cancellationToken);
+        await EnsureSeriesAsync(seriesRepo, NumberSeriesKeys.Journal, NumberSeriesKeys.Journal, "JV-", 6, "", cancellationToken);
+        await EnsureSeriesAsync(seriesRepo, NumberSeriesKeys.SalesInvoice, NumberSeriesKeys.SalesInvoice, "SI-", 6, "", cancellationToken);
+        await EnsureSeriesAsync(seriesRepo, NumberSeriesKeys.PurchaseInvoice, NumberSeriesKeys.PurchaseInvoice, "PI-", 6, "", cancellationToken);
+        await EnsureSeriesAsync(seriesRepo, NumberSeriesKeys.Receipt, NumberSeriesKeys.Receipt, "RC-", 6, "", cancellationToken);
+        await EnsureSeriesAsync(seriesRepo, NumberSeriesKeys.Payment, NumberSeriesKeys.Payment, "PY-", 6, "", cancellationToken);
+        await EnsureSeriesAsync(seriesRepo, NumberSeriesKeys.InventoryAdjustment, NumberSeriesKeys.InventoryAdjustment, "IA-", 6, "", cancellationToken);
+        await EnsureSeriesAsync(seriesRepo, NumberSeriesKeys.CashTransfer, NumberSeriesKeys.CashTransfer, "CT-", 6, "", cancellationToken);
+        await EnsureSeriesAsync(seriesRepo, NumberSeriesKeys.Payroll, NumberSeriesKeys.Payroll, "PR-", 6, "", cancellationToken);
+        await EnsureSeriesAsync(seriesRepo, NumberSeriesKeys.OpeningJournal, NumberSeriesKeys.OpeningJournal, "OPN-", 6, "", cancellationToken);
+        await EnsureSeriesAsync(seriesRepo, NumberSeriesKeys.ClosingJournal, NumberSeriesKeys.ClosingJournal, "CLO-", 6, "", cancellationToken);
 
         await uow.SaveChangesAsync(cancellationToken);
     }
@@ -42,6 +55,7 @@ public static class SettingsSeeder
     private static async Task EnsureSeriesAsync(
         IRepository<NumberSeries> repo,
         string entityType,
+        string code,
         string prefix,
         int padding,
         string? suffix,
