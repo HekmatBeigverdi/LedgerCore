@@ -11,7 +11,8 @@ namespace LedgerCore.Core.Services;
 public class AssetService(
     IUnitOfWork uow,
     IFixedAssetRepository fixedAssets,
-    ICurrentBranchService currentBranch)
+    ICurrentBranchService currentBranch,
+    INumberSeriesService numberSeries)
     : IAssetService
 {
     private readonly ICurrentBranchService _currentBranch = currentBranch;
@@ -257,7 +258,7 @@ public class AssetService(
             // ساخت سند حسابداری
             var journal = new JournalVoucher
             {
-                Number = await GenerateNextNumberAsync("Journal", asset.BranchId, cancellationToken),
+                Number = await numberSeries.NextAsync("Journal", asset.BranchId, cancellationToken),
                 Date = schedule.PeriodEnd,
                 BranchId = asset.BranchId,
                 FiscalPeriodId = fiscalPeriodId,
@@ -334,31 +335,5 @@ public class AssetService(
             throw;
         }
     }
-
-    private async Task<string> GenerateNextNumberAsync(
-        string entityType,
-        int? branchId,
-        CancellationToken cancellationToken)
-    {
-        var seriesRepo = uow.Repository<NumberSeries>();
-
-        var page = await seriesRepo.FindAsync(
-            x => x.EntityType == entityType
-                 && x.IsActive
-                 && (x.BranchId == null || x.BranchId == branchId),
-            null,
-            cancellationToken);
-
-        var series = page.Items
-            .OrderByDescending(x => x.BranchId.HasValue)
-            .FirstOrDefault()
-            ?? throw new InvalidOperationException($"No NumberSeries defined for entityType={entityType}.");
-
-        series.CurrentNumber += 1;
-        seriesRepo.Update(series);
-        await uow.SaveChangesAsync(cancellationToken);
-
-        var num = series.CurrentNumber.ToString().PadLeft(series.Padding, '0');
-        return $"{series.Prefix}{num}{series.Suffix}";
-    }
+    
 }
