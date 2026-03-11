@@ -1,3 +1,4 @@
+using System.Data;
 using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -8,38 +9,40 @@ public class NumberSeriesService(LedgerCoreDbContext db) : INumberSeriesService
 {
     private readonly LedgerCoreDbContext _db = db;
 
-    public async Task<string> NextAsync(string seriesCode, int? branchId, CancellationToken cancellationToken = default)
+    public async Task<string> NextAsync(string entityType, int? branchId, CancellationToken cancellationToken = default)
     {
-        const int maxAttempts = 3;
+        if (string.IsNullOrWhiteSpace(entityType))
+            throw new ArgumentException("entityType is required.", nameof(entityType));
 
-        for (var attempt = 1; attempt <= maxAttempts; attempt++)
-        {
-            var series = await _db.NumberSeries
-                             .FirstOrDefaultAsync(x => x.Code == seriesCode && x.BranchId == branchId, cancellationToken)
-                         ?? await _db.NumberSeries.FirstOrDefaultAsync(x => x.Code == seriesCode && x.BranchId == null, cancellationToken);
+        await using var tx = await _db.Database.BeginTransactionAsync(
+            IsolationLevel.Serializable,
+            cancellationToken);
 
-            if (series is null)
-                throw new InvalidOperationException($"NumberSeries '{seriesCode}' not found.");
+        var candidates = await _db.NumberSeries
+            .Where(x =>
+                x.IsActive &&
+                x.EntityType == entityType &&
+                (x.BranchId == branchId || x.BranchId == null))
+            .ToListAsync(cancellationToken);
 
-            series.CurrentNumber += 1;
-            series.ModifiedAt = DateTime.UtcNow;
+        var series = candidates
+            .OrderByDescending(x => x.BranchId.HasValue && x.BranchId == branchId)
+            .ThenByDescending(x => x.BranchId.HasValue)
+            .FirstOrDefault();
 
-            var number = $"{series.Prefix}{series.CurrentNumber.ToString().PadLeft(series.Padding, '0')}{series.Suffix}";
+        if (series is null)
+            throw new InvalidOperationException(
+                $"No active NumberSeries defined for entityType='{entityType}' and branchId='{branchId}'.");
 
-            try
-            {
-                await _db.SaveChangesAsync(cancellationToken);
-                return number;
-            }
-            catch (DbUpdateConcurrencyException) when (attempt < maxAttempts)
-            {
-                // یک درخواست دیگر همزمان شماره را تغییر داده؛ مجدد تلاش می‌کنیم
-                foreach (var entry in _db.ChangeTracker.Entries())
-                    entry.State = EntityState.Detached;
-            }
-        }
+        series.CurrentNumber += 1;
+        series.ModifiedAt = DateTime.UtcNow;
 
-        // اگر بعد از چند تلاش هنوز همزمانی وجود داشت
-        throw new InvalidOperationException("Could not generate next number due to concurrent updates. Please retry.");
+        await _db.SaveChangesAsync(cancellationToken);
+        await tx.CommitAsync(cancellationToken);
+
+        var suffix = series.Suffix ?? string.Empty;
+        var number = series.CurrentNumber.ToString().PadLeft(series.Padding, '0');
+
+        return $"{series.Prefix}{number}{suffix}";
     }
 }
