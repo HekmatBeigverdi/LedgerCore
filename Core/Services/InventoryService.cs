@@ -14,7 +14,8 @@ namespace LedgerCore.Core.Services;
 public class InventoryService(
     LedgerCoreDbContext db,
     IStockRepository stockRepository,
-    ICurrentBranchService currentBranch) : IInventoryService
+    ICurrentBranchService currentBranch,
+    INumberSeriesService numberSeries) : IInventoryService
 {
     private readonly LedgerCoreDbContext _db =
         db ?? throw new ArgumentNullException(nameof(db));
@@ -215,7 +216,7 @@ public class InventoryService(
                 if (rule is null)
                     throw new InvalidOperationException("No posting rule defined for InventoryAdjustment.");
 
-                var journalNumber = await GenerateNextNumberAsync("Journal", dbAdjustment.BranchId, cancellationToken);
+                var journalNumber = await numberSeries.NextAsync("Journal", dbAdjustment.BranchId, cancellationToken);
 
                 var abs = Math.Abs(totalDifferenceValue);
 
@@ -281,29 +282,6 @@ public class InventoryService(
             throw;
         }
         
-    }
-    // NEW helper: consistent number generation using NumberSeries table
-    private async Task<string> GenerateNextNumberAsync(
-        string seriesCode,
-        int? branchId,
-        CancellationToken cancellationToken)
-    {
-        var series = await _db.NumberSeries
-                         .FirstOrDefaultAsync(x => x.Code == seriesCode && x.BranchId == branchId, cancellationToken)
-                     ?? await _db.NumberSeries.FirstOrDefaultAsync(x => x.Code == seriesCode && x.BranchId == null, cancellationToken);
-
-        if (series is null)
-            throw new InvalidOperationException($"NumberSeries '{seriesCode}' not found.");
-
-        series.CurrentNumber += 1;
-        series.ModifiedAt = DateTime.UtcNow;
-
-        // نمونه ساده: Prefix + شماره با طول ثابت
-        var number = $"{series.Prefix}{series.CurrentNumber.ToString().PadLeft(series.Padding, '0')}{series.Suffix}";
-        _db.NumberSeries.Update(series);
-
-        // توجه: SaveChanges بیرون انجام می‌شود
-        return number;
     }
     
     private async Task<int> GetOpenFiscalPeriodIdAsync(DateTime date, CancellationToken cancellationToken)
