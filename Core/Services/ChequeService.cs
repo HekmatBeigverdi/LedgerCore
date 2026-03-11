@@ -7,7 +7,10 @@ using LedgerCore.Core.Models.Settings;
 
 namespace LedgerCore.Core.Services;
 
-public class ChequeService(IUnitOfWork uow, ICurrentBranchService currentBranch) : IChequeService{
+public class ChequeService(IUnitOfWork uow,
+                ICurrentBranchService currentBranch,
+                INumberSeriesService numberSeries)
+    : IChequeService{
     
     
     /// Helper Methods Start
@@ -187,7 +190,7 @@ public class ChequeService(IUnitOfWork uow, ICurrentBranchService currentBranch)
         var voucher = new JournalVoucher
         {
             BranchId = cheque.BranchId,
-            Number = await GenerateNextNumberAsync("Journal", cheque.BranchId, cancellationToken),
+            Number = await numberSeries.NextAsync("Journal", cheque.BranchId, cancellationToken),
             Date = DateTime.UtcNow,
             FiscalPeriodId = fiscalPeriodId,
             Description = $"{documentType} for cheque {cheque.ChequeNumber}",
@@ -230,36 +233,7 @@ public class ChequeService(IUnitOfWork uow, ICurrentBranchService currentBranch)
         await uow.Journals.AddAsync(voucher, cancellationToken);
         await uow.SaveChangesAsync(cancellationToken);
     }
-
-    /// <summary>
-    /// ایجاد شماره‌ی بعدی از NumberSeries برای نوع سند (مثلاً Journal)
-    /// </summary>
-    private async Task<string> GenerateNextNumberAsync(
-        string entityType,
-        int? branchId,
-        CancellationToken cancellationToken)
-    {
-        var seriesRepo = uow.Repository<NumberSeries>();
-
-        var page = await seriesRepo.FindAsync(
-            x => x.EntityType == entityType
-                 && x.IsActive
-                 && (x.BranchId == null || x.BranchId == branchId),
-            null,
-            cancellationToken);
-
-        var series = page.Items
-            .OrderByDescending(x => x.BranchId.HasValue)
-            .FirstOrDefault()
-            ?? throw new InvalidOperationException($"No NumberSeries defined for entityType={entityType}.");
-
-        series.CurrentNumber += 1;
-        seriesRepo.Update(series);
-        await uow.SaveChangesAsync(cancellationToken);
-
-        var num = series.CurrentNumber.ToString().PadLeft(series.Padding, '0');
-        return $"{series.Prefix}{num}{series.Suffix}";
-    }
+    
     private async Task<int> GetOpenFiscalPeriodIdAsync(DateTime date, CancellationToken ct)
     {
         var fyRepo = uow.Repository<FiscalYear>();
