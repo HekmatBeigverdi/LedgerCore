@@ -1366,6 +1366,8 @@ namespace LedgerCore.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Date");
+
                     b.HasIndex("JournalVoucherId");
 
                     b.HasIndex("WarehouseId");
@@ -2231,6 +2233,8 @@ namespace LedgerCore.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Date");
+
                     b.HasIndex("JournalVoucherId");
 
                     b.HasIndex("PayrollPeriodId");
@@ -2707,7 +2711,8 @@ namespace LedgerCore.Migrations
 
                     b.Property<string>("Code")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
@@ -2744,9 +2749,7 @@ namespace LedgerCore.Migrations
                         .HasColumnType("varchar(50)");
 
                     b.Property<DateTime>("RowVersion")
-                        .IsConcurrencyToken()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("timestamp(6)");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Suffix")
                         .HasMaxLength(50)
@@ -2754,7 +2757,17 @@ namespace LedgerCore.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("NumberSeries", (string)null);
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("EntityType", "BranchId");
+
+                    b.ToTable("NumberSeries", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_NumberSeries_CurrentNumber", "`CurrentNumber` >= 0");
+
+                            t.HasCheckConstraint("CK_NumberSeries_Padding", "`Padding` > 0");
+                        });
                 });
 
             modelBuilder.Entity("LedgerCore.Core.Models.Settings.SystemSetting", b =>
@@ -3369,7 +3382,7 @@ namespace LedgerCore.Migrations
                     b.HasOne("LedgerCore.Core.Models.Master.Branch", "Branch")
                         .WithMany()
                         .HasForeignKey("BranchId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("LedgerCore.Core.Models.Accounting.JournalVoucher", "JournalVoucher")
@@ -3520,7 +3533,7 @@ namespace LedgerCore.Migrations
                     b.HasOne("LedgerCore.Core.Models.Master.Branch", "Branch")
                         .WithMany()
                         .HasForeignKey("BranchId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("LedgerCore.Core.Models.Accounting.JournalVoucher", "JournalVoucher")

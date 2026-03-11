@@ -8,7 +8,11 @@ public class NumberSeriesConfiguration : IEntityTypeConfiguration<NumberSeries>
 {
     public void Configure(EntityTypeBuilder<NumberSeries> builder)
     {
-        builder.ToTable("NumberSeries");
+        builder.ToTable("NumberSeries", t =>
+        {
+            t.HasCheckConstraint("CK_NumberSeries_Padding", "`Padding` > 0");
+            t.HasCheckConstraint("CK_NumberSeries_CurrentNumber", "`CurrentNumber` >= 0");
+        });
 
         builder.Property(x => x.EntityType)
             .HasMaxLength(100)

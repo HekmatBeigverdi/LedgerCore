@@ -252,7 +252,7 @@ public class AccountingService(
         // ساخت سند معکوس
         var reversed = new JournalVoucher
         {
-            Number = await numberSeries.NextAsync("Journal", original.BranchId, cancellationToken),
+            Number = await numberSeries.NextAsync(NumberSeriesKeys.Journal, original.BranchId, cancellationToken),
             Date = revDate,
             BranchId = original.BranchId,
             FiscalPeriodId = period.Id,
@@ -1027,7 +1027,7 @@ public class AccountingService(
 
         var voucher = new JournalVoucher
         {
-            Number = await numberSeries.NextAsync("Journal", receipt.BranchId, cancellationToken),
+            Number = await numberSeries.NextAsync(NumberSeriesKeys.Journal, receipt.BranchId, cancellationToken),
             Date = receipt.Date,
             BranchId = receipt.BranchId,
             FiscalPeriodId = period.Id,
@@ -1092,7 +1092,7 @@ public class AccountingService(
 
         var voucher = new JournalVoucher
         {
-            Number = await numberSeries.NextAsync("Journal", payment.BranchId, cancellationToken),
+            Number = await numberSeries.NextAsync(NumberSeriesKeys.Journal, payment.BranchId, cancellationToken),
             Date = payment.Date,
             BranchId = payment.BranchId,
             FiscalPeriodId = period.Id,
@@ -1233,7 +1233,7 @@ public class AccountingService(
 
         var voucher = new JournalVoucher
         {
-            Number = await numberSeries.NextAsync("Journal", adjustment.BranchId, cancellationToken),
+            Number = await numberSeries.NextAsync(NumberSeriesKeys.Journal, adjustment.BranchId, cancellationToken),
             Date = adjustment.Date,
             BranchId = adjustment.BranchId,
             Description = $"Inventory Adjustment {adjustment.Number}",
