@@ -10,7 +10,10 @@ namespace LedgerCore.Core.Services;
 /// سرویس دامین برای مدیریت انتقال وجه (بین حساب‌های بانکی / صندوق‌ها).
 /// این سرویس فقط از IUnitOfWork، CashTransfer و NumberSeries استفاده می‌کند.
 /// </summary>
-public class CashTransferService(IUnitOfWork uow, ICurrentBranchService currentBranch) : ICashTransferService{
+public class CashTransferService(IUnitOfWork uow,
+                ICurrentBranchService currentBranch,
+                INumberSeriesService numberSeries)
+    : ICashTransferService{
     /// <summary>
     /// ایجاد یک سند انتقال وجه جدید.
     /// </summary>
@@ -84,7 +87,7 @@ public class CashTransferService(IUnitOfWork uow, ICurrentBranchService currentB
             // اگر شماره خالی است، از NumberSeries بساز
             if (string.IsNullOrWhiteSpace(transfer.Number))
             {
-                transfer.Number = await GenerateNextNumberAsync(
+                transfer.Number = await numberSeries.NextAsync(
                     "CashTransfer",
                     transfer.BranchId,
                     cancellationToken);
@@ -152,35 +155,5 @@ public class CashTransferService(IUnitOfWork uow, ICurrentBranchService currentB
             throw;
         }
     }
-
-    /// <summary>
-    /// تولید شماره بعدی برای CashTransfer از جدول NumberSeries.
-    /// مشابه متد GenerateNextNumberAsync در AccountingService،
-    /// </summary>
-    private async Task<string> GenerateNextNumberAsync(
-        string entityType,
-        int branchId,
-        CancellationToken cancellationToken)
-    {
-        var seriesRepo = uow.Repository<NumberSeries>();
-
-        var page = await seriesRepo.FindAsync(
-            x => x.EntityType == entityType
-                 && x.IsActive
-                 && (x.BranchId == null || x.BranchId == branchId),
-            null,
-            cancellationToken);
-
-        var series = page.Items
-                         .OrderByDescending(x => x.BranchId.HasValue) // اولویت با سریال شعبه‌ای
-                         .FirstOrDefault()
-                     ?? throw new InvalidOperationException($"No NumberSeries defined for entityType={entityType}.");
-
-        series.CurrentNumber += 1;
-        seriesRepo.Update(series);
-        await uow.SaveChangesAsync(cancellationToken);
-
-        var num = series.CurrentNumber.ToString().PadLeft(series.Padding, '0');
-        return $"{series.Prefix}{num}{series.Suffix}";
-    }
+    
 }
