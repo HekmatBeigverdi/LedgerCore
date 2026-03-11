@@ -1,3 +1,4 @@
+using LedgerCore.Core.Constants;
 using LedgerCore.Core.Interfaces;
 using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Accounting;
@@ -85,7 +86,7 @@ public class AccountingService(
         // اگر شماره ندارد، از NumberSeries بگیریم
         if (string.IsNullOrWhiteSpace(voucher.Number))
         {
-            voucher.Number = await numberSeries.NextAsync("Journal", voucher.BranchId, cancellationToken);
+            voucher.Number = await numberSeries.NextAsync(NumberSeriesKeys.Journal, voucher.BranchId, cancellationToken);
         }
         
         
@@ -434,7 +435,7 @@ public class AccountingService(
             var closingVoucher = new JournalVoucher
             {
                 BranchId = branchId,
-                Number = await numberSeries.NextAsync("ClosingJournal", branchId, cancellationToken),
+                Number = await numberSeries.NextAsync(NumberSeriesKeys.ClosingJournal, branchId, cancellationToken),
                 Date = period.EndDate,
                 Description = $"Closing entries for fiscal period {period.Name}",
                 Status = DocumentStatus.Posted,
@@ -612,7 +613,7 @@ public class AccountingService(
         var openingVoucher = new JournalVoucher
         {
             BranchId = branchId,
-            Number = await numberSeries.NextAsync("OpeningJournal", branchId, cancellationToken),
+            Number = await numberSeries.NextAsync(NumberSeriesKeys.OpeningJournal, branchId, cancellationToken),
             Date = nextYearStartDate,
             FiscalPeriodId = period.Id,
             Description = $"Opening balances as of {nextYearStartDate:yyyy-MM-dd}",
@@ -661,7 +662,7 @@ public class AccountingService(
         {
             await ValidateReceiptAsync(receipt, cancellationToken);
 
-            receipt.Number = await numberSeries.NextAsync("Receipt", receipt.BranchId, cancellationToken);
+            receipt.Number = await numberSeries.NextAsync(NumberSeriesKeys.Receipt, receipt.BranchId, cancellationToken);
             receipt.Status = DocumentStatus.Draft;
 
             await uow.Receipts.AddAsync(receipt, cancellationToken);
@@ -829,7 +830,7 @@ public class AccountingService(
         {
             await ValidatePaymentAsync(payment, cancellationToken);
 
-            payment.Number = await numberSeries.NextAsync("Payment", payment.BranchId, cancellationToken);
+            payment.Number = await numberSeries.NextAsync(NumberSeriesKeys.Payment, payment.BranchId, cancellationToken);
             payment.Status = DocumentStatus.Draft;
 
             await uow.Payments.AddAsync(payment, cancellationToken);
