@@ -14,13 +14,20 @@ public class NumberSeriesConfiguration : IEntityTypeConfiguration<NumberSeries>
             .HasMaxLength(100)
             .IsRequired();
 
+        builder.Property(x => x.Code)
+            .HasMaxLength(150)
+            .IsRequired();
+
         builder.Property(x => x.Prefix)
-            .HasMaxLength(50);
+            .HasMaxLength(50)
+            .IsRequired();
 
         builder.Property(x => x.Suffix)
             .HasMaxLength(50);
-        
-        builder.Property(x => x.RowVersion)
-            .IsRowVersion();
+
+        builder.HasIndex(x => x.Code)
+            .IsUnique();
+
+        builder.HasIndex(x => new { x.EntityType, x.BranchId });
     }
 }
