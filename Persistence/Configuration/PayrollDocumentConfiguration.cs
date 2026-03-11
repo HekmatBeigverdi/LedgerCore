@@ -14,7 +14,16 @@ public class PayrollDocumentConfiguration : IEntityTypeConfiguration<PayrollDocu
             .HasMaxLength(50)
             .IsRequired();
 
+        builder.Property(x => x.BranchId)
+            .IsRequired();
+
+        builder.HasOne(x => x.Branch)
+            .WithMany()
+            .HasForeignKey(x => x.BranchId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasIndex(x => new { x.BranchId, x.Number }).IsUnique();
+        builder.HasIndex(x => x.Date);
 
         builder.HasMany(x => x.Lines)
             .WithOne(x => x.PayrollDocument!)
