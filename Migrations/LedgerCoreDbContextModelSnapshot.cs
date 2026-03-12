@@ -750,6 +750,9 @@ namespace LedgerCore.Migrations
                     b.Property<string>("Description")
                         .HasColumnType("longtext");
 
+                    b.Property<int>("FromAccountId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("FromBankAccountId")
                         .HasColumnType("int");
 
@@ -779,6 +782,9 @@ namespace LedgerCore.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
+                    b.Property<int>("ToAccountId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("ToBankAccountId")
                         .HasColumnType("int");
 
@@ -791,9 +797,13 @@ namespace LedgerCore.Migrations
 
                     b.HasIndex("Date");
 
+                    b.HasIndex("FromAccountId");
+
                     b.HasIndex("FromBankAccountId");
 
                     b.HasIndex("JournalVoucherId");
+
+                    b.HasIndex("ToAccountId");
 
                     b.HasIndex("ToBankAccountId");
 
@@ -3115,6 +3125,12 @@ namespace LedgerCore.Migrations
                         .WithMany()
                         .HasForeignKey("CurrencyId");
 
+                    b.HasOne("LedgerCore.Core.Models.Accounting.Account", "FromAccount")
+                        .WithMany()
+                        .HasForeignKey("FromAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("LedgerCore.Core.Models.Master.BankAccount", "FromBankAccount")
                         .WithMany()
                         .HasForeignKey("FromBankAccountId");
@@ -3122,6 +3138,12 @@ namespace LedgerCore.Migrations
                     b.HasOne("LedgerCore.Core.Models.Accounting.JournalVoucher", "JournalVoucher")
                         .WithMany()
                         .HasForeignKey("JournalVoucherId");
+
+                    b.HasOne("LedgerCore.Core.Models.Accounting.Account", "ToAccount")
+                        .WithMany()
+                        .HasForeignKey("ToAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("LedgerCore.Core.Models.Master.BankAccount", "ToBankAccount")
                         .WithMany()
@@ -3131,9 +3153,13 @@ namespace LedgerCore.Migrations
 
                     b.Navigation("Currency");
 
+                    b.Navigation("FromAccount");
+
                     b.Navigation("FromBankAccount");
 
                     b.Navigation("JournalVoucher");
+
+                    b.Navigation("ToAccount");
 
                     b.Navigation("ToBankAccount");
                 });

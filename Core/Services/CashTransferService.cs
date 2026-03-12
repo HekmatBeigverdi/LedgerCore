@@ -1,6 +1,7 @@
 using LedgerCore.Core.Constants;
 using LedgerCore.Core.Interfaces;
 using LedgerCore.Core.Interfaces.Services;
+using LedgerCore.Core.Models.Accounting;
 using LedgerCore.Core.Models.Documents;
 using LedgerCore.Core.Models.Enums;
 using LedgerCore.Core.Models.Settings;
@@ -47,6 +48,83 @@ public class CashTransferService(IUnitOfWork uow,
 
         return transfer;
     }
+    private async Task<int> GetOpenFiscalPeriodIdAsync(DateTime date, CancellationToken ct)
+    {
+        var fyRepo = uow.Repository<FiscalYear>();
+        var fyPage = await fyRepo.FindAsync(y => y.StartDate <= date && y.EndDate >= date, null, ct);
+
+        var year = fyPage.Items
+                       .OrderByDescending(y => y.StartDate)
+                       .FirstOrDefault()
+                   ?? throw new InvalidOperationException($"No fiscal year found for date={date:yyyy-MM-dd}.");
+
+        if (year.IsClosed)
+            throw new InvalidOperationException($"Fiscal year '{year.Name}' is closed.");
+
+        var fpRepo = uow.Repository<FiscalPeriod>();
+        var fpPage = await fpRepo.FindAsync(
+            p => p.FiscalYearId == year.Id && p.StartDate <= date && p.EndDate >= date,
+            null,
+            ct);
+
+        var period = fpPage.Items
+                         .OrderByDescending(p => p.StartDate)
+                         .FirstOrDefault()
+                     ?? throw new InvalidOperationException($"No fiscal period found for date={date:yyyy-MM-dd}.");
+
+        if (period.IsClosed)
+            throw new InvalidOperationException($"Fiscal period '{period.Name}' is closed.");
+
+        return period.Id;
+    }
+    private async Task<JournalVoucher> CreateJournalForCashTransferAsync(
+        CashTransfer transfer,
+        CancellationToken cancellationToken)
+    {
+        var fiscalPeriodId = await GetOpenFiscalPeriodIdAsync(transfer.Date, cancellationToken);
+
+        var voucher = new JournalVoucher
+        {
+            Number = await numberSeries.NextAsync(NumberSeriesKeys.Journal, transfer.BranchId, cancellationToken),
+            Date = transfer.Date,
+            BranchId = transfer.BranchId,
+            FiscalPeriodId = fiscalPeriodId,
+            Description = $"Cash transfer {transfer.Number}",
+            Status = DocumentStatus.Posted,
+            Lines = new List<JournalLine>
+            {
+                new JournalLine
+                {
+                    LineNumber = 1,
+                    AccountId = transfer.ToAccountId,
+                    Debit = transfer.Amount,
+                    Credit = 0m,
+                    RefDocumentType = "CashTransfer",
+                    RefDocumentId = transfer.Id,
+                    CurrencyId = transfer.CurrencyId,
+                    FxRate = transfer.FxRate,
+                    Description = $"Cash transfer {transfer.Number} - debit destination"
+                },
+                new JournalLine
+                {
+                    LineNumber = 2,
+                    AccountId = transfer.FromAccountId,
+                    Debit = 0m,
+                    Credit = transfer.Amount,
+                    RefDocumentType = "CashTransfer",
+                    RefDocumentId = transfer.Id,
+                    CurrencyId = transfer.CurrencyId,
+                    FxRate = transfer.FxRate,
+                    Description = $"Cash transfer {transfer.Number} - credit source"
+                }
+            }
+        };
+
+        await uow.Journals.AddAsync(voucher, cancellationToken);
+        await uow.SaveChangesAsync(cancellationToken);
+
+        return voucher;
+    }
     /// Helper Methods End
 
     public async Task<CashTransfer> CreateCashTransferAsync(
@@ -84,6 +162,27 @@ public class CashTransferService(IUnitOfWork uow,
             {
                 throw new InvalidOperationException("حساب بانکی مبدأ و مقصد نمی‌توانند یکسان باشند.");
             }
+            
+            if (transfer.FromAccountId <= 0)
+                throw new InvalidOperationException("حساب حسابداری مبدأ الزامی است.");
+
+            if (transfer.ToAccountId <= 0)
+                throw new InvalidOperationException("حساب حسابداری مقصد الزامی است.");
+            
+            if (transfer.FromAccountId == transfer.ToAccountId)
+                throw new InvalidOperationException("حساب حسابداری مبدأ و مقصد نمی‌توانند یکسان باشند.");
+            
+            var fromAccount = await uow.Accounts.GetByIdAsync(transfer.FromAccountId, cancellationToken)
+                              ?? throw new InvalidOperationException($"Account with id={transfer.FromAccountId} not found.");
+
+            var toAccount = await uow.Accounts.GetByIdAsync(transfer.ToAccountId, cancellationToken)
+                            ?? throw new InvalidOperationException($"Account with id={transfer.ToAccountId} not found.");
+
+            if (!fromAccount.IsActive || !fromAccount.IsPosting)
+                throw new InvalidOperationException("حساب مبدأ معتبر نیست.");
+
+            if (!toAccount.IsActive || !toAccount.IsPosting)
+                throw new InvalidOperationException("حساب مقصد معتبر نیست.");
 
             // اگر شماره خالی است، از NumberSeries بساز
             if (string.IsNullOrWhiteSpace(transfer.Number))
@@ -143,9 +242,11 @@ public class CashTransferService(IUnitOfWork uow,
             if (transfer.Status == DocumentStatus.Cancelled)
                 throw new InvalidOperationException("سند لغو شده قابل ثبت نیست.");
 
-            // TODO: در آینده اینجا می‌توانی JournalVoucher برای انتقال وجه بسازی.
+            var journal = await CreateJournalForCashTransferAsync(transfer, cancellationToken);
+
             transfer.Status = DocumentStatus.Posted;
-            
+            transfer.JournalVoucherId = journal.Id;
+
             repo.Update(transfer);
             await uow.SaveChangesAsync(cancellationToken);
             await uow.CommitTransactionAsync(cancellationToken);
