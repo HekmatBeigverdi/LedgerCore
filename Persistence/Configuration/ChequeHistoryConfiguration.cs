@@ -26,6 +26,8 @@ public class ChequeHistoryConfiguration : IEntityTypeConfiguration<ChequeHistory
             .HasForeignKey(x => x.JournalVoucherId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasIndex(x => x.ChequeId);
+
         builder.HasIndex(x => new { x.ChequeId, x.ChangeDate });
 
         builder.HasIndex(x => x.JournalVoucherId);

@@ -902,7 +902,8 @@ namespace LedgerCore.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.Property<string>("ChangedBy")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
 
                     b.Property<int>("ChequeId")
                         .HasColumnType("int");
@@ -911,12 +912,19 @@ namespace LedgerCore.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("varchar(500)");
 
+                    b.Property<int?>("JournalVoucherId")
+                        .HasColumnType("int");
+
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
 
                     b.HasIndex("ChequeId");
+
+                    b.HasIndex("JournalVoucherId");
+
+                    b.HasIndex("ChequeId", "ChangeDate");
 
                     b.ToTable("ChequeHistories", (string)null);
                 });
@@ -3201,7 +3209,14 @@ namespace LedgerCore.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("LedgerCore.Core.Models.Accounting.JournalVoucher", "JournalVoucher")
+                        .WithMany()
+                        .HasForeignKey("JournalVoucherId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Cheque");
+
+                    b.Navigation("JournalVoucher");
                 });
 
             modelBuilder.Entity("LedgerCore.Core.Models.Documents.InvoiceLine", b =>

@@ -1,3 +1,4 @@
+using System;
 using System.Text;
 using LedgerCore.Core.Interfaces;
 using LedgerCore.Core.Interfaces.Repositories;
@@ -8,7 +9,11 @@ using LedgerCore.Mapping;
 using LedgerCore.Persistence;
 using LedgerCore.Persistence.Repository;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
