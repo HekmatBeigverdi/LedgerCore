@@ -12,5 +12,10 @@ public class ChequeHistoryConfiguration : IEntityTypeConfiguration<ChequeHistory
 
         builder.Property(x => x.Description)
             .HasMaxLength(500);
+        
+        builder.HasOne(x => x.JournalVoucher)
+            .WithMany()
+            .HasForeignKey(x => x.JournalVoucherId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

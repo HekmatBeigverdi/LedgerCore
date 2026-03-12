@@ -1,3 +1,4 @@
+using LedgerCore.Core.Models.Accounting;
 using LedgerCore.Core.Models.Common;
 using LedgerCore.Core.Models.Enums;
 
@@ -7,6 +8,8 @@ public class ChequeHistory: BaseEntity
 {
     public int ChequeId { get; set; }
     public Cheque? Cheque { get; set; }
+    public int? JournalVoucherId { get; set; }
+    public JournalVoucher? JournalVoucher { get; set; }
 
     public DateTime ChangeDate { get; set; } = DateTime.UtcNow;
     public ChequeStatus Status { get; set; }
