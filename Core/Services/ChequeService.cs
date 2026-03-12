@@ -89,28 +89,47 @@ public class ChequeService(IUnitOfWork uow,
         string? comment,
         CancellationToken cancellationToken = default)
     {
-        var cheque = await GetChequeScopedOrThrowAsync(chequeId, cancellationToken);
-
-        // تغییر وضعیت
-        cheque.Status = newStatus;
-        uow.Cheques.Update(cheque);
-
-        // ثبت در تاریخچه
-        var history = new ChequeHistory
+        await uow.BeginTransactionAsync(cancellationToken);
+        try
         {
-            ChequeId = cheque.Id,
-            ChangeDate = DateTime.UtcNow,
-            Status = newStatus,
-            Description = comment,
-            ChangedBy = "system"
-        };
+            var cheque = await GetChequeScopedOrThrowAsync(chequeId, cancellationToken);
 
-        await uow.Cheques.AddHistoryAsync(history, cancellationToken);
+            ValidateStatusTransition(cheque, newStatus);
 
-        // ایجاد سند حسابداری در صورت نیاز (Cleared / Returned)
-        await CreateAccountingForStatusChangeAsync(cheque, newStatus, cancellationToken);
+            // تغییر وضعیت
+            cheque.Status = newStatus;
+            uow.Cheques.Update(cheque);
 
-        await uow.SaveChangesAsync(cancellationToken);
+            // ثبت در تاریخچه
+            var history = new ChequeHistory
+            {
+                ChequeId = cheque.Id,
+                ChangeDate = DateTime.UtcNow,
+                Status = newStatus,
+                Description = comment,
+                ChangedBy = "system"
+            };
+
+            var journal = await CreateAccountingForStatusChangeAsync(
+                cheque,
+                newStatus,
+                cancellationToken);
+
+            if (journal is not null)
+            {
+                history.JournalVoucherId = journal.Id;
+            }
+
+            await uow.Cheques.AddHistoryAsync(history, cancellationToken);
+            await uow.SaveChangesAsync(cancellationToken);
+
+            await uow.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await uow.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
     }
     public Task<Cheque?> GetChequeAsync(
         int id,
@@ -135,21 +154,23 @@ public class ChequeService(IUnitOfWork uow,
     #region Accounting helpers
 
     /// <summary>
-    /// برای بعضی تغییر وضعیت‌ها (Cleared, Returned) سند حسابداری می‌سازد.
+    /// برای بعضی تغییر وضعیت‌ها (Delivered, Cleared, Returned) سند حسابداری می‌سازد.
     /// نوع سند و حساب‌ها از روی PostingRule تنظیم می‌شود.
     /// </summary>
-    private async Task CreateAccountingForStatusChangeAsync(
+    private async Task<JournalVoucher?> CreateAccountingForStatusChangeAsync(
         Cheque cheque,
         ChequeStatus newStatus,
         CancellationToken cancellationToken)
     {
-        // فقط برای Cleared/Returned سند می‌زنیم (در این نسخه ساده)
+        // فقط برای Delivered / Cleared / Returned سند می‌زنیم
         string? documentType = null;
 
         if (cheque.IsIncoming)
         {
             // چک دریافتی
-            if (newStatus == ChequeStatus.Cleared)
+            if (newStatus == ChequeStatus.Delivered)
+                documentType = "ChequeIncomingDelivered";
+            else if (newStatus == ChequeStatus.Cleared)
                 documentType = "ChequeIncomingCleared";
             else if (newStatus == ChequeStatus.Returned)
                 documentType = "ChequeIncomingReturned";
@@ -157,15 +178,17 @@ public class ChequeService(IUnitOfWork uow,
         else
         {
             // چک صادره
-            if (newStatus == ChequeStatus.Cleared)
+            if (newStatus == ChequeStatus.Delivered)
+                documentType = "ChequeOutgoingDelivered";
+            else if (newStatus == ChequeStatus.Cleared)
                 documentType = "ChequeOutgoingCleared";
             else if (newStatus == ChequeStatus.Returned)
                 documentType = "ChequeOutgoingReturned";
         }
 
-        // برای سایر وضعیت‌ها (Received, Delivered, Cancelled) سندی ثبت نمی‌کنیم
+        // برای سایر وضعیت‌ها (مثل Received / Issued / Cancelled) سندی ثبت نمی‌کنیم
         if (documentType is null)
-            return;
+            return null;
 
         // خواندن PostingRule متناسب با این نوع
         var postingRuleRepo = uow.Repository<PostingRule>();
@@ -181,18 +204,18 @@ public class ChequeService(IUnitOfWork uow,
             // - هیچ سندی نزنیم (return)
             // - یا خطا بدهیم
             // در اینجا برای نرم‌تر بودن رفتار، فقط return می‌کنیم.
-            return;
+            return null;
         }
         
-        var fiscalPeriodId = await GetOpenFiscalPeriodIdAsync(DateTime.UtcNow, cancellationToken);
-
+        var actionDate = DateTime.UtcNow;
+        var fiscalPeriodId = await GetOpenFiscalPeriodIdAsync(actionDate, cancellationToken);
 
         // ساخت سند حسابداری
         var voucher = new JournalVoucher
         {
             BranchId = cheque.BranchId,
             Number = await numberSeries.NextAsync(NumberSeriesKeys.Journal, cheque.BranchId, cancellationToken),
-            Date = DateTime.UtcNow,
+            Date = actionDate,
             FiscalPeriodId = fiscalPeriodId,
             Description = $"{documentType} for cheque {cheque.ChequeNumber}",
             Status = DocumentStatus.Posted
@@ -233,6 +256,8 @@ public class ChequeService(IUnitOfWork uow,
 
         await uow.Journals.AddAsync(voucher, cancellationToken);
         await uow.SaveChangesAsync(cancellationToken);
+        
+        return voucher;
     }
     
     private async Task<int> GetOpenFiscalPeriodIdAsync(DateTime date, CancellationToken ct)
@@ -263,6 +288,45 @@ public class ChequeService(IUnitOfWork uow,
             throw new InvalidOperationException($"Fiscal period '{period.Name}' is closed.");
 
         return period.Id;
+    }
+    
+    private static void ValidateStatusTransition(Cheque cheque, ChequeStatus newStatus)
+    {
+        var current = cheque.Status;
+
+        if (current == newStatus)
+            return;
+
+        if (cheque.IsIncoming)
+        {
+            var allowed = current switch
+            {
+                ChequeStatus.Received => newStatus is ChequeStatus.Delivered or ChequeStatus.Returned or ChequeStatus.Cancelled,
+                ChequeStatus.Delivered => newStatus is ChequeStatus.Cleared or ChequeStatus.Returned or ChequeStatus.Cancelled,
+                ChequeStatus.Returned => false,
+                ChequeStatus.Cleared => false,
+                ChequeStatus.Cancelled => false,
+                _ => false
+            };
+
+            if (!allowed)
+                throw new InvalidOperationException($"Invalid incoming cheque transition: {current} -> {newStatus}");
+        }
+        else
+        {
+            var allowed = current switch
+            {
+                ChequeStatus.Issued => newStatus is ChequeStatus.Delivered or ChequeStatus.Cancelled,
+                ChequeStatus.Delivered => newStatus is ChequeStatus.Cleared or ChequeStatus.Returned or ChequeStatus.Cancelled,
+                ChequeStatus.Returned => false,
+                ChequeStatus.Cleared => false,
+                ChequeStatus.Cancelled => false,
+                _ => false
+            };
+
+            if (!allowed)
+                throw new InvalidOperationException($"Invalid outgoing cheque transition: {current} -> {newStatus}");
+        }
     }
 
 

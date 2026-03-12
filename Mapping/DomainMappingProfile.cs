@@ -150,7 +150,11 @@ public class DomainMappingProfile : Profile
             .ForMember(d => d.BankAccountTitle, m => m.MapFrom(s => s.BankAccount!.Title))
             .ForMember(d => d.CurrencyCode, m => m.MapFrom(s => s.Currency!.Code));
 
-        CreateMap<ChequeHistory, ChequeHistoryDto>();
+        CreateMap<ChequeHistory, ChequeHistoryDto>()
+            .ForMember(d => d.StatusName,
+                m => m.MapFrom(s => s.Status.ToString()))
+            .ForMember(d => d.JournalVoucherNumber,
+                m => m.MapFrom(s => s.JournalVoucher != null ? s.JournalVoucher.Number : null));
 
         CreateMap<RegisterChequeRequest, Cheque>()
             .ForMember(d => d.Id, m => m.Ignore())
