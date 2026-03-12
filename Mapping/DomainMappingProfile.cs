@@ -230,7 +230,15 @@ public class DomainMappingProfile : Profile
             .ForMember(d => d.StatusName,
                 m => m.MapFrom(s => s.Status.ToString()))
             .ForMember(d => d.JournalVoucherNumber,
-                m => m.MapFrom(s => s.JournalVoucher!.Number));
+                m => m.MapFrom(s => s.JournalVoucher!.Number))
+            .ForMember(d => d.FromAccountCode,
+                m => m.MapFrom(s => s.FromAccount!.Code))
+            .ForMember(d => d.FromAccountName,
+                m => m.MapFrom(s => s.FromAccount!.Name))
+            .ForMember(d => d.ToAccountCode,
+                m => m.MapFrom(s => s.ToAccount!.Code))
+            .ForMember(d => d.ToAccountName,
+                m => m.MapFrom(s => s.ToAccount!.Name));
 
         CreateMap<CreateCashTransferRequest, CashTransfer>()
             .ForMember(d => d.Id, m => m.Ignore())

@@ -16,6 +16,15 @@ public class CashTransferDto
     public int? ToBankAccountId { get; set; }
     public string? ToBankAccountTitle { get; set; }
     public string? ToCashDeskCode { get; set; }
+    
+    public int FromAccountId { get; set; }
+    public int ToAccountId { get; set; }
+
+    public string? FromAccountCode { get; set; }
+    public string? FromAccountName { get; set; }
+
+    public string? ToAccountCode { get; set; }
+    public string? ToAccountName { get; set; }
 
     public decimal Amount { get; set; }
 

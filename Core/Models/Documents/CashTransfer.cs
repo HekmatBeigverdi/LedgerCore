@@ -15,10 +15,15 @@ public class CashTransfer: AuditableEntity
 
     public int? ToBankAccountId { get; set; }
     public BankAccount? ToBankAccount { get; set; }
-
+    
     public string? FromCashDeskCode { get; set; }   // اگر از صندوق
     public string? ToCashDeskCode { get; set; }
+    
+    public int FromAccountId { get; set; }
+    public Account? FromAccount { get; set; }
 
+    public int ToAccountId { get; set; }
+    public Account? ToAccount { get; set; }
     public decimal Amount { get; set; }
 
     public int? CurrencyId { get; set; }
