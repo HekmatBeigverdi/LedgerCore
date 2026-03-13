@@ -13,7 +13,8 @@ public class AccountingService(
     IUnitOfWork uow,
     IReportingService reportingService,
     ICurrentBranchService currentBranch,
-    INumberSeriesService numberSeries) : IAccountingService
+    INumberSeriesService numberSeries,
+    IPostingEngineService postingEngine) : IAccountingService
 {
     private int GetBranchIdOrThrow() => currentBranch.GetRequiredBranchId();
 
@@ -1013,62 +1014,24 @@ public class AccountingService(
         Receipt receipt,
         CancellationToken cancellationToken)
     {
-        // PostingRule با DocumentType = "Receipt"
-        var postingRuleRepo = uow.Repository<PostingRule>();
-        var page = await postingRuleRepo.FindAsync(
-            x => x.DocumentType == "Receipt" && x.IsActive,
-            null,
-            cancellationToken);
-
-        var rule = page.Items.FirstOrDefault()
-                   ?? throw new InvalidOperationException("No posting rule defined for Receipt.");
-        
-        var period = await GetOpenFiscalPeriodAsync(receipt.Date, null, cancellationToken);
-
-        var voucher = new JournalVoucher
+        var context = new PostingContext
         {
-            Number = await numberSeries.NextAsync(NumberSeriesKeys.Journal, receipt.BranchId, cancellationToken),
-            Date = receipt.Date,
-            BranchId = receipt.BranchId,
-            FiscalPeriodId = period.Id,
-            Description = $"Posting Receipt {receipt.Number}",
-            Status = DocumentStatus.Draft
+            Total = receipt.Amount,
+            PartyId = receipt.PartyId,
+            CurrencyId = receipt.CurrencyId,
+            FxRate = receipt.FxRate,
+            Description = $"Posting Receipt {receipt.Number}"
         };
 
+        var voucher = await postingEngine.BuildJournalAsync(
+            documentType: "Receipt",
+            branchId: receipt.BranchId,
+            date: receipt.Date,
+            refDocumentId: receipt.Id,
+            refDocumentNumber: receipt.Number,
+            context: context,
+            cancellationToken: cancellationToken);
 
-        var lines = new List<JournalLine>();
-        int lineNo = 1;
-
-        // Debit: Cash/Bank (حساب نقد و بانک)
-        lines.Add(new JournalLine
-        {
-            LineNumber = lineNo++,
-            AccountId = rule.DebitAccountId,
-            Debit = receipt.Amount,
-            Credit = 0,
-            RefDocumentType = "Receipt",
-            RefDocumentId = receipt.Id,
-            CurrencyId = receipt.CurrencyId,
-            FxRate = receipt.FxRate,
-            Description = $"Receipt {receipt.Number}"
-        });
-
-        // Credit: Receivable / Other
-        lines.Add(new JournalLine
-        {
-            LineNumber = lineNo++,
-            AccountId = rule.CreditAccountId,
-            Debit = 0,
-            Credit = receipt.Amount,
-            RefDocumentType = "Receipt",
-            RefDocumentId = receipt.Id,
-            CurrencyId = receipt.CurrencyId,
-            FxRate = receipt.FxRate,
-            Description = $"Receipt {receipt.Number}"
-        });
-
-        voucher.Lines = lines;
-        
         await uow.Journals.AddAsync(voucher, cancellationToken);
         await uow.SaveChangesAsync(cancellationToken);
 
@@ -1079,60 +1042,23 @@ public class AccountingService(
         Payment payment,
         CancellationToken cancellationToken)
     {
-        var postingRuleRepo = uow.Repository<PostingRule>();
-        var page = await postingRuleRepo.FindAsync(
-            x => x.DocumentType == "Payment" && x.IsActive,
-            null,
-            cancellationToken);
-
-        var rule = page.Items.FirstOrDefault()
-                   ?? throw new InvalidOperationException("No posting rule defined for Payment.");
-
-        var period = await GetOpenFiscalPeriodAsync(payment.Date, null, cancellationToken);
-
-        var voucher = new JournalVoucher
+        var context = new PostingContext
         {
-            Number = await numberSeries.NextAsync(NumberSeriesKeys.Journal, payment.BranchId, cancellationToken),
-            Date = payment.Date,
-            BranchId = payment.BranchId,
-            FiscalPeriodId = period.Id,
-            Description = $"Posting Payment {payment.Number}",
-            Status = DocumentStatus.Draft
+            Total = payment.Amount,
+            PartyId = payment.PartyId,
+            CurrencyId = payment.CurrencyId,
+            FxRate = payment.FxRate,
+            Description = $"Posting Payment {payment.Number}"
         };
 
-
-        var lines = new List<JournalLine>();
-        int lineNo = 1;
-
-        // Debit: Payable / Expense
-        lines.Add(new JournalLine
-        {
-            LineNumber = lineNo++,
-            AccountId = rule.DebitAccountId,
-            Debit = payment.Amount,
-            Credit = 0,
-            RefDocumentType = "Payment",
-            RefDocumentId = payment.Id,
-            CurrencyId = payment.CurrencyId,
-            FxRate = payment.FxRate,
-            Description = $"Payment {payment.Number}"
-        });
-
-        // Credit: Cash/Bank
-        lines.Add(new JournalLine
-        {
-            LineNumber = lineNo++,
-            AccountId = rule.CreditAccountId,
-            Debit = 0,
-            Credit = payment.Amount,
-            RefDocumentType = "Payment",
-            RefDocumentId = payment.Id,
-            CurrencyId = payment.CurrencyId,
-            FxRate = payment.FxRate,
-            Description = $"Payment {payment.Number}"
-        });
-
-        voucher.Lines = lines;
+        var voucher = await postingEngine.BuildJournalAsync(
+            documentType: "Payment",
+            branchId: payment.BranchId,
+            date: payment.Date,
+            refDocumentId: payment.Id,
+            refDocumentNumber: payment.Number,
+            context: context,
+            cancellationToken: cancellationToken);
 
         await uow.Journals.AddAsync(voucher, cancellationToken);
         await uow.SaveChangesAsync(cancellationToken);
@@ -1187,17 +1113,6 @@ public class AccountingService(
         InventoryAdjustment adjustment,
         CancellationToken cancellationToken)
     {
-        // گرفتن PostingRule با DocumentType = "InventoryAdjustment"
-        var postingRuleRepo = uow.Repository<PostingRule>();
-        var page = await postingRuleRepo.FindAsync(
-            x => x.DocumentType == "InventoryAdjustment" && x.IsActive,
-            null,
-            cancellationToken);
-
-        var rule = page.Items.FirstOrDefault()
-                   ?? throw new InvalidOperationException(
-                       "No posting rule defined for InventoryAdjustment.");
-
         if (!adjustment.TotalDifferenceValue.HasValue ||
             adjustment.TotalDifferenceValue.Value == 0m)
         {
@@ -1206,68 +1121,23 @@ public class AccountingService(
         }
 
         var diff = adjustment.TotalDifferenceValue.Value;
-        var amount = diff >= 0 ? diff : -diff;
+        var documentType = diff >= 0
+            ? "InventoryAdjustmentPositive"
+            : "InventoryAdjustmentNegative";
 
-        // منطق Debit/Credit:
-        // فرض: PostingRule برای حالت افزایش موجودی تعریف شده است:
-        //   diff > 0  => Debit: rule.DebitAccountId (Inventory)
-        //                Credit: rule.CreditAccountId (Gain/Loss)
-        //
-        // اگر diff < 0 بود، حساب‌ها را برعکس می‌کنیم:
-        //   diff < 0  => Debit: rule.CreditAccountId (Loss)
-        //                Credit: rule.DebitAccountId (Inventory)
-
-        int debitAccountId;
-        int creditAccountId;
-
-        if (diff > 0)
+        var context = new PostingContext
         {
-            debitAccountId = rule.DebitAccountId;
-            creditAccountId = rule.CreditAccountId;
-        }
-        else
-        {
-            debitAccountId = rule.CreditAccountId;
-            creditAccountId = rule.DebitAccountId;
-        }
-
-        var voucher = new JournalVoucher
-        {
-            Number = await numberSeries.NextAsync(NumberSeriesKeys.Journal, adjustment.BranchId, cancellationToken),
-            Date = adjustment.Date,
-            BranchId = adjustment.BranchId,
-            Description = $"Inventory Adjustment {adjustment.Number}",
-            Status = DocumentStatus.Posted
+            DifferenceValue = diff,
+            Description = $"Inventory Adjustment {adjustment.Number}"
         };
-
-        var lines = new List<JournalLine>();
-        var lineNo = 1;
-
-        // خط بدهکار
-        lines.Add(new JournalLine
-        {
-            LineNumber = lineNo++,
-            AccountId = debitAccountId,
-            Debit = amount,
-            Credit = 0m,
-            RefDocumentType = "InventoryAdjustment",
-            RefDocumentId = adjustment.Id,
-            Description = $"Inventory Adjustment {adjustment.Number}"
-        });
-
-        // خط بستانکار
-        lines.Add(new JournalLine
-        {
-            LineNumber = lineNo++,
-            AccountId = creditAccountId,
-            Debit = 0m,
-            Credit = amount,
-            RefDocumentType = "InventoryAdjustment",
-            RefDocumentId = adjustment.Id,
-            Description = $"Inventory Adjustment {adjustment.Number}"
-        });
-
-        voucher.Lines = lines;
+        var voucher = await postingEngine.BuildJournalAsync(
+            documentType: documentType,
+            branchId: adjustment.BranchId,
+            date: adjustment.Date,
+            refDocumentId: adjustment.Id,
+            refDocumentNumber: adjustment.Number,
+            context: context,
+            cancellationToken: cancellationToken);
 
         await uow.Journals.AddAsync(voucher, cancellationToken);
         await uow.SaveChangesAsync(cancellationToken);
