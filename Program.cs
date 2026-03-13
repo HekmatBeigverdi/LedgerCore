@@ -75,7 +75,6 @@ builder.Services.AddScoped<IChequeRepository, ChequeRepository>();
 
 // Services
 builder.Services.AddScoped<ISalesService, SalesService>();
-builder.Services.AddScoped<IAccountingService, AccountingService>();
 builder.Services.AddScoped<IChequeService, ChequeService>();
 builder.Services.AddScoped<IPayrollService, PayrollService>();
 builder.Services.AddScoped<IPurchaseService, PurchaseService>();
@@ -86,7 +85,10 @@ builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IApprovalService, ApprovalService>();
 builder.Services.AddScoped<ICashTransferService, CashTransferService>();
 builder.Services.AddScoped<ISecurityActivityLogService, SecurityActivityLogService>();
+builder.Services.AddScoped<IAccountingService, AccountingService>();
 builder.Services.AddScoped<INumberSeriesService, NumberSeriesService>();
+builder.Services.AddScoped<IPostingEngineService, PostingEngineService>();
+
 
 builder.Services.AddAutoMapper(typeof(DomainMappingProfile));
 
