@@ -12,8 +12,8 @@ namespace LedgerCore.Core.Services;
 public class SalesService(
     IUnitOfWork uow,
     ICurrentBranchService currentBranch,
-    IAccountingService accountingService,
-    INumberSeriesService numberSeries) : ISalesService
+    INumberSeriesService numberSeries,
+    IPostingEngineService postingEngine) : ISalesService
 {
     #region Public API
     private int GetBranchIdOrThrow()
@@ -402,125 +402,35 @@ public class SalesService(
         SalesInvoice invoice,
         CancellationToken cancellationToken)
     {
-        var postingRuleRepo = uow.Repository<PostingRule>();
-        var postingRules = await postingRuleRepo.FindAsync(
-            x => x.DocumentType == "SalesInvoice" && x.IsActive,
-            null,
-            cancellationToken);
+        var documentType = invoice.IsCashSale
+            ? "SalesInvoiceCash"
+            : "SalesInvoiceCredit";
 
-        PostingRule? postingRule = null;
-
-        if (invoice.IsCashSale)
-            postingRule = postingRules.Items.FirstOrDefault(r => r.Code == "SalesInvoice_Cash");
-
-        postingRule ??= postingRules.Items.FirstOrDefault(r => r.Code == "SalesInvoice_Credit");
-        postingRule ??= postingRules.Items.FirstOrDefault();
-
-        if (postingRule is null)
-            throw new InvalidOperationException("No active posting rule found for SalesInvoice.");
-
-        var lines = new List<JournalLine>();
-        int lineNo = 1;
-
-        // Debit: Receivable / Cash
-        lines.Add(new JournalLine
+        var context = new PostingContext
         {
-            LineNumber = lineNo++,
-            AccountId = postingRule.DebitAccountId,
-            Debit = invoice.TotalAmount,
-            Credit = 0m,
+            Total = invoice.TotalAmount,
+            Net = invoice.TotalNetAmount + invoice.TotalDiscount,
+            Discount = invoice.TotalDiscount,
+            Tax = invoice.TotalTaxAmount,
             PartyId = invoice.CustomerId,
-            RefDocumentType = "SalesInvoice",
-            RefDocumentId = invoice.Id,
             CurrencyId = invoice.CurrencyId,
             FxRate = invoice.FxRate,
-            Description = $"Receivable/Cash for invoice {invoice.Number}"
-        });
-
-        // Credit: Revenue
-        lines.Add(new JournalLine
-        {
-            LineNumber = lineNo++,
-            AccountId = postingRule.CreditAccountId,
-            Debit = 0m,
-            Credit = invoice.TotalNetAmount + invoice.TotalDiscount,
-            RefDocumentType = "SalesInvoice",
-            RefDocumentId = invoice.Id,
-            CurrencyId = invoice.CurrencyId,
-            FxRate = invoice.FxRate,
-            Description = $"Sales revenue for invoice {invoice.Number}"
-        });
-
-        // Debit: Discount
-        if (postingRule.DiscountAccountId.HasValue && invoice.TotalDiscount > 0)
-        {
-            lines.Add(new JournalLine
-            {
-                LineNumber = lineNo++,
-                AccountId = postingRule.DiscountAccountId.Value,
-                Debit = invoice.TotalDiscount,
-                Credit = 0m,
-                RefDocumentType = "SalesInvoice",
-                RefDocumentId = invoice.Id,
-                CurrencyId = invoice.CurrencyId,
-                FxRate = invoice.FxRate,
-                Description = $"Discount for invoice {invoice.Number}"
-            });
-        }
-
-        // Credit: Tax
-        if (postingRule.TaxAccountId.HasValue && invoice.TotalTaxAmount > 0)
-        {
-            lines.Add(new JournalLine
-            {
-                LineNumber = lineNo++,
-                AccountId = postingRule.TaxAccountId.Value,
-                Debit = 0m,
-                Credit = invoice.TotalTaxAmount,
-                RefDocumentType = "SalesInvoice",
-                RefDocumentId = invoice.Id,
-                CurrencyId = invoice.CurrencyId,
-                FxRate = invoice.FxRate,
-                Description = $"Tax for invoice {invoice.Number}"
-            });
-        }
-
-        var voucher = new JournalVoucher
-        {
-            Number = "",
-            Date = invoice.Date,
-            BranchId = invoice.BranchId,
-            FiscalPeriodId = null,
-            Description = $"Posting Sales Invoice {invoice.Number}",
-            Status = DocumentStatus.Draft,
-            Lines = lines
+            Description = $"Posting Sales Invoice {invoice.Number}"
         };
 
-        var created = await accountingService.CreateJournalAsync(voucher, cancellationToken);
-        await accountingService.PostJournalAsync(created.Id, cancellationToken);
+        var journal = await postingEngine.BuildJournalAsync(
+            documentType: documentType,
+            branchId: invoice.BranchId,
+            date: invoice.Date,
+            refDocumentId: invoice.Id,
+            refDocumentNumber: invoice.Number,
+            context: context,
+            cancellationToken: cancellationToken);
 
-        return await accountingService.GetJournalAsync(created.Id, cancellationToken) ?? created;
-    }
-    
-    private async Task<int> GetOpenFiscalPeriodIdAsync(DateTime date, CancellationToken ct)
-    {
-        var fyRepo = uow.Repository<FiscalYear>();
-        var fyPage = await fyRepo.FindAsync(y => y.StartDate <= date && y.EndDate >= date, null, ct);
-        var year = fyPage.Items.OrderByDescending(y => y.StartDate).FirstOrDefault()
-                   ?? throw new InvalidOperationException($"No fiscal year found for date={date:yyyy-MM-dd}.");
+        await uow.Journals.AddAsync(journal, cancellationToken);
+        await uow.SaveChangesAsync(cancellationToken);
 
-        if (year.IsClosed)
-            throw new InvalidOperationException($"Fiscal year '{year.Name}' is closed.");
-
-        var fpRepo = uow.Repository<FiscalPeriod>();
-        var fpPage = await fpRepo.FindAsync(p => p.FiscalYearId == year.Id && p.StartDate <= date && p.EndDate >= date, null, ct);
-        var period = fpPage.Items.OrderByDescending(p => p.StartDate).FirstOrDefault()
-                     ?? throw new InvalidOperationException($"No fiscal period found for date={date:yyyy-MM-dd}.");
-
-        if (period.IsClosed)
-            throw new InvalidOperationException($"Fiscal period '{period.Name}' is closed.");
-
-        return period.Id;
+        return journal;
     }
     private async Task<JournalVoucher> ReverseJournalInternalAsync(
         int journalId,
@@ -537,19 +447,39 @@ public class SalesService(
         if (original.Status != DocumentStatus.Posted)
             throw new InvalidOperationException("Only a posted journal can be reversed.");
 
-        var fiscalPeriodId = await GetOpenFiscalPeriodIdAsync(reversalDate, cancellationToken);
+        var fiscalYearRepo = uow.Repository<FiscalYear>();
+        var fyPage = await fiscalYearRepo.FindAsync(y => y.StartDate <= reversalDate && y.EndDate >= reversalDate, null, cancellationToken);
+        var year = fyPage.Items.OrderByDescending(y => y.StartDate).FirstOrDefault()
+                   ?? throw new InvalidOperationException($"No fiscal year found for date={reversalDate:yyyy-MM-dd}.");
 
+        if (year.IsClosed)
+            throw new InvalidOperationException($"Fiscal year '{year.Name}' is closed.");
+
+        var fpRepo = uow.Repository<FiscalPeriod>();
+        var fpPage = await fpRepo.FindAsync(
+            p => p.FiscalYearId == year.Id && p.StartDate <= reversalDate && p.EndDate >= reversalDate,
+            null,
+            cancellationToken);
+
+        var period = fpPage.Items.OrderByDescending(p => p.StartDate).FirstOrDefault()
+                     ?? throw new InvalidOperationException($"No fiscal period found for date={reversalDate:yyyy-MM-dd}.");
+
+        if (period.IsClosed)
+            throw new InvalidOperationException($"Fiscal period '{period.Name}' is closed.");
+        
         var reversed = new JournalVoucher
         {
-            Number = await numberSeries.NextAsync(NumberSeriesKeys.Journal, original.BranchId, cancellationToken),
+            Number = await numberSeries.NextAsync(
+                NumberSeriesKeys.Journal,
+                original.BranchId,
+                cancellationToken),
             Date = reversalDate.Date,
             BranchId = original.BranchId,
-            FiscalPeriodId = fiscalPeriodId,
+            FiscalPeriodId = period.Id,
             Description = description,
             Status = DocumentStatus.Posted,
             Lines = new List<JournalLine>()
         };
-
         var lineNo = 1;
         foreach (var l in original.Lines.OrderBy(x => x.LineNumber))
         {
@@ -575,7 +505,6 @@ public class SalesService(
 
         return reversed;
     }
-
 
     #endregion
 }
