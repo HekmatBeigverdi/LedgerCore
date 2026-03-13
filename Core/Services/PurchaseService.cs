@@ -14,7 +14,8 @@ public class PurchaseService(
     IUnitOfWork uow,
     ICurrentBranchService currentBranch,
     IAccountingService accountingService,
-    INumberSeriesService numberSeries) : IPurchaseService{
+    INumberSeriesService numberSeries,
+    IPostingEngineService postingEngine) : IPurchaseService{
 
     #region Public API
     
@@ -355,84 +356,29 @@ public class PurchaseService(
         PurchaseInvoice invoice,
         CancellationToken cancellationToken)
     {
-        var postingRuleRepo = uow.Repository<PostingRule>();
-        var postingRules = await postingRuleRepo.FindAsync(
-            x => x.DocumentType == "PurchaseInvoice" && x.IsActive,
-            null,
-            cancellationToken);
-
-        var postingRule = postingRules.Items.FirstOrDefault();
-        if (postingRule is null)
-            throw new InvalidOperationException("No active posting rule found for PurchaseInvoice.");
-
-        var lines = new List<JournalLine>();
-        int lineNo = 1;
-
-        // Debit: Inventory
-        lines.Add(new JournalLine
+        var context = new PostingContext
         {
-            LineNumber = lineNo++,
-            AccountId = postingRule.DebitAccountId,
-            Debit = invoice.TotalNetAmount,
-            Credit = 0m,
-            RefDocumentType = "PurchaseInvoice",
-            RefDocumentId = invoice.Id,
-            CurrencyId = invoice.CurrencyId,
-            FxRate = invoice.FxRate,
-            Description = $"Inventory for purchase {invoice.Number}"
-        });
-
-        // Debit: Tax
-        if (postingRule.TaxAccountId.HasValue && invoice.TotalTaxAmount > 0)
-        {
-            lines.Add(new JournalLine
-            {
-                LineNumber = lineNo++,
-                AccountId = postingRule.TaxAccountId.Value,
-                Debit = invoice.TotalTaxAmount,
-                Credit = 0m,
-                RefDocumentType = "PurchaseInvoice",
-                RefDocumentId = invoice.Id,
-                CurrencyId = invoice.CurrencyId,
-                FxRate = invoice.FxRate,
-                Description = $"Tax for purchase {invoice.Number}"
-            });
-        }
-
-        // Credit: Payable / Cash
-        lines.Add(new JournalLine
-        {
-            LineNumber = lineNo++,
-            AccountId = postingRule.CreditAccountId,
-            Debit = 0m,
-            Credit = invoice.TotalAmount,
+            Total = invoice.TotalAmount,
+            Net = invoice.TotalNetAmount,
+            Tax = invoice.TotalTaxAmount,
             PartyId = invoice.SupplierId,
-            RefDocumentType = "PurchaseInvoice",
-            RefDocumentId = invoice.Id,
             CurrencyId = invoice.CurrencyId,
             FxRate = invoice.FxRate,
-            Description = $"Payable/Cash for purchase {invoice.Number}"
-        });
-
-        var voucher = new JournalVoucher
-        {
-            Number = "", // AccountingService خودش شماره می‌دهد
-            Date = invoice.Date,
-            Description = $"Posting Purchase Invoice {invoice.Number}",
-            BranchId = invoice.BranchId,
-            FiscalPeriodId = null, // AccountingService خودش تعیین می‌کند
-            Status = DocumentStatus.Draft,
-            Lines = lines
+            Description = $"Posting Purchase Invoice {invoice.Number}"
         };
+        var journal = await postingEngine.BuildJournalAsync(
+            documentType: "PurchaseInvoice",
+            branchId: invoice.BranchId,
+            date: invoice.Date,
+            refDocumentId: invoice.Id,
+            refDocumentNumber: invoice.Number,
+            context: context,
+            cancellationToken: cancellationToken);
 
-        // مسیر استاندارد: Create => Validate/Balance/FiscalLock/RequiresParty => Draft
-        var created = await accountingService.CreateJournalAsync(voucher, cancellationToken);
+        await uow.Journals.AddAsync(journal, cancellationToken);
+        await uow.SaveChangesAsync(cancellationToken);
 
-        // سپس Post استاندارد
-        await accountingService.PostJournalAsync(created.Id, cancellationToken);
-
-        // نسخه نهایی را برگردان (با خطوط)
-        return await accountingService.GetJournalAsync(created.Id, cancellationToken) ?? created;
+        return journal;
     }
     
     private async Task<int> GetOpenFiscalPeriodIdAsync(DateTime date, CancellationToken ct)
