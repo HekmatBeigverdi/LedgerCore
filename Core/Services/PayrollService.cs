@@ -11,8 +11,11 @@ namespace LedgerCore.Core.Services;
 public class PayrollService(
     IUnitOfWork uow,
     ICurrentBranchService currentBranch,
-    INumberSeriesService numberSeries) : IPayrollService
+    INumberSeriesService numberSeries,
+    IPostingEngineService postingEngine) : IPayrollService
 {
+    private int GetBranchIdOrThrow()
+        => currentBranch.GetRequiredBranchId();
     public async Task<PayrollDocument> CalculatePayrollAsync(
         PayrollDocument payroll,
         CancellationToken cancellationToken = default)
@@ -93,81 +96,26 @@ public class PayrollService(
             if (payroll.TotalGross <= 0)
                 throw new InvalidOperationException("Payroll totals are invalid.");
 
-            // خواندن PostingRule مربوط به Payroll
-            var postingRuleRepo = uow.Repository<PostingRule>();
-            var prPage = await postingRuleRepo.FindAsync(
-                x => x.DocumentType == "Payroll" && x.IsActive,
-                null,
-                cancellationToken);
-
-            var rule = prPage.Items.FirstOrDefault()
-                       ?? throw new InvalidOperationException("No posting rule defined for Payroll.");
-            
-            
-            var fiscalPeriodId = await GetOpenFiscalPeriodIdAsync(payroll.Date, cancellationToken);
-
-
-            // ساخت سند حسابداری
-            var journal = new JournalVoucher
+            var context = new PostingContext
             {
-                Number = await numberSeries.NextAsync(
-                    NumberSeriesKeys.Journal,
-                    payroll.BranchId,
-                    cancellationToken),                
-                Date = payroll.Date,
-                BranchId = payroll.BranchId,
-                FiscalPeriodId = fiscalPeriodId,
-                Description = $"Payroll {payroll.Number} for period {payroll.PayrollPeriod?.Code}",
-                Status = DocumentStatus.Posted
+                Gross = payroll.TotalGross,
+                TotalDeductions = payroll.TotalDeductions,
+                TotalNet = payroll.TotalNet,
+                Description = $"Payroll {payroll.Number} for period {payroll.PayrollPeriod?.Code}"
             };
 
-            var lines = new List<JournalLine>();
-            var lineNo = 1;
-
-            // 1) Debit: هزینه حقوق (Gross)
-            lines.Add(new JournalLine
-            {
-                LineNumber = lineNo++,
-                AccountId = rule.DebitAccountId,
-                Debit = payroll.TotalGross,
-                Credit = 0,
-                RefDocumentType = "Payroll",
-                RefDocumentId = payroll.Id,
-                Description = $"Payroll gross expense {payroll.Number}"
-            });
-
-            // 2) Credit: حقوق پرداختنی (Net)
-            lines.Add(new JournalLine
-            {
-                LineNumber = lineNo++,
-                AccountId = rule.CreditAccountId,
-                Debit = 0,
-                Credit = payroll.TotalNet,
-                RefDocumentType = "Payroll",
-                RefDocumentId = payroll.Id,
-                Description = $"Payroll net payable {payroll.Number}"
-            });
-
-            // 3) Credit: کسورات (اگر حساب Tax برای این کار استفاده شود)
-            if (payroll.TotalDeductions > 0 && rule.TaxAccountId.HasValue)
-            {
-                lines.Add(new JournalLine
-                {
-                    LineNumber = lineNo++,
-                    AccountId = rule.TaxAccountId.Value,
-                    Debit = 0,
-                    Credit = payroll.TotalDeductions,
-                    RefDocumentType = "Payroll",
-                    RefDocumentId = payroll.Id,
-                    Description = $"Payroll deductions {payroll.Number}"
-                });
-            }
-
-            journal.Lines = lines;
+            var journal = await postingEngine.BuildJournalAsync(
+                documentType: "Payroll",
+                branchId: payroll.BranchId,
+                date: payroll.Date,
+                refDocumentId: payroll.Id,
+                refDocumentNumber: payroll.Number,
+                context: context,
+                cancellationToken: cancellationToken);
 
             await uow.Journals.AddAsync(journal, cancellationToken);
+            await uow.SaveChangesAsync(cancellationToken);
 
-            // بروزرسانی سند حقوق
             payroll.Status = PayrollStatus.Posted;
             payroll.JournalVoucher = journal;
 
@@ -179,40 +127,7 @@ public class PayrollService(
         catch
         {
             await uow.RollbackTransactionAsync(cancellationToken);
-            throw;
-        }
+            throw;        }
     }
-
-    // ===== Helper: NumberSeries =====
     
-    private async Task<int> GetOpenFiscalPeriodIdAsync(DateTime date, CancellationToken ct)
-    {
-        var fyRepo = uow.Repository<FiscalYear>();
-        var fyPage = await fyRepo.FindAsync(y => y.StartDate <= date && y.EndDate >= date, null, ct);
-
-        var year = fyPage.Items
-                       .OrderByDescending(y => y.StartDate)
-                       .FirstOrDefault()
-                   ?? throw new InvalidOperationException($"No fiscal year found for date={date:yyyy-MM-dd}.");
-
-        if (year.IsClosed)
-            throw new InvalidOperationException($"Fiscal year '{year.Name}' is closed.");
-
-        var fpRepo = uow.Repository<FiscalPeriod>();
-        var fpPage = await fpRepo.FindAsync(
-            p => p.FiscalYearId == year.Id && p.StartDate <= date && p.EndDate >= date,
-            null,
-            ct);
-
-        var period = fpPage.Items
-                         .OrderByDescending(p => p.StartDate)
-                         .FirstOrDefault()
-                     ?? throw new InvalidOperationException($"No fiscal period found for date={date:yyyy-MM-dd}.");
-
-        if (period.IsClosed)
-            throw new InvalidOperationException($"Fiscal period '{period.Name}' is closed.");
-
-        return period.Id;
-    }
-
 }
