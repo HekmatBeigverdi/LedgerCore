@@ -12,14 +12,15 @@ public class AssetService(
     IUnitOfWork uow,
     IFixedAssetRepository fixedAssets,
     ICurrentBranchService currentBranch,
-    INumberSeriesService numberSeries)
+    INumberSeriesService numberSeries,
+    IPostingEngineService postingEngine)
     : IAssetService
 {
     private readonly ICurrentBranchService _currentBranch = currentBranch;
     
     /// Helper Methods Start
     private int GetBranchIdOrThrow()
-        => _currentBranch.GetRequiredBranchId();
+        => currentBranch.GetRequiredBranchId();
 
     private async Task<FixedAsset?> GetFixedAssetScopedAsync(int id, CancellationToken ct)
     {
@@ -42,29 +43,8 @@ public class AssetService(
     }
     /// Helper Methods End
 
-
-    private async Task<int> GetOpenFiscalPeriodIdAsync(DateTime date, CancellationToken ct)
-    {
-        var fyRepo = uow.Repository<FiscalYear>();
-        var fyPage = await fyRepo.FindAsync(y => y.StartDate <= date && y.EndDate >= date, null, ct);
-        var year = fyPage.Items.OrderByDescending(y => y.StartDate).FirstOrDefault()
-                   ?? throw new InvalidOperationException($"No fiscal year found for date={date:yyyy-MM-dd}.");
-
-        if (year.IsClosed)
-            throw new InvalidOperationException($"Fiscal year '{year.Name}' is closed.");
-
-        var fpRepo = uow.Repository<FiscalPeriod>();
-        var fpPage = await fpRepo.FindAsync(p => p.FiscalYearId == year.Id && p.StartDate <= date && p.EndDate >= date, null, ct);
-        var period = fpPage.Items.OrderByDescending(p => p.StartDate).FirstOrDefault()
-                     ?? throw new InvalidOperationException($"No fiscal period found for date={date:yyyy-MM-dd}.");
-
-        if (period.IsClosed)
-            throw new InvalidOperationException($"Fiscal period '{period.Name}' is closed.");
-
-        return period.Id;
-    }
-
-
+    
+    
     /// <summary>
     /// ایجاد دارایی ثابت جدید.
     /// اگر UsefulLifeMonths صفر باشد، مقدار دسته را وارد می‌کند.
@@ -241,71 +221,31 @@ public class AssetService(
 
             if (schedule.IsPosted)
                 return; // قبلاً ثبت شده
-
-            // خواندن PostingRule
-            var postingRuleRepo = uow.Repository<PostingRule>();
-            var rulePage = await postingRuleRepo.FindAsync(
-                x => x.DocumentType == "AssetDepreciation" && x.IsActive,
-                null,
-                cancellationToken);
-
-            var rule = rulePage.Items.FirstOrDefault()
-                       ?? throw new InvalidOperationException("No posting rule defined for AssetDepreciation.");
             
-            var fiscalPeriodId = await GetOpenFiscalPeriodIdAsync(schedule.PeriodEnd, cancellationToken);
-
-
-            // ساخت سند حسابداری
-            var journal = new JournalVoucher
+            var context = new PostingContext
             {
-                Number = await numberSeries.NextAsync(NumberSeriesKeys.Journal, asset.BranchId, cancellationToken),
-                Date = schedule.PeriodEnd,
-                BranchId = asset.BranchId,
-                FiscalPeriodId = fiscalPeriodId,
-                Description = $"Depreciation for asset {asset.Code} - {periodStart:yyyy/MM/dd} to {periodEnd:yyyy/MM/dd}",
-                Status = DocumentStatus.Posted
+                Total = schedule.DepreciationAmount,
+                Description = $"Depreciation for asset {asset.Code} - {periodStart:yyyy/MM/dd} to {periodEnd:yyyy/MM/dd}"
             };
 
-            var lines = new List<JournalLine>();
-            int lineNo = 1;
-
-            // Debit: هزینه استهلاک
-            lines.Add(new JournalLine
-            {
-                LineNumber = lineNo++,
-                AccountId = rule.DebitAccountId,
-                Debit = schedule.DepreciationAmount,
-                Credit = 0,
-                RefDocumentType = "Depreciation",
-                RefDocumentId = schedule.Id,
-                Description = $"Depreciation expense for asset {asset.Code}"
-            });
-
-            // Credit: استهلاک انباشته
-            lines.Add(new JournalLine
-            {
-                LineNumber = lineNo++,
-                AccountId = rule.CreditAccountId,
-                Debit = 0,
-                Credit = schedule.DepreciationAmount,
-                RefDocumentType = "Depreciation",
-                RefDocumentId = schedule.Id,
-                Description = $"Accumulated depreciation for asset {asset.Code}"
-            });
-
-            journal.Lines = lines;
-
+            var journal = await postingEngine.BuildJournalAsync(
+                documentType: "AssetDepreciation",
+                branchId: asset.BranchId,
+                date: schedule.PeriodEnd,
+                refDocumentId: schedule.Id,
+                refDocumentNumber: asset.Code,
+                context: context,
+                cancellationToken: cancellationToken);
+            
             await uow.Journals.AddAsync(journal, cancellationToken);
+            await uow.SaveChangesAsync(cancellationToken);
 
-            // به‌روزرسانی برنامه استهلاک
             schedule.IsPosted = true;
             schedule.JournalVoucher = journal;
 
-            // آپدیت دارایی
             asset.AccumulatedDepreciation += schedule.DepreciationAmount;
 
-            // اگر تقریباً به اسقاط رسید → وضعیت FullyDepreciated
-            if (asset.NetBookValue <= asset.ResidualValue + 1) // کمی تلورانس
+            if (schedule.NetBookValue <= asset.ResidualValue + 1m)
             {
                 asset.Status = AssetStatus.FullyDepreciated;
             }
@@ -313,7 +253,7 @@ public class AssetService(
             fixedAssets.Update(asset);
             await uow.SaveChangesAsync(cancellationToken);
 
-            // ثبت تراکنش دارایی
+
             var transaction = new AssetTransaction
             {
                 FixedAssetId = asset.Id,
