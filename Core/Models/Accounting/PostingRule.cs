@@ -1,29 +1,24 @@
 using LedgerCore.Core.Models.Common;
+using LedgerCore.Core.Models.Master;
 
 namespace LedgerCore.Core.Models.Accounting;
+
 /// <summary>
-/// Defines how a business document (invoice, receipt, etc.) should be posted to accounts.
-/// For example: SalesInvoice → Debit: Receivable, Credit: Sales.
+/// هدر Rule ثبت حسابداری برای یک نوع سند.
+/// خطوط ثبت در PostingRuleLine نگهداری می‌شوند.
 /// </summary>
-public class PostingRule: AuditableEntity
+public class PostingRule : AuditableEntity
 {
     public string Code { get; set; } = default!;
-    public string Name { get; set; } = default!;          // مثال: SalesInvoice_Default
+    public string Name { get; set; } = default!;
+    public string DocumentType { get; set; } = default!;
 
-    // مثلا "SalesInvoice", "PurchaseInvoice", "Receipt"
-    public string DocumentType { get; set; } = default!;  
-
-    public int DebitAccountId { get; set; }              // حساب طرف بدهکار
-    public int CreditAccountId { get; set; }             // حساب طرف بستانکار
-
-    public int? TaxAccountId { get; set; }               // حساب مالیات (در صورت وجود)
-    public int? DiscountAccountId { get; set; }          // حساب تخفیف (در صورت نیاز)
+    public int? BranchId { get; set; }
+    public Branch? Branch { get; set; }
 
     public bool IsActive { get; set; } = true;
-    
-    // Navigation properties (اختیاری)
-    public Account? DebitAccount { get; set; }
-    public Account? CreditAccount { get; set; }
-    public Account? TaxAccount { get; set; }
-    public Account? DiscountAccount { get; set; }
+    public bool AutoPost { get; set; } = true;
+    public int Priority { get; set; } = 0;
+
+    public ICollection<PostingRuleLine> Lines { get; set; } = new List<PostingRuleLine>();
 }
