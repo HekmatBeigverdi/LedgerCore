@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace LedgerCore.Core.Services;
 
@@ -13,14 +14,24 @@ public class NumberSeriesService(LedgerCoreDbContext db) : INumberSeriesService
 {
     private readonly LedgerCoreDbContext _db = db;
 
-    public async Task<string> NextAsync(string entityType, int? branchId, CancellationToken cancellationToken = default)
+    public async Task<string> NextAsync(
+        string entityType,
+        int? branchId,
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(entityType))
             throw new ArgumentException("entityType is required.", nameof(entityType));
 
-        await using var tx = await _db.Database.BeginTransactionAsync(
-            IsolationLevel.Serializable,
-            cancellationToken);
+        var existingTransaction = _db.Database.CurrentTransaction;
+        var ownsTransaction = existingTransaction is null;
+        IDbContextTransaction? tx = existingTransaction;
+
+        if (ownsTransaction)
+        {
+            tx = await _db.Database.BeginTransactionAsync(
+                IsolationLevel.Serializable,
+                cancellationToken);
+        }
 
         try
         {
@@ -64,7 +75,11 @@ public class NumberSeriesService(LedgerCoreDbContext db) : INumberSeriesService
             series.ModifiedAt = DateTime.UtcNow;
 
             await _db.SaveChangesAsync(cancellationToken);
-            await tx.CommitAsync(cancellationToken);
+
+            if (ownsTransaction)
+            {
+                await tx!.CommitAsync(cancellationToken);
+            }
 
             var prefix = series.Prefix ?? string.Empty;
             var suffix = series.Suffix ?? string.Empty;
@@ -75,8 +90,19 @@ public class NumberSeriesService(LedgerCoreDbContext db) : INumberSeriesService
         }
         catch
         {
-            await tx.RollbackAsync(cancellationToken);
+            if (ownsTransaction && tx is not null)
+            {
+                await tx.RollbackAsync(cancellationToken);
+            }
+
             throw;
+        }
+        finally
+        {
+            if (ownsTransaction && tx is not null)
+            {
+                await tx.DisposeAsync();
+            }
         }
     }
 }
