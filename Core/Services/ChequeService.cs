@@ -8,12 +8,12 @@ using LedgerCore.Core.Models.Settings;
 
 namespace LedgerCore.Core.Services;
 
-public class ChequeService(IUnitOfWork uow,
-                ICurrentBranchService currentBranch,
-                INumberSeriesService numberSeries)
-    : IChequeService{
-    
-    
+public class ChequeService(
+    IUnitOfWork uow,
+    ICurrentBranchService currentBranch,
+    INumberSeriesService numberSeries,
+    IPostingEngineService postingEngine) : IChequeService
+{
     /// Helper Methods Start
     private int GetBranchIdOrThrow()
         => currentBranch.GetRequiredBranchId();
@@ -189,105 +189,32 @@ public class ChequeService(IUnitOfWork uow,
         // برای سایر وضعیت‌ها (مثل Received / Issued / Cancelled) سندی ثبت نمی‌کنیم
         if (documentType is null)
             return null;
-
-        // خواندن PostingRule متناسب با این نوع
-        var postingRuleRepo = uow.Repository<PostingRule>();
-        var page = await postingRuleRepo.FindAsync(
-            x => x.DocumentType == documentType && x.IsActive,
-            null,
-            cancellationToken);
-
-        var rule = page.Items.FirstOrDefault();
-        if (rule is null)
-        {
-            // اگر قاعده‌ای تعریف نشده، از نظر سیستمی می‌توانیم:
-            // - هیچ سندی نزنیم (return)
-            // - یا خطا بدهیم
-            // در اینجا برای نرم‌تر بودن رفتار، فقط return می‌کنیم.
-            return null;
-        }
+        
         
         var actionDate = DateTime.UtcNow;
-        var fiscalPeriodId = await GetOpenFiscalPeriodIdAsync(actionDate, cancellationToken);
 
-        // ساخت سند حسابداری
-        var voucher = new JournalVoucher
+        var context = new PostingContext
         {
-            BranchId = cheque.BranchId,
-            Number = await numberSeries.NextAsync(NumberSeriesKeys.Journal, cheque.BranchId, cancellationToken),
-            Date = actionDate,
-            FiscalPeriodId = fiscalPeriodId,
-            Description = $"{documentType} for cheque {cheque.ChequeNumber}",
-            Status = DocumentStatus.Posted
+            Total = cheque.Amount,
+            PartyId = cheque.PartyId,
+            CurrencyId = cheque.CurrencyId,
+            FxRate = cheque.FxRate,
+            Description = $"{documentType} for cheque {cheque.ChequeNumber}"
         };
 
-        var lines = new List<JournalLine>();
-        int lineNo = 1;
-
-        // بدهکار
-        lines.Add(new JournalLine
-        {
-            LineNumber = lineNo++,
-            AccountId = rule.DebitAccountId,
-            Debit = cheque.Amount,
-            Credit = 0,
-            RefDocumentType = "Cheque",
-            RefDocumentId = cheque.Id,
-            CurrencyId = cheque.CurrencyId,
-            FxRate = cheque.FxRate,
-            Description = $"{documentType} - Debit"
-        });
-
-        // بستانکار
-        lines.Add(new JournalLine
-        {
-            LineNumber = lineNo++,
-            AccountId = rule.CreditAccountId,
-            Debit = 0,
-            Credit = cheque.Amount,
-            RefDocumentType = "Cheque",
-            RefDocumentId = cheque.Id,
-            CurrencyId = cheque.CurrencyId,
-            FxRate = cheque.FxRate,
-            Description = $"{documentType} - Credit"
-        });
-
-        voucher.Lines = lines;
+        var voucher = await postingEngine.BuildJournalAsync(
+            documentType: documentType,
+            branchId: cheque.BranchId,
+            date: actionDate,
+            refDocumentId: cheque.Id,
+            refDocumentNumber: cheque.ChequeNumber,
+            context: context,
+            cancellationToken: cancellationToken);
 
         await uow.Journals.AddAsync(voucher, cancellationToken);
         await uow.SaveChangesAsync(cancellationToken);
-        
+
         return voucher;
-    }
-    
-    private async Task<int> GetOpenFiscalPeriodIdAsync(DateTime date, CancellationToken ct)
-    {
-        var fyRepo = uow.Repository<FiscalYear>();
-        var fyPage = await fyRepo.FindAsync(y => y.StartDate <= date && y.EndDate >= date, null, ct);
-
-        var year = fyPage.Items
-                       .OrderByDescending(y => y.StartDate)
-                       .FirstOrDefault()
-                   ?? throw new InvalidOperationException($"No fiscal year found for date={date:yyyy-MM-dd}.");
-
-        if (year.IsClosed)
-            throw new InvalidOperationException($"Fiscal year '{year.Name}' is closed.");
-
-        var fpRepo = uow.Repository<FiscalPeriod>();
-        var fpPage = await fpRepo.FindAsync(
-            p => p.FiscalYearId == year.Id && p.StartDate <= date && p.EndDate >= date,
-            null,
-            ct);
-
-        var period = fpPage.Items
-                         .OrderByDescending(p => p.StartDate)
-                         .FirstOrDefault()
-                     ?? throw new InvalidOperationException($"No fiscal period found for date={date:yyyy-MM-dd}.");
-
-        if (period.IsClosed)
-            throw new InvalidOperationException($"Fiscal period '{period.Name}' is closed.");
-
-        return period.Id;
     }
     
     private static void ValidateStatusTransition(Cheque cheque, ChequeStatus newStatus)
@@ -328,7 +255,6 @@ public class ChequeService(IUnitOfWork uow,
                 throw new InvalidOperationException($"Invalid outgoing cheque transition: {current} -> {newStatus}");
         }
     }
-
 
     #endregion
 }
