@@ -350,6 +350,14 @@ namespace LedgerCore.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
+                    b.Property<bool>("AutoPost")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(true);
+
+                    b.Property<int?>("BranchId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -360,15 +368,6 @@ namespace LedgerCore.Migrations
 
                     b.Property<string>("CreatedBy")
                         .HasColumnType("longtext");
-
-                    b.Property<int>("CreditAccountId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("DebitAccountId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("DiscountAccountId")
-                        .HasColumnType("int");
 
                     b.Property<string>("DocumentType")
                         .IsRequired()
@@ -394,25 +393,84 @@ namespace LedgerCore.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
 
-                    b.Property<int?>("TaxAccountId")
-                        .HasColumnType("int");
+                    b.Property<int>("Priority")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CreditAccountId");
-
-                    b.HasIndex("DebitAccountId");
-
-                    b.HasIndex("DiscountAccountId");
-
-                    b.HasIndex("DocumentType");
-
-                    b.HasIndex("TaxAccountId");
+                    b.HasIndex("BranchId");
 
                     b.HasIndex("DocumentType", "Code")
                         .IsUnique();
 
+                    b.HasIndex("DocumentType", "BranchId", "Priority");
+
                     b.ToTable("PostingRules", (string)null);
+                });
+
+            modelBuilder.Entity("LedgerCore.Core.Models.Accounting.PostingRuleLine", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("AmountSource")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("DescriptionTemplate")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<decimal?>("FixedAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("LineNumber")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("PostingRuleId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Side")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("UsePartyFromDocument")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(false);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("PostingRuleId", "LineNumber")
+                        .IsUnique();
+
+                    b.ToTable("PostingRuleLines", (string)null);
                 });
 
             modelBuilder.Entity("LedgerCore.Core.Models.Accounting.TrialBalanceRow", b =>
@@ -3017,35 +3075,31 @@ namespace LedgerCore.Migrations
 
             modelBuilder.Entity("LedgerCore.Core.Models.Accounting.PostingRule", b =>
                 {
-                    b.HasOne("LedgerCore.Core.Models.Accounting.Account", "CreditAccount")
+                    b.HasOne("LedgerCore.Core.Models.Master.Branch", "Branch")
                         .WithMany()
-                        .HasForeignKey("CreditAccountId")
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Branch");
+                });
+
+            modelBuilder.Entity("LedgerCore.Core.Models.Accounting.PostingRuleLine", b =>
+                {
+                    b.HasOne("LedgerCore.Core.Models.Accounting.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("LedgerCore.Core.Models.Accounting.Account", "DebitAccount")
-                        .WithMany()
-                        .HasForeignKey("DebitAccountId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                    b.HasOne("LedgerCore.Core.Models.Accounting.PostingRule", "PostingRule")
+                        .WithMany("Lines")
+                        .HasForeignKey("PostingRuleId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("LedgerCore.Core.Models.Accounting.Account", "DiscountAccount")
-                        .WithMany()
-                        .HasForeignKey("DiscountAccountId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                    b.Navigation("Account");
 
-                    b.HasOne("LedgerCore.Core.Models.Accounting.Account", "TaxAccount")
-                        .WithMany()
-                        .HasForeignKey("TaxAccountId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("CreditAccount");
-
-                    b.Navigation("DebitAccount");
-
-                    b.Navigation("DiscountAccount");
-
-                    b.Navigation("TaxAccount");
+                    b.Navigation("PostingRule");
                 });
 
             modelBuilder.Entity("LedgerCore.Core.Models.Assets.AssetTransaction", b =>
@@ -3682,6 +3736,11 @@ namespace LedgerCore.Migrations
                 });
 
             modelBuilder.Entity("LedgerCore.Core.Models.Accounting.JournalVoucher", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("LedgerCore.Core.Models.Accounting.PostingRule", b =>
                 {
                     b.Navigation("Lines");
                 });

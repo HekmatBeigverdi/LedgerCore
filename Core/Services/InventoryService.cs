@@ -1,7 +1,6 @@
 using LedgerCore.Core.Constants;
 using LedgerCore.Core.Interfaces.Repositories;
 using LedgerCore.Core.Interfaces.Services;
-using LedgerCore.Core.Models.Accounting;
 using LedgerCore.Core.Models.Enums;
 using LedgerCore.Core.Models.Inventory;
 using LedgerCore.Persistence;
@@ -80,11 +79,14 @@ public class InventoryService(
 
     /// <summary>
     /// پردازش سند تعدیل موجودی:
-    /// - پیدا کردن StockMoveهای مربوط به این Adjustment (RefDocumentType = "InventoryAdjustment")
+    /// - پیدا کردن StockMoveهای مربوط به این Adjustment
     /// - به‌روزرسانی StockItem (OnHand و AverageCost)
     /// - محاسبه و ذخیره TotalDifferenceValue
-    /// - تغییر وضعیت سند به Posted
-    /// فرض: خط‌های تعدیل به صورت StockMove قبلاً ساخته شده‌اند.
+    /// - تغییر وضعیت سند به Approved
+    /// 
+    /// توجه:
+    /// ثبت حسابداری این سند دیگر در این سرویس انجام نمی‌شود
+    /// و از طریق AccountingService.PostInventoryAdjustmentAsync انجام خواهد شد.
     /// </summary>
     public async Task ProcessInventoryAdjustmentAsync(
         InventoryAdjustment adjustment,
@@ -92,8 +94,6 @@ public class InventoryService(
     {
         if (adjustment is null)
             throw new ArgumentNullException(nameof(adjustment));
-
-        // اطمینان از اینکه رکورد اصلی از دیتابیس خوانده می‌شود
 
         var branchId = currentBranch.GetRequiredBranchId();
 
@@ -107,7 +107,6 @@ public class InventoryService(
         if (dbAdjustment.Status == DocumentStatus.Posted)
             throw new InvalidOperationException("InventoryAdjustment is already posted.");
 
-        // همه‌ی حرکات انبار مربوط به این سند تعدیل
         var moves = await _db.StockMoves
             .Include(m => m.Warehouse)
             .Where(m =>
@@ -124,12 +123,10 @@ public class InventoryService(
 
         decimal totalDifferenceValue = 0m;
 
-        // تراکنش EF برای اتمیک بودن عملیات
         await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
 
         try
         {
-            // 1) Apply stock moves -> StockItem + TotalDifferenceValue (منطق فعلی شما)
             foreach (var move in moves)
             {
                 var stockItem = await _stock.GetStockItemAsync(
@@ -151,16 +148,12 @@ public class InventoryService(
                     await _db.StockItems.AddAsync(stockItem, cancellationToken);
                 }
 
-                // منطق هم‌راستا با Purchase/Sales:
-                // - Inbound یا Adjustment با مقدار مثبت: مثل خرید → محاسبه متوسط جدید
-                // - Outbound یا Adjustment با مقدار منفی: مثل فروش → کاهش OnHand با AverageCost فعلی
-
                 if (move.MoveType == StockMoveType.Inbound ||
                     (move.MoveType == StockMoveType.Adjustment && move.Quantity > 0))
                 {
                     var oldQty = stockItem.OnHand;
                     var oldCost = stockItem.AverageCost;
-                    
+
                     var newQty = move.Quantity;
                     var newCostPerUnit = move.UnitCost ?? oldCost;
 
@@ -206,72 +199,9 @@ public class InventoryService(
 
                 _stock.UpdateStockItem(stockItem);
             }
-            
-            // 2) Create JournalVoucher for adjustment (NEW)
-            if (totalDifferenceValue != 0m)
-            {
-                var rule = await _db.PostingRules
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(x => x.DocumentType == "InventoryAdjustment" && x.IsActive, cancellationToken);
-
-                if (rule is null)
-                    throw new InvalidOperationException("No posting rule defined for InventoryAdjustment.");
-
-                var journalNumber = await numberSeries.NextAsync(NumberSeriesKeys.Journal, dbAdjustment.BranchId, cancellationToken);
-
-                var abs = Math.Abs(totalDifferenceValue);
-
-                // اگر افزایش موجودی: Debit Inventory / Credit Adjustment
-                // اگر کاهش موجودی: Debit Adjustment / Credit Inventory
-                var debitAccountId = totalDifferenceValue > 0 ? rule.DebitAccountId : rule.CreditAccountId;
-                var creditAccountId = totalDifferenceValue > 0 ? rule.CreditAccountId : rule.DebitAccountId;
-                
-                var fiscalPeriodId = await GetOpenFiscalPeriodIdAsync(dbAdjustment.Date.Date, cancellationToken);
-
-
-                var journal = new JournalVoucher
-                {
-                    Number = journalNumber,
-                    Date = dbAdjustment.Date.Date,
-                    BranchId = dbAdjustment.BranchId,
-                    FiscalPeriodId = fiscalPeriodId,
-                    Description = $"Inventory adjustment {dbAdjustment.Number}",
-                    Status = DocumentStatus.Posted,
-                    Lines = new List<JournalLine>
-                    {
-                        new JournalLine
-                        {
-                            LineNumber = 1,
-                            AccountId = debitAccountId,
-                            Debit = abs,
-                            Credit = 0,
-                            RefDocumentType = "InventoryAdjustment",
-                            RefDocumentId = dbAdjustment.Id,
-                            Description = $"Inventory adjustment {dbAdjustment.Number}"
-                        },
-                        new JournalLine
-                        {
-                            LineNumber = 2,
-                            AccountId = creditAccountId,
-                            Debit = 0,
-                            Credit = abs,
-                            RefDocumentType = "InventoryAdjustment",
-                            RefDocumentId = dbAdjustment.Id,
-                            Description = $"Inventory adjustment {dbAdjustment.Number}"
-                        }
-                    }
-                };
-
-                await _db.JournalVouchers.AddAsync(journal, cancellationToken);
-                await _db.SaveChangesAsync(cancellationToken);
-
-                dbAdjustment.JournalVoucherId = journal.Id;
-            }
-
-            // 3) Finalize adjustment            
 
             dbAdjustment.TotalDifferenceValue = totalDifferenceValue;
-            dbAdjustment.Status = DocumentStatus.Posted;
+            dbAdjustment.Status = DocumentStatus.Approved;
             dbAdjustment.ModifiedAt = DateTime.UtcNow;
 
             await _db.SaveChangesAsync(cancellationToken);
@@ -282,40 +212,5 @@ public class InventoryService(
             await transaction.RollbackAsync(cancellationToken);
             throw;
         }
-        
     }
-    
-    private async Task<int> GetOpenFiscalPeriodIdAsync(DateTime date, CancellationToken cancellationToken)
-    {
-        var d = date.Date;
-
-        // 1) FiscalYear مربوط به تاریخ
-        var year = await _db.FiscalYears
-            .AsNoTracking()
-            .Where(y => y.StartDate.Date <= d && y.EndDate.Date >= d)
-            .OrderByDescending(y => y.StartDate)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (year is null)
-            throw new InvalidOperationException($"No fiscal year found for date={d:yyyy-MM-dd}.");
-
-        if (year.IsClosed)
-            throw new InvalidOperationException($"Fiscal year '{year.Name}' is closed.");
-
-        // 2) FiscalPeriod مربوط به همان سال
-        var period = await _db.FiscalPeriods
-            .AsNoTracking()
-            .Where(p => p.FiscalYearId == year.Id && p.StartDate.Date <= d && p.EndDate.Date >= d)
-            .OrderByDescending(p => p.StartDate)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (period is null)
-            throw new InvalidOperationException($"No fiscal period found for date={d:yyyy-MM-dd} in fiscal year '{year.Name}'.");
-
-        if (period.IsClosed)
-            throw new InvalidOperationException($"Fiscal period '{period.Name}' is closed.");
-
-        return period.Id;
-    }
-
 }
