@@ -36,6 +36,7 @@ public class LedgerCoreDbContext(DbContextOptions<LedgerCoreDbContext> options) 
     public DbSet<JournalVoucher> JournalVouchers => Set<JournalVoucher>();
     public DbSet<JournalLine> JournalLines => Set<JournalLine>();
     public DbSet<PostingRule> PostingRules => Set<PostingRule>();
+    public DbSet<PostingRuleLine> PostingRuleLines => Set<PostingRuleLine>();
     public DbSet<TrialBalanceRow> TrialBalanceRows => Set<TrialBalanceRow>();
 
     // Inventory

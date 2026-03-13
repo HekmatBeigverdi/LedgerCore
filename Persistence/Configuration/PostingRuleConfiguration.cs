@@ -25,28 +25,20 @@ public class PostingRuleConfiguration : IEntityTypeConfiguration<PostingRule>
         builder.Property(x => x.IsActive)
             .HasDefaultValue(true);
 
-        // روابط
-        builder.HasOne(x => x.DebitAccount)
+        builder.Property(x => x.AutoPost)
+            .HasDefaultValue(true);
+
+        builder.Property(x => x.Priority)
+            .HasDefaultValue(0);
+
+        builder.HasOne(x => x.Branch)
             .WithMany()
-            .HasForeignKey(x => x.DebitAccountId)
+            .HasForeignKey(x => x.BranchId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasOne(x => x.CreditAccount)
-            .WithMany()
-            .HasForeignKey(x => x.CreditAccountId)
-            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(x => new { x.DocumentType, x.Code })
+            .IsUnique();
 
-        builder.HasOne(x => x.TaxAccount)
-            .WithMany()
-            .HasForeignKey(x => x.TaxAccountId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        builder.HasOne(x => x.DiscountAccount)
-            .WithMany()
-            .HasForeignKey(x => x.DiscountAccountId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        builder.HasIndex(x => new { x.DocumentType, x.Code }).IsUnique();
-        builder.HasIndex(x => x.DocumentType);
+        builder.HasIndex(x => new { x.DocumentType, x.BranchId, x.Priority });
     }
 }
