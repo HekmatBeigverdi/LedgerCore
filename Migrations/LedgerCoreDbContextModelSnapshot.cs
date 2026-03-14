@@ -2785,6 +2785,12 @@ namespace LedgerCore.Migrations
                     b.Property<int?>("BranchId")
                         .HasColumnType("int");
 
+                    b.Property<int>("BranchScopeId")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("int")
+                        .HasColumnName("BranchScopeId")
+                        .HasComputedColumnSql("IFNULL(`BranchId`, 0)", true);
+
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(150)
@@ -2833,17 +2839,11 @@ namespace LedgerCore.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Code")
-                        .IsUnique();
+                    b.HasIndex("Code", "BranchScopeId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_NumberSeries_Code_BranchScope");
 
-                    b.HasIndex("EntityType", "BranchId");
-
-                    b.ToTable("NumberSeries", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_NumberSeries_CurrentNumber", "`CurrentNumber` >= 0");
-
-                            t.HasCheckConstraint("CK_NumberSeries_Padding", "`Padding` > 0");
-                        });
+                    b.ToTable("NumberSeries", (string)null);
                 });
 
             modelBuilder.Entity("LedgerCore.Core.Models.Settings.SystemSetting", b =>
