@@ -2843,7 +2843,12 @@ namespace LedgerCore.Migrations
                         .IsUnique()
                         .HasDatabaseName("UX_NumberSeries_Code_BranchScope");
 
-                    b.ToTable("NumberSeries", (string)null);
+                    b.ToTable("NumberSeries", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_NumberSeries_CurrentNumber", "`CurrentNumber` >= 0");
+
+                            t.HasCheckConstraint("CK_NumberSeries_Padding", "`Padding` > 0");
+                        });
                 });
 
             modelBuilder.Entity("LedgerCore.Core.Models.Settings.SystemSetting", b =>

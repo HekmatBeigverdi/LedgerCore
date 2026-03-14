@@ -1,9 +1,9 @@
 using System;
 using System.Data;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using LedgerCore.Core.Interfaces.Services;
+using LedgerCore.Core.Models.Settings;
 using LedgerCore.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -22,69 +22,61 @@ public class NumberSeriesService(LedgerCoreDbContext db) : INumberSeriesService
         if (string.IsNullOrWhiteSpace(entityType))
             throw new ArgumentException("entityType is required.", nameof(entityType));
 
-        var existingTransaction = _db.Database.CurrentTransaction;
-        var ownsTransaction = existingTransaction is null;
-        IDbContextTransaction? tx = existingTransaction;
+        var currentTransaction = _db.Database.CurrentTransaction;
+        var ownsTransaction = currentTransaction is null;
+        IDbContextTransaction? tx = currentTransaction;
 
         if (ownsTransaction)
         {
             tx = await _db.Database.BeginTransactionAsync(
-                IsolationLevel.Serializable,
+                IsolationLevel.ReadCommitted,
                 cancellationToken);
         }
 
         try
         {
-            var candidates = await _db.NumberSeries
-                .AsTracking()
-                .Where(x =>
-                    x.IsActive &&
-                    x.EntityType == entityType &&
-                    (x.BranchId == branchId || x.BranchId == null))
-                .ToListAsync(cancellationToken);
-
-            var exactBranchSeries = candidates
-                .Where(x => x.BranchId == branchId && x.BranchId != null)
-                .ToList();
-
-            var globalSeries = candidates
-                .Where(x => x.BranchId == null)
-                .ToList();
-
-            if (exactBranchSeries.Count > 1)
-            {
-                throw new InvalidOperationException(
-                    $"Multiple active NumberSeries found for entityType='{entityType}' and branchId='{branchId}'.");
-            }
-
-            if (globalSeries.Count > 1)
-            {
-                throw new InvalidOperationException(
-                    $"Multiple active global NumberSeries found for entityType='{entityType}'.");
-            }
-
-            var series = exactBranchSeries.FirstOrDefault() ?? globalSeries.FirstOrDefault();
+            var series = await ResolveSeriesAsync(entityType, branchId, cancellationToken);
 
             if (series is null)
             {
                 throw new InvalidOperationException(
-                    $"No active NumberSeries defined for entityType='{entityType}' and branchId='{branchId}'.");
+                    $"No active NumberSeries defined for code='{entityType}' and branchId='{branchId}'.");
             }
 
-            series.CurrentNumber += 1;
-            series.ModifiedAt = DateTime.UtcNow;
+            var affectedRows = await _db.Database.ExecuteSqlInterpolatedAsync($@"
+UPDATE `NumberSeries`
+SET
+    `CurrentNumber` = `CurrentNumber` + 1,
+    `ModifiedAt` = UTC_TIMESTAMP()
+WHERE `Id` = {series.Id};", cancellationToken);
 
-            await _db.SaveChangesAsync(cancellationToken);
+            if (affectedRows != 1)
+            {
+                throw new InvalidOperationException(
+                    $"Failed to increment NumberSeries for code='{entityType}' and branchId='{branchId}'.");
+            }
+
+            var latest = await _db.NumberSeries
+                .AsNoTracking()
+                .Where(x => x.Id == series.Id)
+                .Select(x => new
+                {
+                    x.CurrentNumber,
+                    x.Prefix,
+                    x.Suffix,
+                    x.Padding
+                })
+                .SingleAsync(cancellationToken);
 
             if (ownsTransaction)
             {
                 await tx!.CommitAsync(cancellationToken);
             }
 
-            var prefix = series.Prefix ?? string.Empty;
-            var suffix = series.Suffix ?? string.Empty;
-            var padding = series.Padding < 1 ? 1 : series.Padding;
-            var number = series.CurrentNumber.ToString().PadLeft(padding, '0');
+            var prefix = latest.Prefix ?? string.Empty;
+            var suffix = latest.Suffix ?? string.Empty;
+            var padding = latest.Padding < 1 ? 1 : latest.Padding;
+            var number = latest.CurrentNumber.ToString().PadLeft(padding, '0');
 
             return $"{prefix}{number}{suffix}";
         }
@@ -104,5 +96,37 @@ public class NumberSeriesService(LedgerCoreDbContext db) : INumberSeriesService
                 await tx.DisposeAsync();
             }
         }
+    }
+
+    private async Task<NumberSeries?> ResolveSeriesAsync(
+        string code,
+        int? branchId,
+        CancellationToken cancellationToken)
+    {
+        NumberSeries? branchSeries = null;
+
+        if (branchId.HasValue)
+        {
+            branchSeries = await _db.NumberSeries
+                .AsNoTracking()
+                .SingleOrDefaultAsync(
+                    x => x.IsActive &&
+                         x.Code == code &&
+                         x.BranchId == branchId,
+                    cancellationToken);
+        }
+
+        if (branchSeries is not null)
+            return branchSeries;
+
+        var globalSeries = await _db.NumberSeries
+            .AsNoTracking()
+            .SingleOrDefaultAsync(
+                x => x.IsActive &&
+                     x.Code == code &&
+                     x.BranchId == null,
+                cancellationToken);
+
+        return globalSeries;
     }
 }
