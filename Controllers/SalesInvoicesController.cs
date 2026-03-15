@@ -4,6 +4,7 @@ using LedgerCore.Core.Interfaces.Repositories;
 using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Common;
 using LedgerCore.Core.Models.Documents;
+using LedgerCore.Core.Models.Security;
 using LedgerCore.Core.ViewModels.Documents;
 using Microsoft.AspNetCore.Mvc;
 
@@ -20,6 +21,7 @@ public class SalesInvoicesController(
 {
     
     [HttpGet]
+    [HasPermission(PermissionCodes.Sales_Invoice_View)]
     public async Task<ActionResult> Query([FromQuery] PagingParams paging, CancellationToken cancellationToken)
     {
         var branchId = currentBranch.GetRequiredBranchId();
@@ -39,6 +41,7 @@ public class SalesInvoicesController(
         });
     }
     [HttpGet("{id:int}")]
+    [HasPermission(PermissionCodes.Sales_Invoice_View)]
     public async Task<ActionResult<SalesInvoiceDto>> Get(int id, CancellationToken cancellationToken)
     {
         var invoice = await salesService.GetSalesInvoiceAsync(id, cancellationToken);
@@ -51,6 +54,7 @@ public class SalesInvoicesController(
     }
 
     [HttpPost]
+    [HasPermission(PermissionCodes.Sales_Invoice_Create)]
     public async Task<ActionResult<SalesInvoiceDto>> Create(
         [FromBody] CreateSalesInvoiceRequest request,
         CancellationToken cancellationToken)
@@ -74,6 +78,7 @@ public class SalesInvoicesController(
     }
 
     [HttpPut("{id:int}")]
+    [HasPermission(PermissionCodes.Sales_Invoice_Edit)]
     public async Task<ActionResult<SalesInvoiceDto>> Update(
         int id,
         [FromBody] UpdateSalesInvoiceRequest request,
@@ -104,6 +109,7 @@ public class SalesInvoicesController(
     }
 
     [HttpPost("{id:int}/post")]
+    [HasPermission(PermissionCodes.Sales_Invoice_Post)]
     public async Task<IActionResult> Post(int id, CancellationToken cancellationToken)
     {
         await salesService.PostSalesInvoiceAsync(id, cancellationToken);
