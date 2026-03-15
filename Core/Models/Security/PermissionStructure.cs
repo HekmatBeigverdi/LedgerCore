@@ -65,6 +65,19 @@ public static class PermissionStructure
                     new PermissionDefinition { Code = PermissionCodes.Sales_Invoice_Post, Name = "پست فاکتور فروش" }
                 }
             },
+            
+            new PermissionCategory
+            {
+                Key = "purchase",
+                DisplayName = "خرید",
+                Permissions =
+                {
+                    new PermissionDefinition { Code = PermissionCodes.Purchase_Invoice_View, Name = "مشاهده فاکتورهای خرید" },
+                    new PermissionDefinition { Code = PermissionCodes.Purchase_Invoice_Create, Name = "ایجاد فاکتور خرید" },
+                    new PermissionDefinition { Code = PermissionCodes.Purchase_Invoice_Edit, Name = "ویرایش فاکتور خرید" },
+                    new PermissionDefinition { Code = PermissionCodes.Purchase_Invoice_Post, Name = "پست فاکتور خرید" }
+                }
+            },
 
             new PermissionCategory
             {
@@ -92,6 +105,34 @@ public static class PermissionStructure
                     new PermissionDefinition { Code = PermissionCodes.Payroll_Post, Name = "پست سند حقوق" }
                 }
             },
+            
+            new PermissionCategory
+            {
+                Key = "treasury",
+                DisplayName = "خزانه‌داری",
+                Permissions =
+                {
+                    new PermissionDefinition { Code = PermissionCodes.Receipt_View, Name = "مشاهده دریافت‌ها" },
+                    new PermissionDefinition { Code = PermissionCodes.Receipt_Create, Name = "ایجاد دریافت" },
+                    new PermissionDefinition { Code = PermissionCodes.Receipt_Edit, Name = "ویرایش دریافت" },
+                    new PermissionDefinition { Code = PermissionCodes.Receipt_Post, Name = "پست دریافت" },
+                    new PermissionDefinition { Code = PermissionCodes.Receipt_Reverse, Name = "برگشت دریافت" },
+
+                    new PermissionDefinition { Code = PermissionCodes.Payment_View, Name = "مشاهده پرداخت‌ها" },
+                    new PermissionDefinition { Code = PermissionCodes.Payment_Create, Name = "ایجاد پرداخت" },
+                    new PermissionDefinition { Code = PermissionCodes.Payment_Edit, Name = "ویرایش پرداخت" },
+                    new PermissionDefinition { Code = PermissionCodes.Payment_Post, Name = "پست پرداخت" },
+                    new PermissionDefinition { Code = PermissionCodes.Payment_Reverse, Name = "برگشت پرداخت" },
+
+                    new PermissionDefinition { Code = PermissionCodes.CashTransfer_View, Name = "مشاهده انتقال وجه" },
+                    new PermissionDefinition { Code = PermissionCodes.CashTransfer_Create, Name = "ایجاد انتقال وجه" },
+                    new PermissionDefinition { Code = PermissionCodes.CashTransfer_Post, Name = "پست انتقال وجه" },
+
+                    new PermissionDefinition { Code = PermissionCodes.Cheque_View, Name = "مشاهده چک‌ها" },
+                    new PermissionDefinition { Code = PermissionCodes.Cheque_Create, Name = "ثبت چک" },
+                    new PermissionDefinition { Code = PermissionCodes.Cheque_Status_Change, Name = "تغییر وضعیت چک" }
+                }
+            },
 
             new PermissionCategory
             {
@@ -115,6 +156,18 @@ public static class PermissionStructure
                     new PermissionDefinition { Code = PermissionCodes.Approval_Request_Create, Name = "ایجاد درخواست" },
                     new PermissionDefinition { Code = PermissionCodes.Approval_Request_Approve, Name = "تایید درخواست" },
                     new PermissionDefinition { Code = PermissionCodes.Approval_Request_Reject, Name = "رد درخواست" }
+                }
+            },
+            
+            new PermissionCategory
+            {
+                Key = "security",
+                DisplayName = "امنیت",
+                Permissions =
+                {
+                    new PermissionDefinition { Code = PermissionCodes.Security_Permissions_View, Name = "مشاهده ساختار دسترسی‌ها" },
+                    new PermissionDefinition { Code = PermissionCodes.Security_Roles_View, Name = "مشاهده نقش‌ها و دسترسی نقش‌ها" },
+                    new PermissionDefinition { Code = PermissionCodes.Security_Logs_View, Name = "مشاهده لاگ‌های امنیتی" }
                 }
             }
         };
