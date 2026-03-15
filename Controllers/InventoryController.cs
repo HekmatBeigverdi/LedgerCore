@@ -53,7 +53,7 @@ public class InventoryController(
     /// کارتکس یک کالا (لیست StockMoveها) در یک انبار (اختیاری).
     /// </summary>
     [HttpGet("stock-card")]
-    [HasPermission("Inventory.StockCard.View")]
+    [HasPermission(PermissionCodes.Inventory_StockCard_View)]
     public async Task<ActionResult<IReadOnlyList<StockMove>>> GetStockCard(
         [FromQuery] int productId,
         [FromQuery] int? warehouseId,
@@ -74,7 +74,7 @@ public class InventoryController(
     /// وضعیت موجودی یک کالا در یک انبار (StockItem).
     /// </summary>
     [HttpGet("stock-item")]
-    [HasPermission("Inventory.StockItem.View")]
+    [HasPermission(PermissionCodes.Inventory_StockItem_View)]
     public async Task<ActionResult<StockItem>> GetStockItem(
         [FromQuery] int warehouseId,
         [FromQuery] int productId,
@@ -100,7 +100,7 @@ public class InventoryController(
     /// ایجاد سند تعدیل موجودی (Draft) به همراه خطوط آن (StockMoveهای Adjustment).
     /// </summary>
     [HttpPost("adjustments")]
-    [HasPermission("Inventory.Adjustment.Create")]
+    [HasPermission(PermissionCodes.Inventory_Adjustment_Create)]
     public async Task<ActionResult<InventoryAdjustmentDto>> CreateAdjustment(
         [FromBody] InventoryAdjustmentCreateDto dto,
         CancellationToken cancellationToken)
@@ -179,7 +179,7 @@ public class InventoryController(
     /// دریافت سند تعدیل به همراه خطوطش.
     /// </summary>
     [HttpGet("adjustments/{id:int}")]
-    [HasPermission("Inventory.Adjustment.View")]
+    [HasPermission(PermissionCodes.Inventory_Adjustment_View)]
     public async Task<ActionResult<InventoryAdjustmentDto>> GetAdjustmentById(
         int id,
         CancellationToken cancellationToken)
@@ -197,7 +197,7 @@ public class InventoryController(
     /// بعد از این مرحله، Status سند به Approved می‌رود.
     /// </summary>
     [HttpPost("adjustments/{id:int}/process")]
-    [HasPermission("Inventory.Adjustment.Process")]
+    [HasPermission(PermissionCodes.Inventory_Adjustment_Process)]
     public async Task<ActionResult> ProcessAdjustment(
         int id,
         CancellationToken cancellationToken)
@@ -222,7 +222,7 @@ public class InventoryController(
     /// ثبت سند حسابداری برای تعدیل انبار (بر اساس TotalDifferenceValue) و تغییر Status به Posted.
     /// </summary>
     [HttpPost("adjustments/{id:int}/post")]
-    [HasPermission("Inventory.Adjustment.Post")]
+    [HasPermission(PermissionCodes.Inventory_Adjustment_Post)]
     public async Task<ActionResult> PostAdjustmentToAccounting(
         int id,
         CancellationToken cancellationToken)
