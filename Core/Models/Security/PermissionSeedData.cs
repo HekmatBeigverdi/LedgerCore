@@ -292,6 +292,155 @@ public static class PermissionSeedData
                 Name = "پست استهلاک",
                 Description = "پست سند استهلاک به حسابداری"
             },
+                        // ================= Purchase =================
+            new()
+            {
+                Code = PermissionCodes.Purchase_Invoice_View,
+                Name = "مشاهده فاکتورهای خرید",
+                Description = "امکان مشاهده لیست و جزئیات فاکتورهای خرید"
+            },
+            new()
+            {
+                Code = PermissionCodes.Purchase_Invoice_Create,
+                Name = "ایجاد فاکتور خرید",
+                Description = "امکان ثبت فاکتور خرید"
+            },
+            new()
+            {
+                Code = PermissionCodes.Purchase_Invoice_Edit,
+                Name = "ویرایش فاکتور خرید",
+                Description = "امکان ویرایش فاکتور خرید"
+            },
+            new()
+            {
+                Code = PermissionCodes.Purchase_Invoice_Post,
+                Name = "پست فاکتور خرید",
+                Description = "امکان پست‌کردن فاکتور خرید"
+            },
+
+            // ================= Receipts =================
+            new()
+            {
+                Code = PermissionCodes.Receipt_View,
+                Name = "مشاهده دریافت‌ها",
+                Description = "امکان مشاهده لیست و جزئیات اسناد دریافت"
+            },
+            new()
+            {
+                Code = PermissionCodes.Receipt_Create,
+                Name = "ایجاد دریافت",
+                Description = "امکان ثبت سند دریافت"
+            },
+            new()
+            {
+                Code = PermissionCodes.Receipt_Edit,
+                Name = "ویرایش دریافت",
+                Description = "امکان ویرایش سند دریافت"
+            },
+            new()
+            {
+                Code = PermissionCodes.Receipt_Post,
+                Name = "پست دریافت",
+                Description = "امکان پست‌کردن سند دریافت"
+            },
+            new()
+            {
+                Code = PermissionCodes.Receipt_Reverse,
+                Name = "برگشت دریافت",
+                Description = "امکان ثبت برگشت برای سند دریافت پست‌شده"
+            },
+
+            // ================= Payments =================
+            new()
+            {
+                Code = PermissionCodes.Payment_View,
+                Name = "مشاهده پرداخت‌ها",
+                Description = "امکان مشاهده لیست و جزئیات اسناد پرداخت"
+            },
+            new()
+            {
+                Code = PermissionCodes.Payment_Create,
+                Name = "ایجاد پرداخت",
+                Description = "امکان ثبت سند پرداخت"
+            },
+            new()
+            {
+                Code = PermissionCodes.Payment_Edit,
+                Name = "ویرایش پرداخت",
+                Description = "امکان ویرایش سند پرداخت"
+            },
+            new()
+            {
+                Code = PermissionCodes.Payment_Post,
+                Name = "پست پرداخت",
+                Description = "امکان پست‌کردن سند پرداخت"
+            },
+            new()
+            {
+                Code = PermissionCodes.Payment_Reverse,
+                Name = "برگشت پرداخت",
+                Description = "امکان ثبت برگشت برای سند پرداخت پست‌شده"
+            },
+
+            // ================= CashTransfer =================
+            new()
+            {
+                Code = PermissionCodes.CashTransfer_View,
+                Name = "مشاهده انتقال وجه",
+                Description = "امکان مشاهده اسناد انتقال وجه"
+            },
+            new()
+            {
+                Code = PermissionCodes.CashTransfer_Create,
+                Name = "ایجاد انتقال وجه",
+                Description = "امکان ثبت سند انتقال وجه"
+            },
+            new()
+            {
+                Code = PermissionCodes.CashTransfer_Post,
+                Name = "پست انتقال وجه",
+                Description = "امکان پست‌کردن سند انتقال وجه"
+            },
+
+            // ================= Cheques =================
+            new()
+            {
+                Code = PermissionCodes.Cheque_View,
+                Name = "مشاهده چک‌ها",
+                Description = "امکان مشاهده لیست و جزئیات چک‌ها"
+            },
+            new()
+            {
+                Code = PermissionCodes.Cheque_Create,
+                Name = "ثبت چک",
+                Description = "امکان ثبت چک جدید"
+            },
+            new()
+            {
+                Code = PermissionCodes.Cheque_Status_Change,
+                Name = "تغییر وضعیت چک",
+                Description = "امکان تغییر وضعیت چک"
+            },
+
+            // ================= Security =================
+            new()
+            {
+                Code = PermissionCodes.Security_Permissions_View,
+                Name = "مشاهده ساختار دسترسی‌ها",
+                Description = "امکان مشاهده درخت permissionها"
+            },
+            new()
+            {
+                Code = PermissionCodes.Security_Roles_View,
+                Name = "مشاهده نقش‌ها",
+                Description = "امکان مشاهده نقش‌ها و دسترسی‌های آن‌ها"
+            },
+            new()
+            {
+                Code = PermissionCodes.Security_Logs_View,
+                Name = "مشاهده لاگ‌های امنیتی",
+                Description = "امکان مشاهده لاگ‌های امنیتی سیستم"
+            },
             // ================= Fiscal (Close and Open year) =================
             new()
             {
