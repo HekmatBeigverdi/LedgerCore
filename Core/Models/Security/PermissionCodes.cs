@@ -32,7 +32,6 @@ public static class PermissionCodes
     public const string Reports_Purchases_ByParty_View = "Reports.Purchases.ByParty.View";
     public const string Reports_Payroll_Summary_View = "Reports.Payroll.Summary.View";
     public const string Reports_Payroll_Details_View = "Reports.Payroll.Details.View";
-
     
 
     // ========== Approval / Workflow ==========
@@ -74,5 +73,38 @@ public static class PermissionCodes
     public const string Assets_Manage = "Assets.Manage";
     public const string Assets_Depreciation_Post = "Assets.Depreciation.Post";
     
-    
+    // ========== Purchase ==========
+    public const string Purchase_Invoice_View = "Purchase.Invoice.View";
+    public const string Purchase_Invoice_Create = "Purchase.Invoice.Create";
+    public const string Purchase_Invoice_Edit = "Purchase.Invoice.Edit";
+    public const string Purchase_Invoice_Post = "Purchase.Invoice.Post";
+
+    // ========== Receipts ==========
+    public const string Receipt_View = "Receipt.View";
+    public const string Receipt_Create = "Receipt.Create";
+    public const string Receipt_Edit = "Receipt.Edit";
+    public const string Receipt_Post = "Receipt.Post";
+    public const string Receipt_Reverse = "Receipt.Reverse";
+
+    // ========== Payments ==========
+    public const string Payment_View = "Payment.View";
+    public const string Payment_Create = "Payment.Create";
+    public const string Payment_Edit = "Payment.Edit";
+    public const string Payment_Post = "Payment.Post";
+    public const string Payment_Reverse = "Payment.Reverse";
+
+    // ========== CashTransfer ==========
+    public const string CashTransfer_View = "CashTransfer.View";
+    public const string CashTransfer_Create = "CashTransfer.Create";
+    public const string CashTransfer_Post = "CashTransfer.Post";
+
+    // ========== Cheques ==========
+    public const string Cheque_View = "Cheque.View";
+    public const string Cheque_Create = "Cheque.Create";
+    public const string Cheque_Status_Change = "Cheque.Status.Change";
+
+    // ========== Security ==========
+    public const string Security_Permissions_View = "Security.Permissions.View";
+    public const string Security_Roles_View = "Security.Roles.View";
+    public const string Security_Logs_View = "Security.Logs.View";
 }
