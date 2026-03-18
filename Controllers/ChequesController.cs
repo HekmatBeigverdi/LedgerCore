@@ -4,6 +4,7 @@ using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Common;
 using LedgerCore.Core.Models.Documents;
 using LedgerCore.Core.Models.Enums;
+using LedgerCore.Core.Models.Security;
 using LedgerCore.Core.ViewModels.Cheques;
 using Microsoft.AspNetCore.Mvc;
 
@@ -20,6 +21,7 @@ public class ChequesController(
 {
     // GET api/cheques/{id}
     [HttpGet("{id:int}")]
+    [HasPermission(PermissionCodes.Cheque_View)]
     public async Task<ActionResult<ChequeDto>> Get(
         int id,
         CancellationToken cancellationToken)
@@ -34,6 +36,7 @@ public class ChequesController(
 
     // GET api/cheques?PageNumber=1&PageSize=20
     [HttpGet]
+    [HasPermission(PermissionCodes.Cheque_View)]
     public async Task<ActionResult<PagedResult<ChequeDto>>> Query(
         [FromQuery] PagingParams paging,
         CancellationToken cancellationToken)
@@ -53,6 +56,7 @@ public class ChequesController(
 
     // GET api/cheques/status/{status}
     [HttpGet("status/{status}")]
+    [HasPermission(PermissionCodes.Cheque_View)]
     public async Task<ActionResult<List<ChequeDto>>> GetByStatus(
         ChequeStatus status,
         CancellationToken cancellationToken)
@@ -65,6 +69,7 @@ public class ChequesController(
 
     // POST api/cheques
     [HttpPost]
+    [HasPermission(PermissionCodes.Cheque_Create)]
     public async Task<ActionResult<ChequeDto>> Register(
         [FromBody] RegisterChequeRequest request,
         CancellationToken cancellationToken)
@@ -78,6 +83,7 @@ public class ChequesController(
 
     // POST api/cheques/{id}/status
     [HttpPost("{id:int}/status")]
+    [HasPermission(PermissionCodes.Cheque_Status_Change)]
     public async Task<IActionResult> ChangeStatus(
         int id,
         [FromBody] ChangeChequeStatusRequest request,

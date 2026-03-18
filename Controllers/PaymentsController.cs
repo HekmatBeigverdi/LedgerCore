@@ -3,6 +3,7 @@ using LedgerCore.Core.Interfaces;
 using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Common;
 using LedgerCore.Core.Models.Documents;
+using LedgerCore.Core.Models.Security;
 using LedgerCore.Core.ViewModels.Documents;
 using LedgerCore.Core.ViewModels.ReceiptsPayments;
 using Microsoft.AspNetCore.Mvc;
@@ -20,6 +21,7 @@ public class PaymentsController(
 {
     // GET api/payments/{id}
     [HttpGet("{id:int}")]
+    [HasPermission(PermissionCodes.Payment_View)]
     public async Task<ActionResult<PaymentDto>> Get(int id, CancellationToken cancellationToken)
     {
         var payment = await accountingService.GetPaymentAsync(id, cancellationToken);
@@ -32,6 +34,7 @@ public class PaymentsController(
 
     // GET api/payments?PageNumber=1&PageSize=20
     [HttpGet]
+    [HasPermission(PermissionCodes.Payment_View)]
     public async Task<ActionResult<PagedResult<PaymentDto>>> Query(
         [FromQuery] PagingParams paging,
         CancellationToken cancellationToken)
@@ -52,6 +55,7 @@ public class PaymentsController(
 
     // POST api/payments
     [HttpPost]
+    [HasPermission(PermissionCodes.Payment_Create)]
     public async Task<ActionResult<PaymentDto>> Create(
         [FromBody] CreatePaymentRequest request,
         CancellationToken cancellationToken)
@@ -65,6 +69,7 @@ public class PaymentsController(
 
     // PUT api/payments/{id}
     [HttpPut("{id:int}")]
+    [HasPermission(PermissionCodes.Payment_Edit)]
     public async Task<ActionResult<PaymentDto>> Update(
         int id,
         [FromBody] UpdatePaymentRequest request,
@@ -83,6 +88,7 @@ public class PaymentsController(
 
     // POST api/payments/{id}/post
     [HttpPost("{id:int}/post")]
+    [HasPermission(PermissionCodes.Payment_Post)]
     public async Task<IActionResult> Post(int id, CancellationToken cancellationToken)
     {
         await accountingService.PostPaymentAsync(id, cancellationToken);
@@ -90,6 +96,7 @@ public class PaymentsController(
     }
     
     [HttpPost("{id:int}/reverse")]
+    [HasPermission(PermissionCodes.Payment_Reverse)]
     public async Task<ActionResult<PaymentDto>> Reverse(
         int id,
         [FromBody] ReversePostedDocumentRequest request,

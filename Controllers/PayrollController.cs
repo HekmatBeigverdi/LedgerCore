@@ -3,6 +3,7 @@ using LedgerCore.Core.Interfaces;
 using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Common;
 using LedgerCore.Core.Models.Payroll;
+using LedgerCore.Core.Models.Security;
 using LedgerCore.Core.ViewModels.Payroll;
 using Microsoft.AspNetCore.Mvc;
 
@@ -19,6 +20,7 @@ public class PayrollController(
 {
     // GET api/payroll/{id}
     [HttpGet("{id:int}")]
+    [HasPermission(PermissionCodes.Payroll_View)]
     public async Task<ActionResult<PayrollDocumentDto>> Get(
         int id,
         CancellationToken cancellationToken)
@@ -35,6 +37,7 @@ public class PayrollController(
 
     // GET api/payroll?PageNumber=1&PageSize=20
     [HttpGet]
+    [HasPermission(PermissionCodes.Payroll_View)]
     public async Task<ActionResult<PagedResult<PayrollDocumentDto>>> Query(
         [FromQuery] PagingParams paging,
         CancellationToken cancellationToken)
@@ -58,6 +61,7 @@ public class PayrollController(
     // POST api/payroll
     // ایجاد + محاسبه سند حقوق
     [HttpPost]
+    [HasPermission(PermissionCodes.Payroll_Manage)]
     public async Task<ActionResult<PayrollDocumentDto>> CreateAndCalculate(
         [FromBody] CreatePayrollRequest request,
         CancellationToken cancellationToken)
@@ -77,6 +81,7 @@ public class PayrollController(
 
     // POST api/payroll/{id}/post
     [HttpPost("{id:int}/post")]
+    [HasPermission(PermissionCodes.Payroll_Post)]
     public async Task<IActionResult> Post(
         int id,
         CancellationToken cancellationToken)

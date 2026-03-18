@@ -1,7 +1,6 @@
 using LedgerCore.Core.Interfaces;
 using LedgerCore.Core.Models.Security;
 using LedgerCore.Core.ViewModels.Security;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LedgerCore.Controllers;
@@ -14,6 +13,7 @@ public class SecurityController : ControllerBase
     /// ساختار Permissionها برای UI (گروه‌بندی شده).
     /// </summary>
     [HttpGet("permissions-tree")]
+    [HasPermission(PermissionCodes.Security_Permissions_View)]
     public ActionResult<IEnumerable<PermissionCategory>> GetPermissionsTree()
     {
         var tree = PermissionStructure.GetCategories();
@@ -21,6 +21,7 @@ public class SecurityController : ControllerBase
     }
 
     [HttpGet("roles")]
+    [HasPermission(PermissionCodes.Security_Roles_View)]
     public async Task<ActionResult<IEnumerable<RoleDto>>> GetRoles(
         [FromServices] IUnitOfWork uow,
         CancellationToken cancellationToken)
@@ -36,6 +37,7 @@ public class SecurityController : ControllerBase
     }
 
     [HttpGet("roles/{roleId:int}/permissions")]
+    [HasPermission(PermissionCodes.Security_Roles_View)]
     public async Task<ActionResult<IEnumerable<string>>> GetRolePermissions(
         int roleId,
         [FromServices] IUnitOfWork uow,

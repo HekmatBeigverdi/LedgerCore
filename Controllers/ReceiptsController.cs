@@ -3,6 +3,7 @@ using LedgerCore.Core.Interfaces;
 using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Common;
 using LedgerCore.Core.Models.Documents;
+using LedgerCore.Core.Models.Security;
 using LedgerCore.Core.ViewModels.Documents;
 using LedgerCore.Core.ViewModels.ReceiptsPayments;
 using Microsoft.AspNetCore.Mvc;
@@ -20,6 +21,7 @@ public class ReceiptsController(
 {
     // GET api/receipts/{id}
     [HttpGet("{id:int}")]
+    [HasPermission(PermissionCodes.Receipt_View)]
     public async Task<ActionResult<ReceiptDto>> Get(int id, CancellationToken cancellationToken)
     {
         var receipt = await accountingService.GetReceiptAsync(id, cancellationToken);
@@ -32,6 +34,7 @@ public class ReceiptsController(
 
     // GET api/receipts?PageNumber=1&PageSize=20
     [HttpGet]
+    [HasPermission(PermissionCodes.Receipt_View)]
     public async Task<ActionResult<PagedResult<ReceiptDto>>> Query(
         [FromQuery] PagingParams paging,
         CancellationToken cancellationToken)
@@ -52,6 +55,7 @@ public class ReceiptsController(
 
     // POST api/receipts
     [HttpPost]
+    [HasPermission(PermissionCodes.Receipt_Create)]
     public async Task<ActionResult<ReceiptDto>> Create(
         [FromBody] CreateReceiptRequest request,
         CancellationToken cancellationToken)
@@ -65,6 +69,7 @@ public class ReceiptsController(
 
     // PUT api/receipts/{id}
     [HttpPut("{id:int}")]
+    [HasPermission(PermissionCodes.Receipt_Edit)]
     public async Task<ActionResult<ReceiptDto>> Update(
         int id,
         [FromBody] UpdateReceiptRequest request,
@@ -83,6 +88,7 @@ public class ReceiptsController(
 
     // POST api/receipts/{id}/post
     [HttpPost("{id:int}/post")]
+    [HasPermission(PermissionCodes.Receipt_Post)]
     public async Task<IActionResult> Post(int id, CancellationToken cancellationToken)
     {
         await accountingService.PostReceiptAsync(id, cancellationToken);
@@ -90,6 +96,7 @@ public class ReceiptsController(
     }
     
     [HttpPost("{id:int}/reverse")]
+    [HasPermission(PermissionCodes.Receipt_Reverse)]
     public async Task<ActionResult<ReceiptDto>> Reverse(
         int id,
         [FromBody] ReversePostedDocumentRequest request,

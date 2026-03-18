@@ -2,6 +2,7 @@ using AutoMapper;
 using LedgerCore.Core.Interfaces;
 using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Documents;
+using LedgerCore.Core.Models.Security;
 using LedgerCore.Core.ViewModels.Documents;
 using Microsoft.AspNetCore.Mvc;
 
@@ -16,6 +17,7 @@ public class CashTransfersController(
 {
     // GET api/cashtransfers/{id}
     [HttpGet("{id:int}")]
+    [HasPermission(PermissionCodes.CashTransfer_View)]
     public async Task<ActionResult<CashTransferDto>> Get(
         int id,
         CancellationToken cancellationToken)
@@ -30,6 +32,7 @@ public class CashTransfersController(
 
     // POST api/cashtransfers
     [HttpPost]
+    [HasPermission(PermissionCodes.CashTransfer_Create)]
     public async Task<ActionResult<CashTransferDto>> Create(
         [FromBody] CreateCashTransferRequest request,
         CancellationToken cancellationToken)
@@ -50,6 +53,7 @@ public class CashTransfersController(
 
     // POST api/cashtransfers/{id}/post
     [HttpPost("{id:int}/post")]
+    [HasPermission(PermissionCodes.CashTransfer_Post)]
     public async Task<IActionResult> Post(
         int id,
         CancellationToken cancellationToken)

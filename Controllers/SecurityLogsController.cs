@@ -7,6 +7,7 @@ namespace LedgerCore.Controllers;
 
 [ApiController]
 [Route("api/v1/security/logs")]
+[HasPermission(PermissionCodes.Security_Logs_View)]
 public class SecurityLogsController(IUnitOfWork uow) : ControllerBase
 {
     [HttpGet]

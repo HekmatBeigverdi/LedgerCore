@@ -4,6 +4,7 @@ using LedgerCore.Core.Interfaces.Repositories;
 using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Assets;
 using LedgerCore.Core.Models.Common;
+using LedgerCore.Core.Models.Security;
 using LedgerCore.Core.ViewModels.Assets;
 using Microsoft.AspNetCore.Mvc;
 
@@ -23,6 +24,7 @@ public class FixedAssetsController(
 
     // GET api/fixedassets/{id}
     [HttpGet("{id:int}")]
+    [HasPermission(PermissionCodes.Assets_View)]
     public async Task<ActionResult<FixedAssetDto>> Get(int id, CancellationToken cancellationToken)
     {
         var branchId = currentBranch.GetRequiredBranchId();

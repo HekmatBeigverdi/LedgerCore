@@ -3,6 +3,7 @@ using LedgerCore.Core.Interfaces;
 using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Common;
 using LedgerCore.Core.Models.Documents;
+using LedgerCore.Core.Models.Security;
 using LedgerCore.Core.ViewModels.Documents;
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,6 +19,7 @@ public class PurchaseInvoicesController(
     : ControllerBase
 {
     [HttpGet]
+    [HasPermission(PermissionCodes.Purchase_Invoice_View)]
     public async Task<ActionResult> Query([FromQuery] PagingParams paging, CancellationToken cancellationToken)
     {
         var branchId = currentBranch.GetRequiredBranchId();
@@ -35,6 +37,7 @@ public class PurchaseInvoicesController(
         });
     }
     [HttpGet("{id:int}")]
+    [HasPermission(PermissionCodes.Purchase_Invoice_View)]
     public async Task<ActionResult<PurchaseInvoiceDto>> Get(int id, CancellationToken cancellationToken)
     {
         var invoice = await purchaseService.GetPurchaseInvoiceAsync(id, cancellationToken);
@@ -46,6 +49,7 @@ public class PurchaseInvoicesController(
     }
 
     [HttpPost]
+    [HasPermission(PermissionCodes.Purchase_Invoice_Create)]
     public async Task<ActionResult<PurchaseInvoiceDto>> Create(
         [FromBody] CreatePurchaseInvoiceRequest request,
         CancellationToken cancellationToken)
@@ -65,6 +69,7 @@ public class PurchaseInvoicesController(
     }
 
     [HttpPut("{id:int}")]
+    [HasPermission(PermissionCodes.Purchase_Invoice_Edit)]
     public async Task<ActionResult<PurchaseInvoiceDto>> Update(
         int id,
         [FromBody] UpdatePurchaseInvoiceRequest request,
@@ -92,6 +97,7 @@ public class PurchaseInvoicesController(
     }
 
     [HttpPost("{id:int}/post")]
+    [HasPermission(PermissionCodes.Purchase_Invoice_Post)]
     public async Task<IActionResult> Post(int id, CancellationToken cancellationToken)
     {
         await purchaseService.PostPurchaseInvoiceAsync(id, cancellationToken);
