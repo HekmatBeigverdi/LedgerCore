@@ -3,6 +3,7 @@ using LedgerCore.Core.Interfaces;
 using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Accounting;
 using LedgerCore.Core.Models.Enums;
+using LedgerCore.Core.Models.Master;
 
 namespace LedgerCore.Core.Services;
 
@@ -81,7 +82,132 @@ public class PostingEngineService(
         if (journal.Lines.Count == 0)
             throw new InvalidOperationException($"Posting rule '{rule.Code}' produced no journal lines.");
 
+        await ValidateGeneratedJournalAsync(journal, cancellationToken);
+
         return journal;
+    }
+    private async Task ValidateGeneratedJournalAsync(
+        JournalVoucher journal,
+        CancellationToken ct)
+    {
+        if (journal is null)
+            throw new InvalidOperationException("Generated journal is required.");
+
+        if (journal.Date == default)
+            throw new InvalidOperationException("Generated journal date is required.");
+
+        if (journal.BranchId <= 0)
+            throw new InvalidOperationException("Generated journal BranchId is required.");
+
+        if (!journal.FiscalPeriodId.HasValue || journal.FiscalPeriodId.Value <= 0)
+            throw new InvalidOperationException("Generated journal FiscalPeriodId is required.");
+
+        if (journal.Lines is null || journal.Lines.Count == 0)
+            throw new InvalidOperationException("Generated journal must have at least one line.");
+
+        await ValidateGeneratedJournalLinesAsync(journal.Lines, ct);
+        EnsureBalanced(journal.Lines);
+    }
+    private async Task ValidateGeneratedJournalLinesAsync(IEnumerable<JournalLine> lines, CancellationToken ct)
+    {
+        var accountCache = new Dictionary<int, Account>();
+        var partyCache = new Dictionary<int, Party>();
+
+        var index = 0;
+        foreach (var line in lines.OrderBy(x => x.LineNumber))
+        {
+            index++;
+
+            if (line.LineNumber <= 0)
+                throw new InvalidOperationException($"Generated line[{index}]: LineNumber is required.");
+
+            if (line.AccountId <= 0)
+                throw new InvalidOperationException($"Generated line[{index}]: AccountId is required.");
+
+            if (line.Debit < 0 || line.Credit < 0)
+                throw new InvalidOperationException($"Generated line[{index}]: Debit/Credit cannot be negative.");
+
+            if (line.Debit > 0 && line.Credit > 0)
+                throw new InvalidOperationException($"Generated line[{index}]: A line cannot have both Debit and Credit.");
+
+            if (line.Debit == 0 && line.Credit == 0)
+                throw new InvalidOperationException($"Generated line[{index}]: Either Debit or Credit must be greater than zero.");
+
+            if (!accountCache.TryGetValue(line.AccountId, out var account))
+            {
+                account = await uow.Accounts.GetByIdAsync(line.AccountId, ct)
+                          ?? throw new InvalidOperationException(
+                              $"Generated line[{index}]: Account not found (Id={line.AccountId}).");
+
+                accountCache[line.AccountId] = account;
+            }
+
+            if (!account.IsActive)
+                throw new InvalidOperationException(
+                    $"Generated line[{index}]: Account is inactive (Code={account.Code}).");
+
+            if (!account.IsPosting)
+                throw new InvalidOperationException(
+                    $"Generated line[{index}]: Account is not posting (Code={account.Code}).");
+
+            await ValidateAccountPartyRulesAsync(index, line, account, partyCache, ct);
+
+            if (line.CurrencyId.HasValue && line.CurrencyId.Value <= 0)
+                throw new InvalidOperationException($"Generated line[{index}]: CurrencyId is invalid.");
+
+            if (line.FxRate <= 0)
+                throw new InvalidOperationException($"Generated line[{index}]: FxRate must be greater than zero.");
+        }
+    }
+    private async Task ValidateAccountPartyRulesAsync(
+        int index,
+        JournalLine line,
+        Account account,
+        Dictionary<int, Party> partyCache,
+        CancellationToken ct)
+    {
+        if (account.RequiresParty && line.PartyId is null)
+        {
+            throw new InvalidOperationException(
+                $"Generated line[{index}]: Party is required for account {account.Code} - {account.Name}.");
+        }
+
+        if (line.PartyId is null)
+            return;
+
+        var partyId = line.PartyId.Value;
+
+        if (!partyCache.TryGetValue(partyId, out var party))
+        {
+            party = await uow.Parties.GetByIdAsync(partyId, ct)
+                    ?? throw new InvalidOperationException(
+                        $"Generated line[{index}]: Party not found (Id={partyId}).");
+
+            partyCache[partyId] = party;
+        }
+
+        if (!party.IsActive)
+        {
+            throw new InvalidOperationException(
+                $"Generated line[{index}]: Party is inactive (Code={party.Code}).");
+        }
+
+        if (account.AllowedPartyType.HasValue && party.Type != account.AllowedPartyType.Value)
+        {
+            throw new InvalidOperationException(
+                $"Generated line[{index}]: Party type '{party.Type}' is not allowed for account {account.Code} - {account.Name}.");
+        }
+    }
+    private static void EnsureBalanced(IEnumerable<JournalLine> lines)
+    {
+        var totalDebit = lines.Sum(x => x.Debit);
+        var totalCredit = lines.Sum(x => x.Credit);
+
+        if (totalDebit != totalCredit)
+        {
+            throw new InvalidOperationException(
+                $"Generated journal is not balanced. TotalDebit={totalDebit}, TotalCredit={totalCredit}.");
+        }
     }
 
     private static decimal ResolveAmount(
