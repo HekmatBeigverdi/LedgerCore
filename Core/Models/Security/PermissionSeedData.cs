@@ -454,5 +454,148 @@ public static class PermissionSeedData
                 Name = "باز کردن سال مالی",
                 Description = "امکان باز کردن مجدد سال مالی بسته‌شده"
             },
+            // ================= Masters =================
+            new()
+            {
+                Code = PermissionCodes.Master_Accounts_View,
+                Name = "مشاهده حساب‌ها",
+                Description = "امکان مشاهده لیست و جزئیات حساب‌ها"
+            },
+            new()
+            {
+                Code = PermissionCodes.Master_Accounts_Manage,
+                Name = "مدیریت حساب‌ها",
+                Description = "امکان ایجاد، ویرایش و مدیریت حساب‌ها"
+            },
+
+            new()
+            {
+                Code = PermissionCodes.Master_Parties_View,
+                Name = "مشاهده طرف حساب‌ها",
+                Description = "امکان مشاهده لیست و جزئیات طرف حساب‌ها"
+            },
+            new()
+            {
+                Code = PermissionCodes.Master_Parties_Manage,
+                Name = "مدیریت طرف حساب‌ها",
+                Description = "امکان ایجاد، ویرایش و مدیریت طرف حساب‌ها"
+            },
+
+            new()
+            {
+                Code = PermissionCodes.Master_Products_View,
+                Name = "مشاهده کالاها",
+                Description = "امکان مشاهده لیست و جزئیات کالاها"
+            },
+            new()
+            {
+                Code = PermissionCodes.Master_Products_Manage,
+                Name = "مدیریت کالاها",
+                Description = "امکان ایجاد، ویرایش و مدیریت کالاها"
+            },
+
+            new()
+            {
+                Code = PermissionCodes.Master_Warehouses_View,
+                Name = "مشاهده انبارها",
+                Description = "امکان مشاهده لیست و جزئیات انبارها"
+            },
+            new()
+            {
+                Code = PermissionCodes.Master_Warehouses_Manage,
+                Name = "مدیریت انبارها",
+                Description = "امکان ایجاد، ویرایش و مدیریت انبارها"
+            },
+
+            new()
+            {
+                Code = PermissionCodes.Master_Branches_View,
+                Name = "مشاهده شعب",
+                Description = "امکان مشاهده لیست و جزئیات شعب"
+            },
+            new()
+            {
+                Code = PermissionCodes.Master_Branches_Manage,
+                Name = "مدیریت شعب",
+                Description = "امکان ایجاد، ویرایش و مدیریت شعب"
+            },
+
+            new()
+            {
+                Code = PermissionCodes.Master_TaxRates_View,
+                Name = "مشاهده نرخ‌های مالیات",
+                Description = "امکان مشاهده لیست و جزئیات نرخ‌های مالیات"
+            },
+            new()
+            {
+                Code = PermissionCodes.Master_TaxRates_Manage,
+                Name = "مدیریت نرخ‌های مالیات",
+                Description = "امکان ایجاد، ویرایش و مدیریت نرخ‌های مالیات"
+            },
+
+            new()
+            {
+                Code = PermissionCodes.Master_CostCenters_View,
+                Name = "مشاهده مراکز هزینه",
+                Description = "امکان مشاهده لیست و جزئیات مراکز هزینه"
+            },
+            new()
+            {
+                Code = PermissionCodes.Master_CostCenters_Manage,
+                Name = "مدیریت مراکز هزینه",
+                Description = "امکان ایجاد، ویرایش و مدیریت مراکز هزینه"
+            },
+
+            new()
+            {
+                Code = PermissionCodes.Master_Projects_View,
+                Name = "مشاهده پروژه‌ها",
+                Description = "امکان مشاهده لیست و جزئیات پروژه‌ها"
+            },
+            new()
+            {
+                Code = PermissionCodes.Master_Projects_Manage,
+                Name = "مدیریت پروژه‌ها",
+                Description = "امکان ایجاد، ویرایش و مدیریت پروژه‌ها"
+            },
+
+            new()
+            {
+                Code = PermissionCodes.Master_AccountingSettings_View,
+                Name = "مشاهده تنظیمات حسابداری",
+                Description = "امکان مشاهده تنظیمات حسابداری"
+            },
+            new()
+            {
+                Code = PermissionCodes.Master_AccountingSettings_Manage,
+                Name = "مدیریت تنظیمات حسابداری",
+                Description = "امکان ایجاد، ویرایش و مدیریت تنظیمات حسابداری"
+            },
+
+            new()
+            {
+                Code = PermissionCodes.Master_NumberSeries_View,
+                Name = "مشاهده سری شماره‌ها",
+                Description = "امکان مشاهده لیست و جزئیات سری شماره‌ها"
+            },
+            new()
+            {
+                Code = PermissionCodes.Master_NumberSeries_Manage,
+                Name = "مدیریت سری شماره‌ها",
+                Description = "امکان ایجاد، ویرایش و مدیریت سری شماره‌ها"
+            },
+
+            new()
+            {
+                Code = PermissionCodes.Master_PostingRules_View,
+                Name = "مشاهده قواعد ثبت خودکار",
+                Description = "امکان مشاهده لیست و جزئیات قواعد ثبت خودکار"
+            },
+            new()
+            {
+                Code = PermissionCodes.Master_PostingRules_Manage,
+                Name = "مدیریت قواعد ثبت خودکار",
+                Description = "امکان ایجاد، ویرایش و مدیریت قواعد ثبت خودکار"
+            },
         };
 }

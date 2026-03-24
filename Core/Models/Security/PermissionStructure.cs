@@ -169,6 +169,46 @@ public static class PermissionStructure
                     new PermissionDefinition { Code = PermissionCodes.Security_Roles_View, Name = "مشاهده نقش‌ها و دسترسی نقش‌ها" },
                     new PermissionDefinition { Code = PermissionCodes.Security_Logs_View, Name = "مشاهده لاگ‌های امنیتی" }
                 }
-            }
+            },
+            new PermissionCategory
+            {
+                Key = "masters",
+                DisplayName = "اطلاعات پایه",
+                Permissions =
+                {
+                    new PermissionDefinition { Code = PermissionCodes.Master_Accounts_View, Name = "مشاهده حساب‌ها" },
+                    new PermissionDefinition { Code = PermissionCodes.Master_Accounts_Manage, Name = "مدیریت حساب‌ها" },
+
+                    new PermissionDefinition { Code = PermissionCodes.Master_Parties_View, Name = "مشاهده طرف حساب‌ها" },
+                    new PermissionDefinition { Code = PermissionCodes.Master_Parties_Manage, Name = "مدیریت طرف حساب‌ها" },
+
+                    new PermissionDefinition { Code = PermissionCodes.Master_Products_View, Name = "مشاهده کالاها" },
+                    new PermissionDefinition { Code = PermissionCodes.Master_Products_Manage, Name = "مدیریت کالاها" },
+
+                    new PermissionDefinition { Code = PermissionCodes.Master_Warehouses_View, Name = "مشاهده انبارها" },
+                    new PermissionDefinition { Code = PermissionCodes.Master_Warehouses_Manage, Name = "مدیریت انبارها" },
+
+                    new PermissionDefinition { Code = PermissionCodes.Master_Branches_View, Name = "مشاهده شعب" },
+                    new PermissionDefinition { Code = PermissionCodes.Master_Branches_Manage, Name = "مدیریت شعب" },
+
+                    new PermissionDefinition { Code = PermissionCodes.Master_TaxRates_View, Name = "مشاهده نرخ‌های مالیات" },
+                    new PermissionDefinition { Code = PermissionCodes.Master_TaxRates_Manage, Name = "مدیریت نرخ‌های مالیات" },
+
+                    new PermissionDefinition { Code = PermissionCodes.Master_CostCenters_View, Name = "مشاهده مراکز هزینه" },
+                    new PermissionDefinition { Code = PermissionCodes.Master_CostCenters_Manage, Name = "مدیریت مراکز هزینه" },
+
+                    new PermissionDefinition { Code = PermissionCodes.Master_Projects_View, Name = "مشاهده پروژه‌ها" },
+                    new PermissionDefinition { Code = PermissionCodes.Master_Projects_Manage, Name = "مدیریت پروژه‌ها" },
+
+                    new PermissionDefinition { Code = PermissionCodes.Master_AccountingSettings_View, Name = "مشاهده تنظیمات حسابداری" },
+                    new PermissionDefinition { Code = PermissionCodes.Master_AccountingSettings_Manage, Name = "مدیریت تنظیمات حسابداری" },
+
+                    new PermissionDefinition { Code = PermissionCodes.Master_NumberSeries_View, Name = "مشاهده سری شماره‌ها" },
+                    new PermissionDefinition { Code = PermissionCodes.Master_NumberSeries_Manage, Name = "مدیریت سری شماره‌ها" },
+
+                    new PermissionDefinition { Code = PermissionCodes.Master_PostingRules_View, Name = "مشاهده قواعد ثبت خودکار" },
+                    new PermissionDefinition { Code = PermissionCodes.Master_PostingRules_Manage, Name = "مدیریت قواعد ثبت خودکار" }
+                }
+            },
         };
 }
