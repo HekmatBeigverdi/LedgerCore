@@ -107,4 +107,38 @@ public static class PermissionCodes
     public const string Security_Permissions_View = "Security.Permissions.View";
     public const string Security_Roles_View = "Security.Roles.View";
     public const string Security_Logs_View = "Security.Logs.View";
+    
+    // ========== Masters ==========
+    public const string Master_Accounts_View = "Master.Accounts.View";
+    public const string Master_Accounts_Manage = "Master.Accounts.Manage";
+
+    public const string Master_Parties_View = "Master.Parties.View";
+    public const string Master_Parties_Manage = "Master.Parties.Manage";
+
+    public const string Master_Products_View = "Master.Products.View";
+    public const string Master_Products_Manage = "Master.Products.Manage";
+
+    public const string Master_Warehouses_View = "Master.Warehouses.View";
+    public const string Master_Warehouses_Manage = "Master.Warehouses.Manage";
+
+    public const string Master_Branches_View = "Master.Branches.View";
+    public const string Master_Branches_Manage = "Master.Branches.Manage";
+
+    public const string Master_TaxRates_View = "Master.TaxRates.View";
+    public const string Master_TaxRates_Manage = "Master.TaxRates.Manage";
+
+    public const string Master_CostCenters_View = "Master.CostCenters.View";
+    public const string Master_CostCenters_Manage = "Master.CostCenters.Manage";
+
+    public const string Master_Projects_View = "Master.Projects.View";
+    public const string Master_Projects_Manage = "Master.Projects.Manage";
+
+    public const string Master_AccountingSettings_View = "Master.AccountingSettings.View";
+    public const string Master_AccountingSettings_Manage = "Master.AccountingSettings.Manage";
+
+    public const string Master_NumberSeries_View = "Master.NumberSeries.View";
+    public const string Master_NumberSeries_Manage = "Master.NumberSeries.Manage";
+
+    public const string Master_PostingRules_View = "Master.PostingRules.View";
+    public const string Master_PostingRules_Manage = "Master.PostingRules.Manage";
 }
