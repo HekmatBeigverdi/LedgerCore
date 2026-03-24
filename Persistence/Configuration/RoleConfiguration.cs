@@ -15,5 +15,7 @@ public class RoleConfiguration : IEntityTypeConfiguration<Role>
             .IsRequired();
 
         builder.HasIndex(x => x.Name).IsUnique();
+
+        builder.HasQueryFilter(x => !x.IsDeleted);
     }
 }
