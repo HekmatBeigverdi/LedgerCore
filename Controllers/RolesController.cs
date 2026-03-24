@@ -190,9 +190,12 @@ public class RolesController : ControllerBase
         if (role is null)
             return NotFound();
 
-        roleRepo.Remove(role);
-        await _uow.SaveChangesAsync(cancellationToken);
+        if (role.IsSystemRole)
+            return BadRequest("System roles cannot be deleted.");
 
+        role.IsDeleted = true;
+
+        await _uow.SaveChangesAsync(cancellationToken);
         return NoContent();
     }
     // POST api/roles/{roleId}/permissions/assign
