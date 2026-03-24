@@ -19,5 +19,7 @@ public class PermissionConfiguration : IEntityTypeConfiguration<Permission>
             .IsRequired();
 
         builder.HasIndex(x => x.Code).IsUnique();
+
+        builder.HasQueryFilter(x => !x.IsDeleted);
     }
 }
