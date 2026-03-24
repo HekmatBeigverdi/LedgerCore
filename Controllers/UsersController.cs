@@ -195,12 +195,22 @@ public class UsersController(IUnitOfWork uow) : ControllerBase
         var user = await repo.GetByIdAsync(id, cancellationToken);
         if (user is null)
             return NotFound();
-        
+
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId.HasValue && currentUserId.Value == user.Id)
+            return BadRequest("You cannot delete the current logged-in user.");
+
         user.IsDeleted = true;
         user.Status = UserStatus.Inactive;
-        
+
         await uow.SaveChangesAsync(cancellationToken);
 
         return NoContent();
+    }
+    
+    private int? GetCurrentUserId()
+    {
+        var idStr = User?.Claims?.FirstOrDefault(c => c.Type == "userId")?.Value;
+        return int.TryParse(idStr, out var id) ? id : null;
     }
 }
