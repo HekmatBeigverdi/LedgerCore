@@ -195,8 +195,10 @@ public class UsersController(IUnitOfWork uow) : ControllerBase
         var user = await repo.GetByIdAsync(id, cancellationToken);
         if (user is null)
             return NotFound();
-
-        repo.Remove(user);
+        
+        user.IsDeleted = true;
+        user.Status = UserStatus.Inactive;
+        
         await uow.SaveChangesAsync(cancellationToken);
 
         return NoContent();
