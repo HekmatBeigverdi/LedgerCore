@@ -188,6 +188,14 @@ public class AccountingService(
         if (existing.Status == DocumentStatus.Posted)
             throw new InvalidOperationException("Posted journal cannot be deleted.");
 
+        var hasExternalReference = existing.Lines.Any(l =>
+            !string.IsNullOrWhiteSpace(l.RefDocumentType) &&
+            l.RefDocumentId.HasValue &&
+            !(l.RefDocumentType == "JournalVoucher" && l.RefDocumentId == existing.Id));
+
+        if (hasExternalReference)
+            throw new InvalidOperationException("System-generated journal vouchers cannot be deleted.");
+
         uow.Journals.Remove(existing);
         await uow.SaveChangesAsync(cancellationToken);
     }
