@@ -117,16 +117,8 @@ public class PermissionsController(IUnitOfWork uow) : ControllerBase
 
     // DELETE api/permissions/5
     [HttpDelete("{id:int}")]
-    public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
+    public IActionResult Delete(int id)
     {
-        var repo = uow.Repository<Permission>();
-        var entity = await repo.GetByIdAsync(id, cancellationToken);
-        if (entity is null)
-            return NotFound();
-
-        repo.Remove(entity);
-        await uow.SaveChangesAsync(cancellationToken);
-
-        return NoContent();
+        return BadRequest("Deleting permissions is not allowed.");
     }
 }
