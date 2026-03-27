@@ -2830,9 +2830,6 @@ namespace LedgerCore.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("varchar(50)");
 
-                    b.Property<DateTime>("RowVersion")
-                        .HasColumnType("datetime(6)");
-
                     b.Property<string>("Suffix")
                         .HasMaxLength(50)
                         .HasColumnType("varchar(50)");

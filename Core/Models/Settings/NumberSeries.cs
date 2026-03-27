@@ -20,6 +20,6 @@ public class NumberSeries : AuditableEntity
 
     public bool IsActive { get; set; } = true;
     
-    public DateTime RowVersion { get; set; }
+    //public DateTime RowVersion { get; set; }
 }
   

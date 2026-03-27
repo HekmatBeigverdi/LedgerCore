@@ -1,6 +1,6 @@
 {
   "ConnectionStrings": {
-    "Default": "server=localhost;Port=3307;database=LedgerCoreDb;user id=root;password=;"
+    "Default": "Server=185.130.50.91;Database=LedgerCoreDb;User Id=admin;Password=P@ssw0rd125521;Connection Timeout=15;Default Command Timeout=60;SslMode=Preferred"
   },
   "UploadFileSettings": {
     "MaxBytes": 10485760,
