@@ -9,6 +9,7 @@ using LedgerCore.Core.Models.Security;
 using LedgerCore.Core.ViewModels.Masters;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using BranchDto = LedgerCore.Core.ViewModels.Masters.BranchDto;
 
 namespace LedgerCore.Controllers;
 
@@ -141,6 +142,7 @@ public class BranchesController(IUnitOfWork uow) : ControllerBase
         entity.Phone = request.Phone;
         entity.IsHeadOffice = request.IsHeadOffice;
         entity.IsActive = request.IsActive;
+        
 
         repo.Update(entity);
         await uow.SaveChangesAsync(cancellationToken);

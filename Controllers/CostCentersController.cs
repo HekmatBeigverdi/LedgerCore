@@ -9,6 +9,7 @@ using LedgerCore.Core.Models.Security;
 using LedgerCore.Core.ViewModels.Masters;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using CostCenterDto = LedgerCore.Core.ViewModels.Masters.CostCenterDto;
 
 namespace LedgerCore.Controllers;
 

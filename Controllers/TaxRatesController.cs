@@ -9,6 +9,7 @@ using LedgerCore.Core.Models.Security;
 using LedgerCore.Core.ViewModels.Masters;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TaxRateDto = LedgerCore.Core.ViewModels.Masters.TaxRateDto;
 
 namespace LedgerCore.Controllers;
 
