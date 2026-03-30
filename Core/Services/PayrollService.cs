@@ -92,8 +92,14 @@ public class PayrollService(
             if (payroll.Status != PayrollStatus.Calculated &&
                 payroll.Status != PayrollStatus.Approved)
                 throw new InvalidOperationException("Only calculated or approved payroll can be posted.");
+            
+            if (payroll.Lines is null || payroll.Lines.Count == 0)
+                throw new InvalidOperationException("Payroll has no lines.");
 
-            if (payroll.TotalGross <= 0)
+            if (payroll.TotalNet < 0 || payroll.TotalGross < 0 || payroll.TotalDeductions < 0)
+                throw new InvalidOperationException("Payroll totals are invalid.");
+
+            if (payroll.TotalGross <= 0 || payroll.TotalNet < 0 || payroll.TotalDeductions < 0)
                 throw new InvalidOperationException("Payroll totals are invalid.");
 
             var context = new PostingContext
