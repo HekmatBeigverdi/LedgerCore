@@ -4,11 +4,11 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace LedgerCore.Persistence.Configuration;
 
-public class ProductCategoryConfiguration : IEntityTypeConfiguration<ProductCategory>
+public class PartyCategoryConfiguration : IEntityTypeConfiguration<PartyCategory>
 {
-    public void Configure(EntityTypeBuilder<ProductCategory> builder)
+    public void Configure(EntityTypeBuilder<PartyCategory> builder)
     {
-        builder.ToTable("ProductCategories");
+        builder.ToTable("PartyCategories");
 
         builder.Property(x => x.Code)
             .HasMaxLength(50)
@@ -17,6 +17,9 @@ public class ProductCategoryConfiguration : IEntityTypeConfiguration<ProductCate
         builder.Property(x => x.Name)
             .HasMaxLength(200)
             .IsRequired();
+
+        builder.Property(x => x.Description)
+            .HasMaxLength(500);
 
         builder.HasIndex(x => x.Code).IsUnique();
     }
