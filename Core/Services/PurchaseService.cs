@@ -82,8 +82,8 @@ public class PurchaseService(
         if (existing is null)
             throw new InvalidOperationException($"PurchaseInvoice with id={invoice.Id} not found.");
 
-        if (existing.Status == DocumentStatus.Posted)
-            throw new InvalidOperationException("Posted purchase invoice cannot be updated.");
+        if (existing.Status != DocumentStatus.Draft)
+            throw new InvalidOperationException("Only draft purchase invoices can be updated.");
         
         _ = await GetOpenFiscalPeriodIdAsync(invoice.Date, cancellationToken);
         ValidateInvoiceDates(invoice.Date, invoice.DueDate);
@@ -142,6 +142,15 @@ public class PurchaseService(
 
             if (invoice.Status == DocumentStatus.Posted)
                 return;
+            
+            if (invoice.Status == DocumentStatus.Cancelled)
+                throw new InvalidOperationException("Cancelled purchase invoice cannot be posted.");
+
+            if (invoice.Status == DocumentStatus.Pending)
+                throw new InvalidOperationException("Pending purchase invoice must be approved before posting.");
+
+            if (invoice.Status != DocumentStatus.Approved)
+                throw new InvalidOperationException("Only approved purchase invoices can be posted.");
             
             _ = await GetOpenFiscalPeriodIdAsync(invoice.Date, cancellationToken);
             ValidateInvoiceDates(invoice.Date, invoice.DueDate);
