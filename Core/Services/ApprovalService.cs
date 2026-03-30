@@ -25,6 +25,14 @@ public class ApprovalService(
             entityType,
             entityId,
             cancellationToken);
+        
+        var documentStatus = await GetDocumentStatusAsync(
+            entityType,
+            entityId,
+            cancellationToken);
+
+        if (documentStatus != DocumentStatus.Draft)
+            throw new InvalidOperationException("Only draft documents can be submitted for approval.");
 
         // اگر درخواست pending برای این سند وجود داشته باشد
         var existing = await approvalRepo.FindAsync(
@@ -272,6 +280,46 @@ public class ApprovalService(
     private int GetBranchIdOrThrow()
         => currentBranch.GetRequiredBranchId();
 
+    private async Task<DocumentStatus> GetDocumentStatusAsync(
+        string entityType,
+        int entityId,
+        CancellationToken cancellationToken)
+    {
+        var branchId = GetBranchIdOrThrow();
+
+        switch (entityType)
+        {
+            case "SalesInvoice":
+            {
+                var entity = await uow.Invoices.GetSalesInvoiceWithLinesAsync(
+                    entityId,
+                    branchId,
+                    cancellationToken);
+
+                if (entity is null)
+                    throw new InvalidOperationException($"SalesInvoice with id={entityId} not found in current branch.");
+
+                return entity.Status;
+            }
+
+            case "PurchaseInvoice":
+            {
+                var entity = await uow.Invoices.GetPurchaseInvoiceWithLinesAsync(
+                    entityId,
+                    branchId,
+                    cancellationToken);
+
+                if (entity is null)
+                    throw new InvalidOperationException($"PurchaseInvoice with id={entityId} not found in current branch.");
+
+                return entity.Status;
+            }
+
+            default:
+                throw new InvalidOperationException(
+                    $"Approval is not supported for entityType '{entityType}'.");
+        }
+    }
     private async Task SetDocumentStatusAsync(
         string entityType,
         int entityId,
