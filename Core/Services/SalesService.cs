@@ -95,8 +95,8 @@ public class SalesService(
         if (existing is null)
             throw new InvalidOperationException($"SalesInvoice with id={invoice.Id} not found.");
 
-        if (existing.Status == DocumentStatus.Posted)
-            throw new InvalidOperationException("Posted invoice cannot be updated.");
+        if (existing.Status != DocumentStatus.Draft)
+            throw new InvalidOperationException("Only draft sales invoices can be updated.");
 
         var currentBranchId = GetBranchIdOrThrow();
 
@@ -156,6 +156,15 @@ public class SalesService(
 
             if (invoice.Status == DocumentStatus.Posted)
                 return; // قبلاً پست شده
+            
+            if (invoice.Status == DocumentStatus.Cancelled)
+                throw new InvalidOperationException("Cancelled sales invoice cannot be posted.");
+
+            if (invoice.Status == DocumentStatus.Pending)
+                throw new InvalidOperationException("Pending sales invoice must be approved before posting.");
+
+            if (invoice.Status != DocumentStatus.Approved)
+                throw new InvalidOperationException("Only approved sales invoices can be posted.");            
 
             // 1) به‌روزرسانی موجودی و ثبت StockMove
             await PostToInventoryAsync(invoice, cancellationToken);
@@ -189,6 +198,9 @@ public class SalesService(
             var invoice = await GetSalesInvoiceScopedAsync(invoiceId, cancellationToken);
             if (invoice is null)
                 throw new InvalidOperationException($"SalesInvoice with id={invoiceId} not found.");
+            
+            if (invoice.Status == DocumentStatus.Cancelled)
+                throw new InvalidOperationException("Cancelled sales invoice cannot be voided again.");
 
             if (invoice.Status != DocumentStatus.Posted)
                 throw new InvalidOperationException("Only a posted sales invoice can be voided.");
