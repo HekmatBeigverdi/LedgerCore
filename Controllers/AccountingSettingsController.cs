@@ -4,7 +4,6 @@ using LedgerCore.Core.Models.Accounting;
 using LedgerCore.Core.Models.Master;
 using LedgerCore.Core.Models.Security;
 using LedgerCore.Core.Models.Settings;
-using LedgerCore.Core.ViewModels.Masters;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
