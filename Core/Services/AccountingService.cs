@@ -128,8 +128,8 @@ public class AccountingService(
         if (existing is null)
             throw new InvalidOperationException($"JournalVoucher with id={voucher.Id} not found.");
 
-        if (existing.Status == DocumentStatus.Posted)
-            throw new InvalidOperationException("Posted journal cannot be updated.");
+        if (existing.Status != DocumentStatus.Draft)
+            throw new InvalidOperationException("Only draft journal vouchers can be updated.");
 
         if (voucher.BranchId != 0 && voucher.BranchId != branchId)
             throw new InvalidOperationException("BranchId cannot be changed across branches.");
@@ -185,8 +185,8 @@ public class AccountingService(
         if (existing is null)
             throw new InvalidOperationException($"JournalVoucher with id={id} not found.");
 
-        if (existing.Status == DocumentStatus.Posted)
-            throw new InvalidOperationException("Posted journal cannot be deleted.");
+        if (existing.Status != DocumentStatus.Draft)
+            throw new InvalidOperationException("Only draft journal vouchers can be deleted.");
 
         var hasExternalReference = existing.Lines.Any(l =>
             !string.IsNullOrWhiteSpace(l.RefDocumentType) &&
@@ -215,6 +215,16 @@ public class AccountingService(
 
             if (journal.Status == DocumentStatus.Posted)
                 return;
+            
+            if (journal.Status == DocumentStatus.Cancelled)
+                throw new InvalidOperationException("Cancelled journal cannot be posted.");
+
+            if (journal.Status == DocumentStatus.Pending)
+                throw new InvalidOperationException("Pending journal must be approved before posting.");
+
+            if (journal.Status != DocumentStatus.Draft &&
+                journal.Status != DocumentStatus.Approved)
+                throw new InvalidOperationException("Only draft or approved journals can be posted.");
             
             var period = await GetOpenFiscalPeriodAsync(journal.Date, journal.FiscalPeriodId, cancellationToken);
             journal.FiscalPeriodId = period.Id;
@@ -713,8 +723,8 @@ public class AccountingService(
     {
         var existing = await GetReceiptScopedOrThrowAsync(receipt.Id, cancellationToken);
 
-        if (existing.Status == DocumentStatus.Posted)
-            throw new InvalidOperationException("Posted receipt cannot be updated.");
+        if (existing.Status != DocumentStatus.Draft)
+            throw new InvalidOperationException("Only draft receipts can be updated.");
 
         var currentBranchId = GetBranchIdOrThrow();
 
@@ -751,6 +761,16 @@ public class AccountingService(
 
             if (receipt.Status == DocumentStatus.Posted)
                 return;
+            
+            if (receipt.Status == DocumentStatus.Cancelled)
+                throw new InvalidOperationException("Cancelled receipt cannot be posted.");
+
+            if (receipt.Status == DocumentStatus.Pending)
+                throw new InvalidOperationException("Pending receipt must be approved before posting.");
+
+            if (receipt.Status != DocumentStatus.Draft &&
+                receipt.Status != DocumentStatus.Approved)
+                throw new InvalidOperationException("Only draft or approved receipts can be posted.");
 
             // ساخت سند حسابداری بر اساس PostingRule
             var journal = await CreateJournalForReceiptAsync(receipt, cancellationToken);
@@ -880,8 +900,8 @@ public class AccountingService(
     {
         var existing = await GetPaymentScopedOrThrowAsync(payment.Id, cancellationToken);
 
-        if (existing.Status == DocumentStatus.Posted)
-            throw new InvalidOperationException("Posted payment cannot be updated.");
+        if (existing.Status != DocumentStatus.Draft)
+            throw new InvalidOperationException("Only draft payments can be updated.");
 
         var currentBranchId = GetBranchIdOrThrow();
 
@@ -918,6 +938,16 @@ public class AccountingService(
 
             if (payment.Status == DocumentStatus.Posted)
                 return;
+            
+            if (payment.Status == DocumentStatus.Cancelled)
+                throw new InvalidOperationException("Cancelled payment cannot be posted.");
+
+            if (payment.Status == DocumentStatus.Pending)
+                throw new InvalidOperationException("Pending payment must be approved before posting.");
+
+            if (payment.Status != DocumentStatus.Draft &&
+                payment.Status != DocumentStatus.Approved)
+                throw new InvalidOperationException("Only draft or approved payments can be posted.");
 
             var journal = await CreateJournalForPaymentAsync(payment, cancellationToken);
 
@@ -986,36 +1016,69 @@ public class AccountingService(
 
     // ===================== Helpers =====================
 
-    private Task ValidateReceiptAsync(Receipt receipt, CancellationToken cancellationToken)
+    private async Task ValidateBankAccountAsync(
+        int bankAccountId,
+        CancellationToken cancellationToken)
+    {
+        var bankAccount = await uow.Repository<LedgerCore.Core.Models.Master.BankAccount>()
+            .GetByIdAsync(bankAccountId, cancellationToken);
+
+        if (bankAccount is null)
+            throw new InvalidOperationException($"BankAccount with id={bankAccountId} not found.");
+
+        if (!bankAccount.IsActive)
+            throw new InvalidOperationException("Selected bank account is not active.");
+    }
+    private async Task ValidateReceiptAsync(Receipt receipt, CancellationToken cancellationToken)
     {
         if (receipt.Amount <= 0)
             throw new InvalidOperationException("Receipt amount must be greater than zero.");
 
-        if (receipt.Method == PaymentMethod.Cash &&
-            string.IsNullOrWhiteSpace(receipt.CashDeskCode))
-            throw new InvalidOperationException("CashDeskCode is required for cash receipt.");
+        if (receipt.Method == PaymentMethod.Cash)
+        {
+            if (string.IsNullOrWhiteSpace(receipt.CashDeskCode))
+                throw new InvalidOperationException("CashDeskCode is required for cash receipt.");
 
-        if (receipt.Method == PaymentMethod.BankTransfer &&
-            receipt.BankAccountId is null)
-            throw new InvalidOperationException("BankAccountId is required for bank receipt.");
+            if (receipt.BankAccountId.HasValue)
+                throw new InvalidOperationException("BankAccountId must be empty for cash receipt.");
+        }
 
-        return Task.CompletedTask;
+        if (receipt.Method == PaymentMethod.BankTransfer)
+        {
+            if (receipt.BankAccountId is null)
+                throw new InvalidOperationException("BankAccountId is required for bank receipt.");
+
+            if (!string.IsNullOrWhiteSpace(receipt.CashDeskCode))
+                throw new InvalidOperationException("CashDeskCode must be empty for bank receipt.");
+
+            await ValidateBankAccountAsync(receipt.BankAccountId.Value, cancellationToken);
+        }
     }
 
-    private Task ValidatePaymentAsync(Payment payment, CancellationToken cancellationToken)
+    private async Task ValidatePaymentAsync(Payment payment, CancellationToken cancellationToken)
     {
         if (payment.Amount <= 0)
             throw new InvalidOperationException("Payment amount must be greater than zero.");
 
-        if (payment.Method == PaymentMethod.Cash &&
-            string.IsNullOrWhiteSpace(payment.CashDeskCode))
-            throw new InvalidOperationException("CashDeskCode is required for cash payment.");
+        if (payment.Method == PaymentMethod.Cash)
+        {
+            if (string.IsNullOrWhiteSpace(payment.CashDeskCode))
+                throw new InvalidOperationException("CashDeskCode is required for cash payment.");
 
-        if (payment.Method == PaymentMethod.BankTransfer &&
-            payment.BankAccountId is null)
-            throw new InvalidOperationException("BankAccountId is required for bank payment.");
+            if (payment.BankAccountId.HasValue)
+                throw new InvalidOperationException("BankAccountId must be empty for cash payment.");
+        }
 
-        return Task.CompletedTask;
+        if (payment.Method == PaymentMethod.BankTransfer)
+        {
+            if (payment.BankAccountId is null)
+                throw new InvalidOperationException("BankAccountId is required for bank payment.");
+
+            if (!string.IsNullOrWhiteSpace(payment.CashDeskCode))
+                throw new InvalidOperationException("CashDeskCode must be empty for bank payment.");
+
+            await ValidateBankAccountAsync(payment.BankAccountId.Value, cancellationToken);
+        }
     }
 
     private async Task<JournalVoucher> CreateJournalForReceiptAsync(
@@ -1090,6 +1153,12 @@ public class AccountingService(
 
             if (adjustment.Status == DocumentStatus.Posted)
                 return;
+            
+            if (adjustment.Status == DocumentStatus.Cancelled)
+                throw new InvalidOperationException("Cancelled inventory adjustment cannot be posted.");
+
+            if (adjustment.Status != DocumentStatus.Approved)
+                throw new InvalidOperationException("Only approved inventory adjustments can be posted.");
 
             if (!adjustment.TotalDifferenceValue.HasValue ||
                 adjustment.TotalDifferenceValue.Value == 0m)
