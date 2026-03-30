@@ -44,6 +44,20 @@ public class CashTransferService(
 
         return transfer;
     }
+    
+    private async Task ValidateBankAccountAsync(
+        int bankAccountId,
+        CancellationToken cancellationToken)
+    {
+        var bankAccount = await uow.Repository<LedgerCore.Core.Models.Master.BankAccount>()
+            .GetByIdAsync(bankAccountId, cancellationToken);
+
+        if (bankAccount is null)
+            throw new InvalidOperationException($"BankAccount with id={bankAccountId} not found.");
+
+        if (!bankAccount.IsActive)
+            throw new InvalidOperationException("Selected bank account is not active.");
+    }
 
     public async Task<CashTransfer> CreateCashTransferAsync(
         CashTransfer transfer,
@@ -79,6 +93,12 @@ public class CashTransferService(
             {
                 throw new InvalidOperationException("حساب بانکی مبدأ و مقصد نمی‌توانند یکسان باشند.");
             }
+            
+            if (transfer.FromBankAccountId.HasValue)
+                await ValidateBankAccountAsync(transfer.FromBankAccountId.Value, cancellationToken);
+
+            if (transfer.ToBankAccountId.HasValue)
+                await ValidateBankAccountAsync(transfer.ToBankAccountId.Value, cancellationToken);
 
             if (transfer.FromAccountId <= 0)
                 throw new InvalidOperationException("حساب حسابداری مبدأ الزامی است.");
@@ -148,6 +168,13 @@ public class CashTransferService(
 
             if (transfer.Status == DocumentStatus.Cancelled)
                 throw new InvalidOperationException("سند لغو شده قابل ثبت نیست.");
+            
+            if (transfer.Status == DocumentStatus.Pending)
+                throw new InvalidOperationException("سند در انتظار تأیید است و قابل ثبت نیست.");
+
+            if (transfer.Status != DocumentStatus.Draft &&
+                transfer.Status != DocumentStatus.Approved)
+                throw new InvalidOperationException("Only draft or approved cash transfers can be posted.");
 
             var currentBranchId = GetBranchIdOrThrow();
 
