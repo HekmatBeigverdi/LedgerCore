@@ -3,11 +3,13 @@ using LedgerCore.Core.Models.Accounting;
 using LedgerCore.Core.Models.Assets;
 using LedgerCore.Core.Models.Documents;
 using LedgerCore.Core.Models.Enums;
+using LedgerCore.Core.Models.Master;
 using LedgerCore.Core.Models.Payroll;
 using LedgerCore.Core.ViewModels.Accounting;
 using LedgerCore.Core.ViewModels.Assets;
 using LedgerCore.Core.ViewModels.Cheques;
 using LedgerCore.Core.ViewModels.Documents;
+using LedgerCore.Core.ViewModels.Masters;
 using LedgerCore.Core.ViewModels.Payroll;
 using LedgerCore.Core.ViewModels.ReceiptsPayments;
 
@@ -280,29 +282,142 @@ public class DomainMappingProfile : Profile
             .ForMember(d => d.Lines, m => m.MapFrom(s => s.Lines));
         
         // ===== FiscalYear / FiscalPeriod =====
+        
+        CreateMap<FiscalYear, FiscalYearDto>();
+        
+        CreateMap<FiscalPeriod, FiscalPeriodDto>()
+            .ForMember(d => d.FiscalYearName, m => m.MapFrom(s => s.FiscalYear!.Name));
 
-                CreateMap<FiscalYear, FiscalYearDto>();
+        CreateMap<CreateFiscalYearRequest, FiscalYear>()
+            .ForMember(d => d.Id, m => m.Ignore())
+            .ForMember(d => d.IsClosed, m => m.Ignore())
+            .ForMember(d => d.ClosedAt, m => m.Ignore());
 
-                CreateMap<FiscalPeriod, FiscalPeriodDto>()
-                    .ForMember(d => d.FiscalYearName, m => m.MapFrom(s => s.FiscalYear!.Name));
+        CreateMap<UpdateFiscalYearRequest, FiscalYear>()
+            .ForMember(d => d.IsClosed, m => m.Ignore())
+            .ForMember(d => d.ClosedAt, m => m.Ignore());
 
-                CreateMap<CreateFiscalYearRequest, FiscalYear>()
-                    .ForMember(d => d.Id, m => m.Ignore())
-                    .ForMember(d => d.IsClosed, m => m.Ignore())
-                    .ForMember(d => d.ClosedAt, m => m.Ignore());
+        CreateMap<CreateFiscalPeriodRequest, FiscalPeriod>()
+            .ForMember(d => d.Id, m => m.Ignore())
+            .ForMember(d => d.IsClosed, m => m.Ignore())
+            .ForMember(d => d.ClosedAt, m => m.Ignore());
 
-                CreateMap<UpdateFiscalYearRequest, FiscalYear>()
-                    .ForMember(d => d.IsClosed, m => m.Ignore())
-                    .ForMember(d => d.ClosedAt, m => m.Ignore());
+        CreateMap<UpdateFiscalPeriodRequest, FiscalPeriod>()
+            .ForMember(d => d.IsClosed, m => m.Ignore())
+            .ForMember(d => d.ClosedAt, m => m.Ignore());
+        
+                // ===== Currency =====
+        CreateMap<Currency, CurrencyDto>();
+        CreateMap<CreateCurrencyRequest, Currency>()
+            .ForMember(d => d.Id, m => m.Ignore());
 
-                CreateMap<CreateFiscalPeriodRequest, FiscalPeriod>()
-                    .ForMember(d => d.Id, m => m.Ignore())
-                    .ForMember(d => d.IsClosed, m => m.Ignore())
-                    .ForMember(d => d.ClosedAt, m => m.Ignore());
+        CreateMap<UpdateCurrencyRequest, Currency>()
+            .ForMember(d => d.Id, m => m.Ignore());
 
-                CreateMap<UpdateFiscalPeriodRequest, FiscalPeriod>()
-                    .ForMember(d => d.IsClosed, m => m.Ignore())
-                    .ForMember(d => d.ClosedAt, m => m.Ignore());
+        // ===== ExchangeRate =====
+        CreateMap<ExchangeRate, ExchangeRateDto>()
+            .ForMember(d => d.CurrencyCode, m => m.MapFrom(s => s.Currency!.Code));
+
+        CreateMap<CreateExchangeRateRequest, ExchangeRate>()
+            .ForMember(d => d.Id, m => m.Ignore())
+            .ForMember(d => d.Currency, m => m.Ignore());
+
+        CreateMap<UpdateExchangeRateRequest, ExchangeRate>()
+            .ForMember(d => d.Id, m => m.Ignore())
+            .ForMember(d => d.Currency, m => m.Ignore());
+
+        // ===== Bank =====
+        CreateMap<Bank, BankDto>();
+        CreateMap<CreateBankRequest, Bank>()
+            .ForMember(d => d.Id, m => m.Ignore());
+
+        CreateMap<UpdateBankRequest, Bank>()
+            .ForMember(d => d.Id, m => m.Ignore());
+
+        // ===== BankAccount =====
+        CreateMap<BankAccount, BankAccountDto>()
+            .ForMember(d => d.BankName, m => m.MapFrom(s => s.Bank != null ? s.Bank.Name : null))
+            .ForMember(d => d.CurrencyCode, m => m.MapFrom(s => s.Currency != null ? s.Currency.Code : null));
+
+        CreateMap<CreateBankAccountRequest, BankAccount>()
+            .ForMember(d => d.Id, m => m.Ignore())
+            .ForMember(d => d.Bank, m => m.Ignore())
+            .ForMember(d => d.Currency, m => m.Ignore());
+
+        CreateMap<UpdateBankAccountRequest, BankAccount>()
+            .ForMember(d => d.Id, m => m.Ignore())
+            .ForMember(d => d.Bank, m => m.Ignore())
+            .ForMember(d => d.Currency, m => m.Ignore());
+
+        // ===== PartyCategory =====
+        CreateMap<PartyCategory, PartyCategoryDto>();
+        CreateMap<CreatePartyCategoryRequest, PartyCategory>()
+            .ForMember(d => d.Id, m => m.Ignore());
+
+        CreateMap<UpdatePartyCategoryRequest, PartyCategory>()
+            .ForMember(d => d.Id, m => m.Ignore());
+
+        // ===== ProductCategory =====
+        CreateMap<ProductCategory, ProductCategoryDto>();
+        CreateMap<CreateProductCategoryRequest, ProductCategory>()
+            .ForMember(d => d.Id, m => m.Ignore());
+
+        CreateMap<UpdateProductCategoryRequest, ProductCategory>()
+            .ForMember(d => d.Id, m => m.Ignore());
+
+        // ===== AssetCategory =====
+        CreateMap<AssetCategory, AssetCategoryDto>();
+        CreateMap<CreateAssetCategoryRequest, AssetCategory>()
+            .ForMember(d => d.Id, m => m.Ignore());
+
+        CreateMap<UpdateAssetCategoryRequest, AssetCategory>()
+            .ForMember(d => d.Id, m => m.Ignore());
+
+        // ===== DepreciationMethod =====
+        CreateMap<DepreciationMethod, DepreciationMethodDto>();
+        CreateMap<CreateDepreciationMethodRequest, DepreciationMethod>()
+            .ForMember(d => d.Id, m => m.Ignore());
+
+        CreateMap<UpdateDepreciationMethodRequest, DepreciationMethod>()
+            .ForMember(d => d.Id, m => m.Ignore());
+
+        // ===== Employee =====
+        CreateMap<Employee, EmployeeDto>()
+            .ForMember(d => d.BranchName, m => m.MapFrom(s => s.Branch != null ? s.Branch.Name : null))
+            .ForMember(d => d.CostCenterName, m => m.MapFrom(s => s.CostCenter != null ? s.CostCenter.Name : null));
+
+        CreateMap<CreateEmployeeRequest, Employee>()
+            .ForMember(d => d.Id, m => m.Ignore())
+            .ForMember(d => d.Branch, m => m.Ignore())
+            .ForMember(d => d.CostCenter, m => m.Ignore());
+
+        CreateMap<UpdateEmployeeRequest, Employee>()
+            .ForMember(d => d.Id, m => m.Ignore())
+            .ForMember(d => d.Branch, m => m.Ignore())
+            .ForMember(d => d.CostCenter, m => m.Ignore());
+
+        // ===== PayrollPeriod =====
+        CreateMap<PayrollPeriod, PayrollPeriodDto>()
+            .ForMember(d => d.FiscalPeriodName, m => m.MapFrom(s => s.FiscalPeriod != null ? s.FiscalPeriod.Name : null));
+
+        CreateMap<CreatePayrollPeriodRequest, PayrollPeriod>()
+            .ForMember(d => d.Id, m => m.Ignore())
+            .ForMember(d => d.ClosedAt, m => m.Ignore())
+            .ForMember(d => d.FiscalPeriod, m => m.Ignore());
+
+        CreateMap<UpdatePayrollPeriodRequest, PayrollPeriod>()
+            .ForMember(d => d.Id, m => m.Ignore())
+            .ForMember(d => d.ClosedAt, m => m.Ignore())
+            .ForMember(d => d.FiscalPeriod, m => m.Ignore());
+
+        // ===== PayrollItemType =====
+        CreateMap<PayrollItemType, PayrollItemTypeDto>();
+
+        CreateMap<CreatePayrollItemTypeRequest, PayrollItemType>()
+            .ForMember(d => d.Id, m => m.Ignore());
+
+        CreateMap<UpdatePayrollItemTypeRequest, PayrollItemType>()
+            .ForMember(d => d.Id, m => m.Ignore());
         
     }
 }
