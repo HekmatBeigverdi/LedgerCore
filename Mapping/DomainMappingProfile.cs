@@ -308,7 +308,7 @@ public class DomainMappingProfile : Profile
             .ForMember(d => d.IsClosed, m => m.Ignore())
             .ForMember(d => d.ClosedAt, m => m.Ignore());
         
-                // ===== Currency =====
+        // ===== Currency =====
         CreateMap<Currency, CurrencyDto>();
         CreateMap<CreateCurrencyRequest, Currency>()
             .ForMember(d => d.Id, m => m.Ignore());
