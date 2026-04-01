@@ -1522,55 +1522,16 @@ public class ReportingService(LedgerCoreDbContext db, ICurrentBranchService curr
         CancellationToken cancellationToken = default)
     {
         var scopedBranchId = ResolveBranchIdOrThrow(branchId);
-        var q = _db.JournalLines
-            .Include(l => l.Account)
-            .Include(l => l.Party)
-            .Include(l => l.JournalVoucher)
-            .Where(l =>
-                l.JournalVoucher != null &&
-                l.JournalVoucher.Status == DocumentStatus.Posted &&
-                l.JournalVoucher.Date <= asOfDate &&
-                l.PartyId != null &&
-                l.Account != null &&
-                l.Account.RequiresParty);
 
-        q = q.Where(l => l.JournalVoucher!.BranchId == scopedBranchId);
+        // فعلاً در نسخه invoice-based این پارامتر قابل اعمال نیست،
+        // چون SalesInvoice و PurchaseInvoice پراپرتی AccountId ندارند.
+        _ = accountId;
 
-        if (partyId.HasValue)
-            q = q.Where(l => l.PartyId == partyId.Value);
-
-        if (partyType.HasValue)
-            q = q.Where(l => l.Party != null && l.Party.Type == partyType.Value);
-
-        if (accountId.HasValue)
-            q = q.Where(l => l.AccountId == accountId.Value);
-
-        // تجمیع بر اساس Party + تاریخ سند برای bucket بندی
-        var rows = await q
-            .GroupBy(l => new
-            {
-                PartyId = l.PartyId!.Value,
-                PartyCode = l.Party!.Code,
-                PartyName = l.Party!.Name,
-                PartyType = l.Party!.Type,
-                DocDate = l.JournalVoucher!.Date.Date
-            })
-            .Select(g => new
-            {
-                g.Key.PartyId,
-                g.Key.PartyCode,
-                g.Key.PartyName,
-                g.Key.PartyType,
-                g.Key.DocDate,
-                Net = g.Sum(x => x.Debit - x.Credit) // + = مطالبات، - = بدهی
-            })
-            .ToListAsync(cancellationToken);
-
-        var dict = new Dictionary<int, AgingRowDto>();
+        var result = new Dictionary<int, AgingRowDto>();
 
         AgingRowDto GetOrCreate(int id, string code, string name, PartyType type)
         {
-            if (!dict.TryGetValue(id, out var dto))
+            if (!result.TryGetValue(id, out var dto))
             {
                 dto = new AgingRowDto
                 {
@@ -1579,8 +1540,9 @@ public class ReportingService(LedgerCoreDbContext db, ICurrentBranchService curr
                     PartyName = name,
                     PartyType = type.ToString()
                 };
-                dict[id] = dto;
+                result[id] = dto;
             }
+
             return dto;
         }
 
@@ -1593,47 +1555,143 @@ public class ReportingService(LedgerCoreDbContext db, ICurrentBranchService curr
             return 4;
         }
 
-        foreach (var r in rows)
-        {
-            if (r.Net == 0) continue;
+        // =========================
+        // Receivables from SalesInvoices
+        // =========================
+        var salesQuery = _db.SalesInvoices
+            .Include(x => x.Customer)
+            .Include(x => x.ReceiptAllocations)
+                .ThenInclude(x => x.Receipt)
+            .Where(x =>
+                x.BranchId == scopedBranchId &&
+                x.Date <= asOfDate &&
+                x.Status != DocumentStatus.Cancelled);
 
-            var ageDays = (asOfDate.Date - r.DocDate).Days;
-            if (ageDays < 0) ageDays = 0;
+        if (partyId.HasValue)
+            salesQuery = salesQuery.Where(x => x.CustomerId == partyId.Value);
+
+        if (partyType.HasValue)
+            salesQuery = salesQuery.Where(x => x.Customer != null && x.Customer.Type == partyType.Value);
+
+        var salesInvoices = await salesQuery.ToListAsync(cancellationToken);
+
+        foreach (var invoice in salesInvoices)
+        {
+            if (invoice.Customer is null)
+                continue;
+
+            var allocated = invoice.ReceiptAllocations
+                .Where(x => x.Receipt != null && x.Receipt.Date <= asOfDate)
+                .Sum(x => x.AllocatedAmount);
+
+            var openAmount = invoice.TotalAmount - allocated;
+            if (openAmount <= 0)
+                continue;
+
+            var baseDate = invoice.DueDate?.Date ?? invoice.Date.Date;
+            var ageDays = (asOfDate.Date - baseDate).Days;
+            if (ageDays < 0)
+                ageDays = 0;
 
             var idx = BucketIndex(ageDays);
-            var dto = GetOrCreate(r.PartyId, r.PartyCode, r.PartyName, r.PartyType);
+            var dto = GetOrCreate(
+                invoice.Customer.Id,
+                invoice.Customer.Code,
+                invoice.Customer.Name,
+                invoice.Customer.Type);
 
-            if (r.Net > 0)
+            switch (idx)
             {
-                var amt = r.Net;
-                switch (idx)
-                {
-                    case 0: dto.Current_0_30 += amt; break;
-                    case 1: dto.Due_31_60 += amt; break;
-                    case 2: dto.Due_61_90 += amt; break;
-                    case 3: dto.Due_91_120 += amt; break;
-                    default: dto.Due_121_Plus += amt; break;
-                }
-                dto.TotalReceivable += amt;
+                case 0:
+                    dto.Current_0_30 += openAmount;
+                    break;
+                case 1:
+                    dto.Due_31_60 += openAmount;
+                    break;
+                case 2:
+                    dto.Due_61_90 += openAmount;
+                    break;
+                case 3:
+                    dto.Due_91_120 += openAmount;
+                    break;
+                default:
+                    dto.Due_121_Plus += openAmount;
+                    break;
             }
-            else
-            {
-                var amt = Math.Abs(r.Net);
-                switch (idx)
-                {
-                    case 0: dto.Pay_Current_0_30 += amt; break;
-                    case 1: dto.Pay_31_60 += amt; break;
-                    case 2: dto.Pay_61_90 += amt; break;
-                    case 3: dto.Pay_91_120 += amt; break;
-                    default: dto.Pay_121_Plus += amt; break;
-                }
-                dto.TotalPayable += amt;
-            }
+
+            dto.TotalReceivable += openAmount;
         }
 
-        return dict.Values.OrderBy(x => x.PartyCode).ToList();
-    }
-    
+        // =========================
+        // Payables from PurchaseInvoices
+        // =========================
+        var purchaseQuery = _db.PurchaseInvoices
+            .Include(x => x.Supplier)
+            .Include(x => x.PaymentAllocations)
+                .ThenInclude(x => x.Payment)
+            .Where(x =>
+                x.BranchId == scopedBranchId &&
+                x.Date <= asOfDate &&
+                x.Status != DocumentStatus.Cancelled);
+
+        if (partyId.HasValue)
+            purchaseQuery = purchaseQuery.Where(x => x.SupplierId == partyId.Value);
+
+        if (partyType.HasValue)
+            purchaseQuery = purchaseQuery.Where(x => x.Supplier != null && x.Supplier.Type == partyType.Value);
+
+        var purchaseInvoices = await purchaseQuery.ToListAsync(cancellationToken);
+
+        foreach (var invoice in purchaseInvoices)
+        {
+            if (invoice.Supplier is null)
+                continue;
+
+            var allocated = invoice.PaymentAllocations
+                .Where(x => x.Payment != null && x.Payment.Date <= asOfDate)
+                .Sum(x => x.AllocatedAmount);
+
+            var openAmount = invoice.TotalAmount - allocated;
+            if (openAmount <= 0)
+                continue;
+
+            var baseDate = invoice.DueDate?.Date ?? invoice.Date.Date;
+            var ageDays = (asOfDate.Date - baseDate).Days;
+            if (ageDays < 0)
+                ageDays = 0;
+
+            var idx = BucketIndex(ageDays);
+            var dto = GetOrCreate(
+                invoice.Supplier.Id,
+                invoice.Supplier.Code,
+                invoice.Supplier.Name,
+                invoice.Supplier.Type);
+
+            switch (idx)
+            {
+                case 0:
+                    dto.Pay_Current_0_30 += openAmount;
+                    break;
+                case 1:
+                    dto.Pay_31_60 += openAmount;
+                    break;
+                case 2:
+                    dto.Pay_61_90 += openAmount;
+                    break;
+                case 3:
+                    dto.Pay_91_120 += openAmount;
+                    break;
+                default:
+                    dto.Pay_121_Plus += openAmount;
+                    break;
+            }
+
+            dto.TotalPayable += openAmount;
+        }
+
+        return result.Values
+            .OrderBy(x => x.PartyCode)
+            .ToList();
+    }    
     #endregion
-    
 }
