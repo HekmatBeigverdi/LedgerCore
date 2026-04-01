@@ -25,5 +25,21 @@ public interface ISalesService
         DateTime? reversalDate = null,
         string? description = null,
         CancellationToken cancellationToken = default);
+    
+    Task<SalesReturn> CreateSalesReturnAsync(
+        SalesReturn document,
+        CancellationToken cancellationToken = default);
+
+    Task<SalesReturn?> GetSalesReturnAsync(
+        int id,
+        CancellationToken cancellationToken = default);
+
+    Task<SalesReturn> UpdateSalesReturnAsync(
+        SalesReturn document,
+        CancellationToken cancellationToken = default);
+
+    Task PostSalesReturnAsync(
+        int documentId,
+        CancellationToken cancellationToken = default);
 
 }
