@@ -6,6 +6,7 @@ using LedgerCore.Core.Models.Documents;
 using LedgerCore.Core.Models.Enums;
 using LedgerCore.Core.Models.Inventory;
 using LedgerCore.Core.Models.Settings;
+using Microsoft.EntityFrameworkCore;
 
 namespace LedgerCore.Core.Services;
 
@@ -680,15 +681,20 @@ public class AccountingService(
         try
         {
             await ValidateReceiptAsync(receipt, cancellationToken);
-
+            await ValidateReceiptAllocationsAsync(receipt, cancellationToken);
+            
             receipt.Number = await numberSeries.NextAsync(NumberSeriesKeys.Receipt, receipt.BranchId, cancellationToken);
             receipt.Status = DocumentStatus.Draft;
 
             await uow.Receipts.AddAsync(receipt, cancellationToken);
             await uow.SaveChangesAsync(cancellationToken);
 
+            var savedReceipt = await GetReceiptScopedWithAllocationsOrThrowAsync(
+                receipt.Id,
+                cancellationToken);
+
             await uow.CommitTransactionAsync(cancellationToken);
-            return receipt;
+            return savedReceipt;
         }
         catch
         {
@@ -703,6 +709,32 @@ public class AccountingService(
         var receipt = await uow.Receipts.GetByIdAsync(id, ct);
         return receipt != null && receipt.BranchId == branchId ? receipt : null;
     }
+    private async Task<Receipt?> GetReceiptScopedWithAllocationsAsync(int id, CancellationToken ct)
+    {
+        var branchId = GetBranchIdOrThrow();
+
+        var receipt = await uow.Repository<Receipt>()
+            .Query()
+            .Include(x => x.Party)
+            .Include(x => x.Branch)
+            .Include(x => x.Currency)
+            .Include(x => x.BankAccount)
+            .Include(x => x.JournalVoucher)
+            .Include(x => x.ReversalJournalVoucher)
+            .Include(x => x.Allocations)
+            .ThenInclude(x => x.SalesInvoice)
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
+
+        return receipt != null && receipt.BranchId == branchId ? receipt : null;
+    }
+    private async Task<Receipt> GetReceiptScopedWithAllocationsOrThrowAsync(int id, CancellationToken ct)
+    {
+        var receipt = await GetReceiptScopedWithAllocationsAsync(id, ct);
+        if (receipt is null)
+            throw new InvalidOperationException($"Receipt with id={id} not found.");
+
+        return receipt;
+    }
 
     private async Task<Receipt> GetReceiptScopedOrThrowAsync(int id, CancellationToken ct)
     {
@@ -715,7 +747,7 @@ public class AccountingService(
     public Task<Receipt?> GetReceiptAsync(
         int id,
         CancellationToken cancellationToken = default)
-        => GetReceiptScopedAsync(id, cancellationToken);
+        => GetReceiptScopedWithAllocationsAsync(id, cancellationToken);
 
     public async Task<Receipt> UpdateReceiptAsync(
         Receipt receipt,
@@ -1328,5 +1360,57 @@ public class AccountingService(
             throw new InvalidOperationException($"InventoryAdjustment with id={id} not found.");
         return adjustment;
     }
+    // --------------------- Allocation Helpers ---------------------
 
+    private async Task ValidateReceiptAllocationsAsync(
+    Receipt receipt,
+    CancellationToken cancellationToken)
+    {
+        if (receipt.Allocations is null || receipt.Allocations.Count == 0)
+            return;
+
+        if (!receipt.PartyId.HasValue)
+            throw new InvalidOperationException("Receipt allocations require PartyId.");
+
+        var allocationIds = receipt.Allocations
+            .Select(x => x.SalesInvoiceId)
+            .ToList();
+
+        if (allocationIds.Count != allocationIds.Distinct().Count())
+            throw new InvalidOperationException("Duplicate sales invoice ids found in receipt allocations.");
+
+        if (receipt.Allocations.Any(x => x.AllocatedAmount <= 0))
+            throw new InvalidOperationException("AllocatedAmount must be greater than zero.");
+
+        var totalAllocated = receipt.Allocations.Sum(x => x.AllocatedAmount);
+        if (totalAllocated > receipt.Amount)
+            throw new InvalidOperationException("Total allocated amount cannot exceed receipt amount.");
+
+        var invoices = await uow.Repository<SalesInvoice>()
+            .Query()
+            .Include(x => x.ReceiptAllocations)
+            .Where(x => allocationIds.Contains(x.Id))
+            .ToListAsync(cancellationToken);
+
+        if (invoices.Count != allocationIds.Count)
+            throw new InvalidOperationException("One or more sales invoices are invalid.");
+
+        foreach (var invoice in invoices)
+        {
+            if (invoice.CustomerId != receipt.PartyId.Value)
+                throw new InvalidOperationException($"Sales invoice '{invoice.Number}' does not belong to the selected party.");
+
+            if (invoice.Status == DocumentStatus.Cancelled)
+                throw new InvalidOperationException($"Cancelled sales invoice '{invoice.Number}' cannot be allocated.");
+
+            var alreadyAllocated = invoice.ReceiptAllocations.Sum(x => x.AllocatedAmount);
+            var currentAllocated = receipt.Allocations
+                .Where(x => x.SalesInvoiceId == invoice.Id)
+                .Sum(x => x.AllocatedAmount);
+
+            var openAmount = invoice.TotalAmount - alreadyAllocated;
+            if (currentAllocated > openAmount)
+                throw new InvalidOperationException($"Allocation exceeds open amount for sales invoice '{invoice.Number}'.");
+        }
+    }
 }
