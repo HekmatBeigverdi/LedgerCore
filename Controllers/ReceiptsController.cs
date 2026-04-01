@@ -61,6 +61,20 @@ public class ReceiptsController(
         CancellationToken cancellationToken)
     {
         var receipt = mapper.Map<Receipt>(request);
+        
+        receipt.PartyId = request.CustomerId;
+        receipt.Method = request.PaymentMethod;
+        
+        receipt.Allocations = request.Allocations
+            .Select(x => new ReceiptAllocation
+            {
+                SalesInvoiceId = x.SalesInvoiceId,
+                AllocatedAmount = x.AllocatedAmount,
+                Description = x.Description
+            })
+            .ToList();
+        
+        
         var created = await accountingService.CreateReceiptAsync(receipt, cancellationToken);
 
         var dto = mapper.Map<ReceiptDto>(created);
