@@ -28,4 +28,10 @@ public class InvoiceLine: BaseEntity
 
     public int? PurchaseInvoiceId { get; set; }
     public PurchaseInvoice? PurchaseInvoice { get; set; }
+    
+    public int? SalesReturnId { get; set; }
+    public SalesReturn? SalesReturn { get; set; }
+
+    public int? PurchaseReturnId { get; set; }
+    public PurchaseReturn? PurchaseReturn { get; set; }
 }
