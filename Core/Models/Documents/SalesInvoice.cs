@@ -43,4 +43,6 @@ public class SalesInvoice: AuditableEntity
 
 
     public ICollection<InvoiceLine> Lines { get; set; } = new List<InvoiceLine>();
+    
+    public ICollection<ReceiptAllocation> ReceiptAllocations { get; set; } = new List<ReceiptAllocation>();
 }

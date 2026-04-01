@@ -37,4 +37,6 @@ public class PurchaseInvoice: AuditableEntity
     public JournalVoucher? JournalVoucher { get; set; }
 
     public ICollection<InvoiceLine> Lines { get; set; } = new List<InvoiceLine>();
+    
+    public ICollection<PaymentAllocation> PaymentAllocations { get; set; } = new List<PaymentAllocation>();
 }
