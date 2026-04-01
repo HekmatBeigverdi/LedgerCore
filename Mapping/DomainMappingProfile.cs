@@ -89,7 +89,8 @@ public class DomainMappingProfile : Profile
             .ForMember(d => d.CurrencyCode, m => m.MapFrom(s => s.Currency!.Code))
             .ForMember(d => d.BankAccountTitle, m => m.MapFrom(s => s.BankAccount!.Title))
             .ForMember(d => d.JournalVoucherNumber, m => m.MapFrom(s => s.JournalVoucher!.Number))
-            .ForMember(d => d.ReversalJournalVoucherNumber, m => m.MapFrom(s => s.ReversalJournalVoucher!.Number));
+            .ForMember(d => d.ReversalJournalVoucherNumber, m => m.MapFrom(s => s.ReversalJournalVoucher!.Number))
+            .ForMember(d => d.Allocations, m => m.MapFrom(s => s.Allocations));
 
 
         CreateMap<CreateReceiptRequest, Receipt>()
@@ -120,7 +121,8 @@ public class DomainMappingProfile : Profile
             .ForMember(d => d.CurrencyCode, m => m.MapFrom(s => s.Currency!.Code))
             .ForMember(d => d.BankAccountTitle, m => m.MapFrom(s => s.BankAccount!.Title))
             .ForMember(d => d.ReversalJournalVoucherNumber, m => m.MapFrom(s => s.ReversalJournalVoucher!.Number))
-            .ForMember(d => d.JournalVoucherNumber, m => m.MapFrom(s => s.JournalVoucher!.Number));
+            .ForMember(d => d.JournalVoucherNumber, m => m.MapFrom(s => s.JournalVoucher!.Number))
+            .ForMember(d => d.Allocations, m => m.MapFrom(s => s.Allocations));
 
 
 
