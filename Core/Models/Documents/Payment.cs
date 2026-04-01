@@ -39,4 +39,6 @@ public class Payment: AuditableEntity
     
     public int? ReversalJournalVoucherId { get; set; }
     public JournalVoucher? ReversalJournalVoucher { get; set; }
+    
+    public ICollection<PaymentAllocation> Allocations { get; set; } = new List<PaymentAllocation>();
 }

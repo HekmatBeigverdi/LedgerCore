@@ -39,4 +39,5 @@ public class Receipt: AuditableEntity
     
     public int? ReversalJournalVoucherId { get; set; }
     public JournalVoucher? ReversalJournalVoucher { get; set; }
+    public ICollection<ReceiptAllocation> Allocations { get; set; } = new List<ReceiptAllocation>();
 }
