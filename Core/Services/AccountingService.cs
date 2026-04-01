@@ -681,7 +681,7 @@ public class AccountingService(
         try
         {
             await ValidateReceiptAsync(receipt, cancellationToken);
-            await ValidateReceiptAllocationsAsync(receipt, cancellationToken);
+            await ValidateReceiptAllocationsAsync(receipt, null, cancellationToken);
             
             receipt.Number = await numberSeries.NextAsync(NumberSeriesKeys.Receipt, receipt.BranchId, cancellationToken);
             receipt.Status = DocumentStatus.Draft;
@@ -753,7 +753,8 @@ public class AccountingService(
         Receipt receipt,
         CancellationToken cancellationToken = default)
     {
-        var existing = await GetReceiptScopedOrThrowAsync(receipt.Id, cancellationToken);
+        var existing = await GetReceiptScopedWithAllocationsOrThrowAsync(receipt.Id, cancellationToken);
+
 
         if (existing.Status != DocumentStatus.Draft)
             throw new InvalidOperationException("Only draft receipts can be updated.");
@@ -773,6 +774,27 @@ public class AccountingService(
         existing.CashDeskCode = receipt.CashDeskCode;
         existing.ReferenceNo = receipt.ReferenceNo;
         existing.Description = receipt.Description;
+        
+        var existingAllocations = existing.Allocations.ToList();
+        if (existingAllocations.Count > 0)
+        {
+            uow.Repository<ReceiptAllocation>().RemoveRange(existingAllocations);
+        }
+
+        existing.Allocations.Clear();
+        
+        foreach (var allocation in receipt.Allocations)
+        {
+            existing.Allocations.Add(new ReceiptAllocation
+            {
+                SalesInvoiceId = allocation.SalesInvoiceId,
+                AllocatedAmount = allocation.AllocatedAmount,
+                Description = allocation.Description
+            });
+        }
+        
+        await ValidateReceiptAsync(existing, cancellationToken);
+        await ValidateReceiptAllocationsAsync(existing, existing.Id, cancellationToken);
 
         await ValidateReceiptAsync(existing, cancellationToken);
 
@@ -1361,10 +1383,10 @@ public class AccountingService(
         return adjustment;
     }
     // --------------------- Allocation Helpers ---------------------
-
     private async Task ValidateReceiptAllocationsAsync(
-    Receipt receipt,
-    CancellationToken cancellationToken)
+        Receipt receipt,
+        int? currentReceiptId,
+        CancellationToken cancellationToken)
     {
         if (receipt.Allocations is null || receipt.Allocations.Count == 0)
             return;
@@ -1372,11 +1394,11 @@ public class AccountingService(
         if (!receipt.PartyId.HasValue)
             throw new InvalidOperationException("Receipt allocations require PartyId.");
 
-        var allocationIds = receipt.Allocations
+        var allocationInvoiceIds = receipt.Allocations
             .Select(x => x.SalesInvoiceId)
             .ToList();
 
-        if (allocationIds.Count != allocationIds.Distinct().Count())
+        if (allocationInvoiceIds.Count != allocationInvoiceIds.Distinct().Count())
             throw new InvalidOperationException("Duplicate sales invoice ids found in receipt allocations.");
 
         if (receipt.Allocations.Any(x => x.AllocatedAmount <= 0))
@@ -1389,28 +1411,35 @@ public class AccountingService(
         var invoices = await uow.Repository<SalesInvoice>()
             .Query()
             .Include(x => x.ReceiptAllocations)
-            .Where(x => allocationIds.Contains(x.Id))
+            .Where(x => allocationInvoiceIds.Contains(x.Id))
             .ToListAsync(cancellationToken);
 
-        if (invoices.Count != allocationIds.Count)
+        if (invoices.Count != allocationInvoiceIds.Count)
             throw new InvalidOperationException("One or more sales invoices are invalid.");
 
         foreach (var invoice in invoices)
         {
             if (invoice.CustomerId != receipt.PartyId.Value)
-                throw new InvalidOperationException($"Sales invoice '{invoice.Number}' does not belong to the selected party.");
+                throw new InvalidOperationException(
+                    $"Sales invoice '{invoice.Number}' does not belong to the selected party.");
 
             if (invoice.Status == DocumentStatus.Cancelled)
-                throw new InvalidOperationException($"Cancelled sales invoice '{invoice.Number}' cannot be allocated.");
+                throw new InvalidOperationException(
+                    $"Cancelled sales invoice '{invoice.Number}' cannot be allocated.");
 
-            var alreadyAllocated = invoice.ReceiptAllocations.Sum(x => x.AllocatedAmount);
+            var alreadyAllocated = invoice.ReceiptAllocations
+                .Where(x => !currentReceiptId.HasValue || x.ReceiptId != currentReceiptId.Value)
+                .Sum(x => x.AllocatedAmount);
+
             var currentAllocated = receipt.Allocations
                 .Where(x => x.SalesInvoiceId == invoice.Id)
                 .Sum(x => x.AllocatedAmount);
 
             var openAmount = invoice.TotalAmount - alreadyAllocated;
+
             if (currentAllocated > openAmount)
-                throw new InvalidOperationException($"Allocation exceeds open amount for sales invoice '{invoice.Number}'.");
+                throw new InvalidOperationException(
+                    $"Allocation exceeds open amount for sales invoice '{invoice.Number}'.");
         }
     }
 }
