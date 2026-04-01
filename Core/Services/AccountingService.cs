@@ -911,15 +911,24 @@ public class AccountingService(
         try
         {
             await ValidatePaymentAsync(payment, cancellationToken);
+            await ValidatePaymentAllocationsAsync(payment, null, cancellationToken);
 
-            payment.Number = await numberSeries.NextAsync(NumberSeriesKeys.Payment, payment.BranchId, cancellationToken);
+            payment.Number = await numberSeries.NextAsync(
+                NumberSeriesKeys.Payment,
+                payment.BranchId,
+                cancellationToken);
+
             payment.Status = DocumentStatus.Draft;
 
             await uow.Payments.AddAsync(payment, cancellationToken);
             await uow.SaveChangesAsync(cancellationToken);
 
+            var savedPayment = await GetPaymentScopedWithAllocationsOrThrowAsync(
+                payment.Id,
+                cancellationToken);
+
             await uow.CommitTransactionAsync(cancellationToken);
-            return payment;
+            return savedPayment;
         }
         catch
         {
@@ -934,6 +943,34 @@ public class AccountingService(
         var payment = await uow.Payments.GetByIdAsync(id, ct);
         return payment != null && payment.BranchId == branchId ? payment : null;
     }
+    
+    private async Task<Payment?> GetPaymentScopedWithAllocationsAsync(int id, CancellationToken ct)
+    {
+        var branchId = GetBranchIdOrThrow();
+
+        var payment = await uow.Repository<Payment>()
+            .Query()
+            .Include(x => x.Party)
+            .Include(x => x.Branch)
+            .Include(x => x.Currency)
+            .Include(x => x.BankAccount)
+            .Include(x => x.JournalVoucher)
+            .Include(x => x.ReversalJournalVoucher)
+            .Include(x => x.Allocations)
+            .ThenInclude(x => x.PurchaseInvoice)
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
+
+        return payment != null && payment.BranchId == branchId ? payment : null;
+    }
+    
+    private async Task<Payment> GetPaymentScopedWithAllocationsOrThrowAsync(int id, CancellationToken ct)
+    {
+        var payment = await GetPaymentScopedWithAllocationsAsync(id, ct);
+        if (payment is null)
+            throw new InvalidOperationException($"Payment with id={id} not found.");
+
+        return payment;
+    }
 
     private async Task<Payment> GetPaymentScopedOrThrowAsync(int id, CancellationToken ct)
     {
@@ -946,13 +983,13 @@ public class AccountingService(
     public Task<Payment?> GetPaymentAsync(
         int id,
         CancellationToken cancellationToken = default)
-        => GetPaymentScopedAsync(id, cancellationToken);
+        => GetPaymentScopedWithAllocationsAsync(id, cancellationToken);
 
     public async Task<Payment> UpdatePaymentAsync(
         Payment payment,
         CancellationToken cancellationToken = default)
     {
-        var existing = await GetPaymentScopedOrThrowAsync(payment.Id, cancellationToken);
+        var existing = await GetPaymentScopedWithAllocationsOrThrowAsync(payment.Id, cancellationToken);
 
         if (existing.Status != DocumentStatus.Draft)
             throw new InvalidOperationException("Only draft payments can be updated.");
@@ -973,12 +1010,35 @@ public class AccountingService(
         existing.ReferenceNo = payment.ReferenceNo;
         existing.Description = payment.Description;
 
+        var existingAllocations = existing.Allocations.ToList();
+        if (existingAllocations.Count > 0)
+        {
+            uow.Repository<PaymentAllocation>().RemoveRange(existingAllocations);
+        }
+
+        existing.Allocations.Clear();
+
+        foreach (var allocation in payment.Allocations)
+        {
+            existing.Allocations.Add(new PaymentAllocation
+            {
+                PurchaseInvoiceId = allocation.PurchaseInvoiceId,
+                AllocatedAmount = allocation.AllocatedAmount,
+                Description = allocation.Description
+            });
+        }
+
         await ValidatePaymentAsync(existing, cancellationToken);
+        await ValidatePaymentAllocationsAsync(existing, existing.Id, cancellationToken);
 
         uow.Payments.Update(existing);
         await uow.SaveChangesAsync(cancellationToken);
 
-        return existing;
+        var savedPayment = await GetPaymentScopedWithAllocationsOrThrowAsync(
+            existing.Id,
+            cancellationToken);
+
+        return savedPayment;
     }
 
     public async Task PostPaymentAsync(
@@ -1132,6 +1192,66 @@ public class AccountingService(
                 throw new InvalidOperationException("CashDeskCode must be empty for bank payment.");
 
             await ValidateBankAccountAsync(payment.BankAccountId.Value, cancellationToken);
+        }
+    }
+    
+    private async Task ValidatePaymentAllocationsAsync(
+    Payment payment,
+    int? currentPaymentId,
+    CancellationToken cancellationToken)
+    {
+        if (payment.Allocations is null || payment.Allocations.Count == 0)
+            return;
+
+        if (!payment.PartyId.HasValue)
+            throw new InvalidOperationException("Payment allocations require PartyId.");
+
+        var allocationInvoiceIds = payment.Allocations
+            .Select(x => x.PurchaseInvoiceId)
+            .ToList();
+
+        if (allocationInvoiceIds.Count != allocationInvoiceIds.Distinct().Count())
+            throw new InvalidOperationException("Duplicate purchase invoice ids found in payment allocations.");
+
+        if (payment.Allocations.Any(x => x.AllocatedAmount <= 0))
+            throw new InvalidOperationException("AllocatedAmount must be greater than zero.");
+
+        var totalAllocated = payment.Allocations.Sum(x => x.AllocatedAmount);
+        if (totalAllocated > payment.Amount)
+            throw new InvalidOperationException("Total allocated amount cannot exceed payment amount.");
+
+        var invoices = await uow.Repository<PurchaseInvoice>()
+            .Query()
+            .Include(x => x.PaymentAllocations)
+            .Where(x => allocationInvoiceIds.Contains(x.Id))
+            .ToListAsync(cancellationToken);
+
+        if (invoices.Count != allocationInvoiceIds.Count)
+            throw new InvalidOperationException("One or more purchase invoices are invalid.");
+
+        foreach (var invoice in invoices)
+        {
+            if (invoice.SupplierId != payment.PartyId.Value)
+                throw new InvalidOperationException(
+                    $"Purchase invoice '{invoice.Number}' does not belong to the selected party.");
+
+            if (invoice.Status == DocumentStatus.Cancelled)
+                throw new InvalidOperationException(
+                    $"Cancelled purchase invoice '{invoice.Number}' cannot be allocated.");
+
+            var alreadyAllocated = invoice.PaymentAllocations
+                .Where(x => !currentPaymentId.HasValue || x.PaymentId != currentPaymentId.Value)
+                .Sum(x => x.AllocatedAmount);
+
+            var currentAllocated = payment.Allocations
+                .Where(x => x.PurchaseInvoiceId == invoice.Id)
+                .Sum(x => x.AllocatedAmount);
+
+            var openAmount = invoice.TotalAmount - alreadyAllocated;
+
+            if (currentAllocated > openAmount)
+                throw new InvalidOperationException(
+                    $"Allocation exceeds open amount for purchase invoice '{invoice.Number}'.");
         }
     }
 
