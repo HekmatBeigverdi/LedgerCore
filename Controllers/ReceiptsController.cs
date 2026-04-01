@@ -21,7 +21,7 @@ public class ReceiptsController(
     ICurrentBranchService currentBranch)
     : ControllerBase
 {
-    // GET api/receipts/{id}
+    // GET api/v1/receipts/{id}
     [HttpGet("{id:int}")]
     [HasPermission(PermissionCodes.Receipt_View)]
     public async Task<ActionResult<ReceiptDto>> Get(int id, CancellationToken cancellationToken)
@@ -34,7 +34,7 @@ public class ReceiptsController(
         return Ok(dto);
     }
 
-    // GET api/receipts?PageNumber=1&PageSize=20
+    // GET api/v1/receipts?PageNumber=1&PageSize=20
     [HttpGet]
     [HasPermission(PermissionCodes.Receipt_View)]
     public async Task<ActionResult<PagedResult<ReceiptDto>>> Query(
@@ -55,7 +55,7 @@ public class ReceiptsController(
         return Ok(dtoPage);
     }
 
-    // POST api/receipts
+    // POST api/v1/receipts
     [HttpPost]
     [HasPermission(PermissionCodes.Receipt_Create)]
     public async Task<ActionResult<ReceiptDto>> Create(
@@ -84,7 +84,7 @@ public class ReceiptsController(
             mapper.Map<ReceiptDto>(created));
     }
 
-    // PUT api/receipts/{id}
+    // PUT api/v1/receipts/{id}
     [HttpPut("{id:int}")]
     [HasPermission(PermissionCodes.Receipt_Edit)]
     public async Task<ActionResult<ReceiptDto>> Update(
@@ -112,7 +112,7 @@ public class ReceiptsController(
         return Ok(mapper.Map<ReceiptDto>(updated));
     }
 
-    // POST api/receipts/{id}/post
+    // POST api/v1/receipts/{id}/post
     [HttpPost("{id:int}/post")]
     [HasPermission(PermissionCodes.Receipt_Post)]
     public async Task<IActionResult> Post(int id, CancellationToken cancellationToken)
@@ -136,6 +136,4 @@ public class ReceiptsController(
 
         return Ok(mapper.Map<ReceiptDto>(receipt));
     }
-    
-
 }
