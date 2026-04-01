@@ -6,12 +6,14 @@ using LedgerCore.Core.Models.Documents;
 using LedgerCore.Core.Models.Security;
 using LedgerCore.Core.ViewModels.Documents;
 using LedgerCore.Core.ViewModels.ReceiptsPayments;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LedgerCore.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
+[Authorize]
 public class PaymentsController(
     IAccountingService accountingService,
     IUnitOfWork uow,
@@ -19,7 +21,7 @@ public class PaymentsController(
     ICurrentBranchService currentBranch)
     : ControllerBase
 {
-    // GET api/payments/{id}
+    // GET api/v1/payments/{id}
     [HttpGet("{id:int}")]
     [HasPermission(PermissionCodes.Payment_View)]
     public async Task<ActionResult<PaymentDto>> Get(int id, CancellationToken cancellationToken)
@@ -32,7 +34,7 @@ public class PaymentsController(
         return Ok(dto);
     }
 
-    // GET api/payments?PageNumber=1&PageSize=20
+    // GET api/v1/payments?PageNumber=1&PageSize=20
     [HttpGet]
     [HasPermission(PermissionCodes.Payment_View)]
     public async Task<ActionResult<PagedResult<PaymentDto>>> Query(
@@ -53,7 +55,7 @@ public class PaymentsController(
         return Ok(dtoPage);
     }
 
-    // POST api/payments
+    // POST api/v1/payments
     [HttpPost]
     [HasPermission(PermissionCodes.Payment_Create)]
     public async Task<ActionResult<PaymentDto>> Create(
@@ -61,13 +63,28 @@ public class PaymentsController(
         CancellationToken cancellationToken)
     {
         var payment = mapper.Map<Payment>(request);
+
+        payment.PartyId = request.SupplierId;
+        payment.Method = request.PaymentMethod;
+
+        payment.Allocations = (request.Allocations ?? [])
+            .Select(x => new PaymentAllocation
+            {
+                PurchaseInvoiceId = x.PurchaseInvoiceId,
+                AllocatedAmount = x.AllocatedAmount,
+                Description = x.Description
+            })
+            .ToList();
+
         var created = await accountingService.CreatePaymentAsync(payment, cancellationToken);
 
-        var dto = mapper.Map<PaymentDto>(created);
-        return CreatedAtAction(nameof(Get), new { id = dto.Id }, dto);
+        return CreatedAtAction(
+            nameof(Get),
+            new { id = created.Id },
+            mapper.Map<PaymentDto>(created));
     }
 
-    // PUT api/payments/{id}
+    // PUT api/v1/payments/{id}
     [HttpPut("{id:int}")]
     [HasPermission(PermissionCodes.Payment_Edit)]
     public async Task<ActionResult<PaymentDto>> Update(
@@ -75,18 +92,27 @@ public class PaymentsController(
         [FromBody] UpdatePaymentRequest request,
         CancellationToken cancellationToken)
     {
-        var existing = await accountingService.GetPaymentAsync(id, cancellationToken);
-        if (existing is null)
-            return NotFound();
+        var payment = mapper.Map<Payment>(request);
+        payment.Id = id;
 
-        mapper.Map(request, existing);
-        var updated = await accountingService.UpdatePaymentAsync(existing, cancellationToken);
+        payment.PartyId = request.SupplierId;
+        payment.Method = request.PaymentMethod;
 
-        var dto = mapper.Map<PaymentDto>(updated);
-        return Ok(dto);
+        payment.Allocations = (request.Allocations ?? [])
+            .Select(x => new PaymentAllocation
+            {
+                PurchaseInvoiceId = x.PurchaseInvoiceId,
+                AllocatedAmount = x.AllocatedAmount,
+                Description = x.Description
+            })
+            .ToList();
+
+        var updated = await accountingService.UpdatePaymentAsync(payment, cancellationToken);
+
+        return Ok(mapper.Map<PaymentDto>(updated));
     }
 
-    // POST api/payments/{id}/post
+    // POST api/v1/payments/{id}/post
     [HttpPost("{id:int}/post")]
     [HasPermission(PermissionCodes.Payment_Post)]
     public async Task<IActionResult> Post(int id, CancellationToken cancellationToken)
