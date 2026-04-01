@@ -15,5 +15,7 @@ public class InvoiceLineConfiguration : IEntityTypeConfiguration<InvoiceLine>
 
         builder.HasIndex(x => new { x.SalesInvoiceId, x.LineNumber });
         builder.HasIndex(x => new { x.PurchaseInvoiceId, x.LineNumber });
+        builder.HasIndex(x => new { x.SalesReturnId, x.LineNumber });
+        builder.HasIndex(x => new { x.PurchaseReturnId, x.LineNumber });
     }
 }
