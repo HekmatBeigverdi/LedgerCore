@@ -20,6 +20,9 @@ public class CreatePaymentRequest
     public int? ChequeId { get; set; }
 
     public string? Description { get; set; }
+    
+    public List<CreatePaymentAllocationRequest> Allocations { get; set; } = [];
+
 }
 
 public class UpdatePaymentRequest : CreatePaymentRequest

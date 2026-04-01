@@ -20,6 +20,8 @@ public class CreateReceiptRequest
     public int? ChequeId { get; set; }
 
     public string? Description { get; set; }
+    public List<CreateReceiptAllocationRequest> Allocations { get; set; } = [];
+
 }
 
 public class UpdateReceiptRequest : CreateReceiptRequest
