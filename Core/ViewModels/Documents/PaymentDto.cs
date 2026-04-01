@@ -52,5 +52,7 @@ public class PaymentDto
     
     public int? ReversalJournalVoucherId { get; set; }
     public string? ReversalJournalVoucherNumber { get; set; }
+    
+    public List<LedgerCore.Core.ViewModels.ReceiptsPayments.PaymentAllocationDto> Allocations { get; set; } = [];
 
 }
