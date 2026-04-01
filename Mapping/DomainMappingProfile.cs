@@ -419,5 +419,25 @@ public class DomainMappingProfile : Profile
         CreateMap<UpdatePayrollItemTypeRequest, PayrollItemType>()
             .ForMember(d => d.Id, m => m.Ignore());
         
+        // ===== ReceiptAllocation =====
+        CreateMap<ReceiptAllocation, ReceiptAllocationDto>()
+            .ForMember(d => d.SalesInvoiceNumber, m => m.MapFrom(s => s.SalesInvoice != null ? s.SalesInvoice.Number : null));
+
+        CreateMap<CreateReceiptAllocationRequest, ReceiptAllocation>()
+            .ForMember(d => d.Id, m => m.Ignore())
+            .ForMember(d => d.ReceiptId, m => m.Ignore())
+            .ForMember(d => d.Receipt, m => m.Ignore())
+            .ForMember(d => d.SalesInvoice, m => m.Ignore());
+
+        // ===== PaymentAllocation =====
+        CreateMap<PaymentAllocation, PaymentAllocationDto>()
+            .ForMember(d => d.PurchaseInvoiceNumber, m => m.MapFrom(s => s.PurchaseInvoice != null ? s.PurchaseInvoice.Number : null));
+
+        CreateMap<CreatePaymentAllocationRequest, PaymentAllocation>()
+            .ForMember(d => d.Id, m => m.Ignore())
+            .ForMember(d => d.PaymentId, m => m.Ignore())
+            .ForMember(d => d.Payment, m => m.Ignore())
+            .ForMember(d => d.PurchaseInvoice, m => m.Ignore());
+        
     }
 }
