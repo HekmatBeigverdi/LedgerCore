@@ -441,5 +441,64 @@ public class DomainMappingProfile : Profile
             .ForMember(d => d.Payment, m => m.Ignore())
             .ForMember(d => d.PurchaseInvoice, m => m.Ignore());
         
+        // ===== SalesReturn =====
+        CreateMap<SalesReturn, SalesReturnDto>()
+            .ForMember(d => d.CustomerCode, m => m.MapFrom(s => s.Customer!.Code))
+            .ForMember(d => d.CustomerName, m => m.MapFrom(s => s.Customer!.Name))
+            .ForMember(d => d.BranchName, m => m.MapFrom(s => s.Branch!.Name))
+            .ForMember(d => d.WarehouseName, m => m.MapFrom(s => s.Warehouse!.Name))
+            .ForMember(d => d.CurrencyCode, m => m.MapFrom(s => s.Currency!.Code));
+
+        CreateMap<CreateSalesReturnRequest, SalesReturn>()
+            .ForMember(d => d.Number, m => m.Ignore())
+            .ForMember(d => d.Lines, m => m.Ignore());
+
+        CreateMap<CreateSalesReturnLineRequest, InvoiceLine>()
+            .ForMember(d => d.Id, m => m.Ignore())
+            .ForMember(d => d.SalesInvoiceId, m => m.Ignore())
+            .ForMember(d => d.PurchaseInvoiceId, m => m.Ignore())
+            .ForMember(d => d.SalesReturnId, m => m.Ignore())
+            .ForMember(d => d.PurchaseReturnId, m => m.Ignore());
+
+        CreateMap<UpdateSalesReturnRequest, SalesReturn>()
+            .ForMember(d => d.Number, m => m.Ignore())
+            .ForMember(d => d.Lines, m => m.Ignore())
+            .ForMember(d => d.BranchId, m => m.Condition(src => src.BranchId.HasValue));
+
+        CreateMap<UpdateSalesReturnLineRequest, InvoiceLine>()
+            .ForMember(d => d.SalesInvoiceId, m => m.Ignore())
+            .ForMember(d => d.PurchaseInvoiceId, m => m.Ignore())
+            .ForMember(d => d.SalesReturnId, m => m.Ignore())
+            .ForMember(d => d.PurchaseReturnId, m => m.Ignore());
+
+        // ===== PurchaseReturn =====
+        CreateMap<PurchaseReturn, PurchaseReturnDto>()
+            .ForMember(d => d.SupplierCode, m => m.MapFrom(s => s.Supplier!.Code))
+            .ForMember(d => d.SupplierName, m => m.MapFrom(s => s.Supplier!.Name))
+            .ForMember(d => d.BranchName, m => m.MapFrom(s => s.Branch!.Name))
+            .ForMember(d => d.WarehouseName, m => m.MapFrom(s => s.Warehouse!.Name))
+            .ForMember(d => d.CurrencyCode, m => m.MapFrom(s => s.Currency!.Code));
+
+        CreateMap<CreatePurchaseReturnRequest, PurchaseReturn>()
+            .ForMember(d => d.Number, m => m.Ignore())
+            .ForMember(d => d.Lines, m => m.Ignore());
+
+        CreateMap<CreatePurchaseReturnLineRequest, InvoiceLine>()
+            .ForMember(d => d.Id, m => m.Ignore())
+            .ForMember(d => d.SalesInvoiceId, m => m.Ignore())
+            .ForMember(d => d.PurchaseInvoiceId, m => m.Ignore())
+            .ForMember(d => d.SalesReturnId, m => m.Ignore())
+            .ForMember(d => d.PurchaseReturnId, m => m.Ignore());
+
+        CreateMap<UpdatePurchaseReturnRequest, PurchaseReturn>()
+            .ForMember(d => d.Number, m => m.Ignore())
+            .ForMember(d => d.Lines, m => m.Ignore())
+            .ForMember(d => d.BranchId, m => m.Condition(src => src.BranchId.HasValue));
+
+        CreateMap<UpdatePurchaseReturnLineRequest, InvoiceLine>()
+            .ForMember(d => d.SalesInvoiceId, m => m.Ignore())
+            .ForMember(d => d.PurchaseInvoiceId, m => m.Ignore())
+            .ForMember(d => d.SalesReturnId, m => m.Ignore())
+            .ForMember(d => d.PurchaseReturnId, m => m.Ignore());
     }
 }
