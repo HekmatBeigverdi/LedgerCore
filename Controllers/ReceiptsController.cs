@@ -6,12 +6,14 @@ using LedgerCore.Core.Models.Documents;
 using LedgerCore.Core.Models.Security;
 using LedgerCore.Core.ViewModels.Documents;
 using LedgerCore.Core.ViewModels.ReceiptsPayments;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LedgerCore.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
+[Authorize]
 public class ReceiptsController(
     IAccountingService accountingService,
     IUnitOfWork uow,
@@ -61,11 +63,11 @@ public class ReceiptsController(
         CancellationToken cancellationToken)
     {
         var receipt = mapper.Map<Receipt>(request);
-        
+
         receipt.PartyId = request.CustomerId;
         receipt.Method = request.PaymentMethod;
-        
-        receipt.Allocations = request.Allocations
+
+        receipt.Allocations = (request.Allocations ?? [])
             .Select(x => new ReceiptAllocation
             {
                 SalesInvoiceId = x.SalesInvoiceId,
@@ -73,12 +75,13 @@ public class ReceiptsController(
                 Description = x.Description
             })
             .ToList();
-        
-        
+
         var created = await accountingService.CreateReceiptAsync(receipt, cancellationToken);
 
-        var dto = mapper.Map<ReceiptDto>(created);
-        return CreatedAtAction(nameof(Get), new { id = dto.Id }, dto);
+        return CreatedAtAction(
+            nameof(Get),
+            new { id = created.Id },
+            mapper.Map<ReceiptDto>(created));
     }
 
     // PUT api/receipts/{id}
@@ -89,15 +92,24 @@ public class ReceiptsController(
         [FromBody] UpdateReceiptRequest request,
         CancellationToken cancellationToken)
     {
-        var existing = await accountingService.GetReceiptAsync(id, cancellationToken);
-        if (existing is null)
-            return NotFound();
+        var receipt = mapper.Map<Receipt>(request);
+        receipt.Id = id;
 
-        mapper.Map(request, existing);
-        var updated = await accountingService.UpdateReceiptAsync(existing, cancellationToken);
+        receipt.PartyId = request.CustomerId;
+        receipt.Method = request.PaymentMethod;
 
-        var dto = mapper.Map<ReceiptDto>(updated);
-        return Ok(dto);
+        receipt.Allocations = (request.Allocations ?? [])
+            .Select(x => new ReceiptAllocation
+            {
+                SalesInvoiceId = x.SalesInvoiceId,
+                AllocatedAmount = x.AllocatedAmount,
+                Description = x.Description
+            })
+            .ToList();
+
+        var updated = await accountingService.UpdateReceiptAsync(receipt, cancellationToken);
+
+        return Ok(mapper.Map<ReceiptDto>(updated));
     }
 
     // POST api/receipts/{id}/post
