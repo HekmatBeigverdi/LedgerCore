@@ -25,4 +25,23 @@ public interface IInvoiceRepository
     Task<PagedResult<PurchaseInvoice>> QueryPurchaseAsync(int branchId, PagingParams? paging = null,
         Expression<Func<PurchaseInvoice, bool>>? predicate = null,
         CancellationToken cancellationToken = default);
+    
+    Task<SalesReturn?> GetSalesReturnWithLinesAsync(int id, CancellationToken cancellationToken = default);
+    Task<PurchaseReturn?> GetPurchaseReturnWithLinesAsync(int id, CancellationToken cancellationToken = default);
+
+    Task AddSalesReturnAsync(SalesReturn document, CancellationToken cancellationToken = default);
+    Task AddPurchaseReturnAsync(PurchaseReturn document, CancellationToken cancellationToken = default);
+
+    void UpdateSalesReturn(SalesReturn document);
+    void UpdatePurchaseReturn(PurchaseReturn document);
+
+    Task<PagedResult<SalesReturn>> QuerySalesReturnsAsync(
+        PagingParams? paging = null,
+        Expression<Func<SalesReturn, bool>>? predicate = null,
+        CancellationToken cancellationToken = default);
+
+    Task<PagedResult<PurchaseReturn>> QueryPurchaseReturnsAsync(
+        PagingParams? paging = null,
+        Expression<Func<PurchaseReturn, bool>>? predicate = null,
+        CancellationToken cancellationToken = default);
 }
