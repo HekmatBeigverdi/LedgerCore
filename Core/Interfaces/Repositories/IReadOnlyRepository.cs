@@ -9,6 +9,7 @@ namespace LedgerCore.Core.Interfaces.Repositories;
 /// </summary>
 public interface IReadOnlyRepository<TEntity> where TEntity : BaseEntity
 {
+    IQueryable<TEntity> Query();
     Task<TEntity?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
 
     /// <summary>

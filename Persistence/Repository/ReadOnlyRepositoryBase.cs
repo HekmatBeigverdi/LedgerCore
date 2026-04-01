@@ -38,4 +38,9 @@ public class ReadOnlyRepositoryBase<TEntity>(LedgerCoreDbContext context) : IRea
     {
         return await DbSet.AnyAsync(predicate, cancellationToken);
     }
+    
+    public virtual IQueryable<TEntity> Query()
+    {
+        return DbSet.AsQueryable();
+    }
 }
