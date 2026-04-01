@@ -48,6 +48,8 @@ public class LedgerCoreDbContext(DbContextOptions<LedgerCoreDbContext> options) 
     // Documents
     public DbSet<SalesInvoice> SalesInvoices => Set<SalesInvoice>();
     public DbSet<PurchaseInvoice> PurchaseInvoices => Set<PurchaseInvoice>();
+    public DbSet<SalesReturn> SalesReturns => Set<SalesReturn>();
+    public DbSet<PurchaseReturn> PurchaseReturns => Set<PurchaseReturn>();
     public DbSet<InvoiceLine> InvoiceLines => Set<InvoiceLine>();
     public DbSet<Receipt> Receipts => Set<Receipt>();
     public DbSet<Payment> Payments => Set<Payment>();
