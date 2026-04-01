@@ -54,6 +54,8 @@ public class LedgerCoreDbContext(DbContextOptions<LedgerCoreDbContext> options) 
     public DbSet<CashTransfer> CashTransfers => Set<CashTransfer>();
     public DbSet<Cheque> Cheques => Set<Cheque>();
     public DbSet<ChequeHistory> ChequeHistories => Set<ChequeHistory>();
+    public DbSet<ReceiptAllocation> ReceiptAllocations => Set<ReceiptAllocation>();
+    public DbSet<PaymentAllocation> PaymentAllocations => Set<PaymentAllocation>();
 
     // Assets
     public DbSet<AssetCategory> AssetCategories => Set<AssetCategory>();
