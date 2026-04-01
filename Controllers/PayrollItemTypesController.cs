@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace LedgerCore.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/v1/[controller]")]
 public class PayrollItemTypesController(IUnitOfWork uow, IMapper mapper) : ControllerBase
 {
     [HttpGet("{id:int}")]

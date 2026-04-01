@@ -5,18 +5,22 @@ using LedgerCore.Core.Models.Master;
 using LedgerCore.Core.Models.Payroll;
 using LedgerCore.Core.ViewModels.Payroll;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace LedgerCore.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/v1/[controller]")]
 public class EmployeesController(IUnitOfWork uow, IMapper mapper) : ControllerBase
 {
     [HttpGet("{id:int}")]
     public async Task<ActionResult<EmployeeDto>> Get(int id, CancellationToken cancellationToken)
     {
         var entity = await uow.Repository<Employee>()
-            .GetByIdAsync(id, cancellationToken);
+            .Query()
+            .Include(x => x.Branch)
+            .Include(x => x.CostCenter)
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
         if (entity is null)
             return NotFound();
@@ -29,12 +33,17 @@ public class EmployeesController(IUnitOfWork uow, IMapper mapper) : ControllerBa
         [FromQuery] PagingParams paging,
         CancellationToken cancellationToken)
     {
-        var result = await uow.Repository<Employee>()
-            .GetAllAsync(paging, cancellationToken);
+        var result = await uow.Repository<Employee>().GetAllAsync(paging, cancellationToken);
+        var ids = result.Items.Select(x => x.Id).ToList();
 
-        var items = result.Items
-            .Select(mapper.Map<EmployeeDto>)
-            .ToList();
+        var fullItems = await uow.Repository<Employee>()
+            .Query()
+            .Include(x => x.Branch)
+            .Include(x => x.CostCenter)
+            .Where(x => ids.Contains(x.Id))
+            .ToListAsync(cancellationToken);
+
+        var items = fullItems.Select(mapper.Map<EmployeeDto>).ToList();
 
         return Ok(new PagedResult<EmployeeDto>(
             items,
@@ -70,7 +79,10 @@ public class EmployeesController(IUnitOfWork uow, IMapper mapper) : ControllerBa
         await uow.SaveChangesAsync(cancellationToken);
 
         var saved = await uow.Repository<Employee>()
-            .GetByIdAsync(entity.Id, cancellationToken);
+            .Query()
+            .Include(x => x.Branch)
+            .Include(x => x.CostCenter)
+            .FirstAsync(x => x.Id == entity.Id, cancellationToken);
 
         return CreatedAtAction(nameof(Get), new { id = entity.Id }, mapper.Map<EmployeeDto>(saved));
     }
@@ -107,7 +119,11 @@ public class EmployeesController(IUnitOfWork uow, IMapper mapper) : ControllerBa
         repo.Update(entity);
         await uow.SaveChangesAsync(cancellationToken);
 
-        var saved = await repo.GetByIdAsync(entity.Id, cancellationToken);
+        var saved = await uow.Repository<Employee>()
+            .Query()
+            .Include(x => x.Branch)
+            .Include(x => x.CostCenter)
+            .FirstAsync(x => x.Id == entity.Id, cancellationToken);
 
         return Ok(mapper.Map<EmployeeDto>(saved));
     }
@@ -158,10 +174,7 @@ public class EmployeesController(IUnitOfWork uow, IMapper mapper) : ControllerBa
         var normalizedCode = personnelCode.Trim().ToUpperInvariant();
 
         var duplicate = await uow.Repository<Employee>()
-            .AnyAsync(
-                x => x.PersonnelCode == normalizedCode &&
-                     (!currentId.HasValue || x.Id != currentId.Value),
-                cancellationToken);
+            .AnyAsync(x => x.PersonnelCode == normalizedCode && (!currentId.HasValue || x.Id != currentId.Value), cancellationToken);
 
         if (duplicate)
             return BadRequest("PersonnelCode already exists.");

@@ -4,18 +4,22 @@ using LedgerCore.Core.Models.Common;
 using LedgerCore.Core.Models.Master;
 using LedgerCore.Core.ViewModels.Masters;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace LedgerCore.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/v1/[controller]")]
 public class BankAccountsController(IUnitOfWork uow, IMapper mapper) : ControllerBase
 {
     [HttpGet("{id:int}")]
     public async Task<ActionResult<BankAccountDto>> Get(int id, CancellationToken cancellationToken)
     {
         var entity = await uow.Repository<BankAccount>()
-            .GetByIdAsync(id, cancellationToken);
+            .Query()
+            .Include(x => x.Bank)
+            .Include(x => x.Currency)
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
         if (entity is null)
             return NotFound();
@@ -28,12 +32,17 @@ public class BankAccountsController(IUnitOfWork uow, IMapper mapper) : Controlle
         [FromQuery] PagingParams paging,
         CancellationToken cancellationToken)
     {
-        var result = await uow.Repository<BankAccount>()
-            .GetAllAsync(paging, cancellationToken);
+        var result = await uow.Repository<BankAccount>().GetAllAsync(paging, cancellationToken);
+        var ids = result.Items.Select(x => x.Id).ToList();
 
-        var items = result.Items
-            .Select(mapper.Map<BankAccountDto>)
-            .ToList();
+        var fullItems = await uow.Repository<BankAccount>()
+            .Query()
+            .Include(x => x.Bank)
+            .Include(x => x.Currency)
+            .Where(x => ids.Contains(x.Id))
+            .ToListAsync(cancellationToken);
+
+        var items = fullItems.Select(mapper.Map<BankAccountDto>).ToList();
 
         return Ok(new PagedResult<BankAccountDto>(
             items,
@@ -60,18 +69,17 @@ public class BankAccountsController(IUnitOfWork uow, IMapper mapper) : Controlle
 
         var entity = mapper.Map<BankAccount>(request);
         entity.AccountNumber = request.AccountNumber.Trim();
-        entity.Iban = string.IsNullOrWhiteSpace(request.Iban)
-            ? null
-            : request.Iban.Trim().Replace(" ", "").ToUpperInvariant();
-        entity.Title = string.IsNullOrWhiteSpace(request.Title)
-            ? null
-            : request.Title.Trim();
+        entity.Iban = string.IsNullOrWhiteSpace(request.Iban) ? null : request.Iban.Trim().Replace(" ", "").ToUpperInvariant();
+        entity.Title = string.IsNullOrWhiteSpace(request.Title) ? null : request.Title.Trim();
 
         await uow.Repository<BankAccount>().AddAsync(entity, cancellationToken);
         await uow.SaveChangesAsync(cancellationToken);
 
         var saved = await uow.Repository<BankAccount>()
-            .GetByIdAsync(entity.Id, cancellationToken);
+            .Query()
+            .Include(x => x.Bank)
+            .Include(x => x.Currency)
+            .FirstAsync(x => x.Id == entity.Id, cancellationToken);
 
         return CreatedAtAction(nameof(Get), new { id = entity.Id }, mapper.Map<BankAccountDto>(saved));
     }
@@ -100,17 +108,17 @@ public class BankAccountsController(IUnitOfWork uow, IMapper mapper) : Controlle
 
         mapper.Map(request, entity);
         entity.AccountNumber = request.AccountNumber.Trim();
-        entity.Iban = string.IsNullOrWhiteSpace(request.Iban)
-            ? null
-            : request.Iban.Trim().Replace(" ", "").ToUpperInvariant();
-        entity.Title = string.IsNullOrWhiteSpace(request.Title)
-            ? null
-            : request.Title.Trim();
+        entity.Iban = string.IsNullOrWhiteSpace(request.Iban) ? null : request.Iban.Trim().Replace(" ", "").ToUpperInvariant();
+        entity.Title = string.IsNullOrWhiteSpace(request.Title) ? null : request.Title.Trim();
 
         repo.Update(entity);
         await uow.SaveChangesAsync(cancellationToken);
 
-        var saved = await repo.GetByIdAsync(entity.Id, cancellationToken);
+        var saved = await uow.Repository<BankAccount>()
+            .Query()
+            .Include(x => x.Bank)
+            .Include(x => x.Currency)
+            .FirstAsync(x => x.Id == entity.Id, cancellationToken);
 
         return Ok(mapper.Map<BankAccountDto>(saved));
     }

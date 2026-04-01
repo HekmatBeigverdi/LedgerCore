@@ -5,18 +5,21 @@ using LedgerCore.Core.Models.Common;
 using LedgerCore.Core.Models.Payroll;
 using LedgerCore.Core.ViewModels.Payroll;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace LedgerCore.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/v1/[controller]")]
 public class PayrollPeriodsController(IUnitOfWork uow, IMapper mapper) : ControllerBase
 {
     [HttpGet("{id:int}")]
     public async Task<ActionResult<PayrollPeriodDto>> Get(int id, CancellationToken cancellationToken)
     {
         var entity = await uow.Repository<PayrollPeriod>()
-            .GetByIdAsync(id, cancellationToken);
+            .Query()
+            .Include(x => x.FiscalPeriod)
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
         if (entity is null)
             return NotFound();
@@ -29,12 +32,17 @@ public class PayrollPeriodsController(IUnitOfWork uow, IMapper mapper) : Control
         [FromQuery] PagingParams paging,
         CancellationToken cancellationToken)
     {
-        var result = await uow.Repository<PayrollPeriod>()
-            .GetAllAsync(paging, cancellationToken);
+        var result = await uow.Repository<PayrollPeriod>().GetAllAsync(paging, cancellationToken);
+        var ids = result.Items.Select(x => x.Id).ToList();
 
-        var items = result.Items
-            .Select(mapper.Map<PayrollPeriodDto>)
-            .ToList();
+        var fullItems = await uow.Repository<PayrollPeriod>()
+            .Query()
+            .Include(x => x.FiscalPeriod)
+            .Where(x => ids.Contains(x.Id))
+            .OrderByDescending(x => x.StartDate)
+            .ToListAsync(cancellationToken);
+
+        var items = fullItems.Select(mapper.Map<PayrollPeriodDto>).ToList();
 
         return Ok(new PagedResult<PayrollPeriodDto>(
             items,
@@ -70,7 +78,9 @@ public class PayrollPeriodsController(IUnitOfWork uow, IMapper mapper) : Control
         await uow.SaveChangesAsync(cancellationToken);
 
         var saved = await uow.Repository<PayrollPeriod>()
-            .GetByIdAsync(entity.Id, cancellationToken);
+            .Query()
+            .Include(x => x.FiscalPeriod)
+            .FirstAsync(x => x.Id == entity.Id, cancellationToken);
 
         return CreatedAtAction(nameof(Get), new { id = entity.Id }, mapper.Map<PayrollPeriodDto>(saved));
     }
@@ -113,7 +123,10 @@ public class PayrollPeriodsController(IUnitOfWork uow, IMapper mapper) : Control
         repo.Update(entity);
         await uow.SaveChangesAsync(cancellationToken);
 
-        var saved = await repo.GetByIdAsync(entity.Id, cancellationToken);
+        var saved = await uow.Repository<PayrollPeriod>()
+            .Query()
+            .Include(x => x.FiscalPeriod)
+            .FirstAsync(x => x.Id == entity.Id, cancellationToken);
 
         return Ok(mapper.Map<PayrollPeriodDto>(saved));
     }
@@ -157,19 +170,16 @@ public class PayrollPeriodsController(IUnitOfWork uow, IMapper mapper) : Control
         var normalizedCode = code.Trim().ToUpperInvariant();
 
         var duplicateCode = await uow.Repository<PayrollPeriod>()
-            .AnyAsync(
-                x => x.Code == normalizedCode &&
-                     (!currentId.HasValue || x.Id != currentId.Value),
-                cancellationToken);
+            .AnyAsync(x => x.Code == normalizedCode && (!currentId.HasValue || x.Id != currentId.Value), cancellationToken);
 
         if (duplicateCode)
             return BadRequest("Code already exists.");
 
         var overlap = await uow.Repository<PayrollPeriod>()
-            .AnyAsync(
-                x => (!currentId.HasValue || x.Id != currentId.Value) &&
-                     x.StartDate.Date <= endDate.Date &&
-                     x.EndDate.Date >= startDate.Date,
+            .AnyAsync(x =>
+                (!currentId.HasValue || x.Id != currentId.Value) &&
+                x.StartDate.Date <= endDate.Date &&
+                x.EndDate.Date >= startDate.Date,
                 cancellationToken);
 
         if (overlap)
@@ -177,9 +187,7 @@ public class PayrollPeriodsController(IUnitOfWork uow, IMapper mapper) : Control
 
         if (fiscalPeriodId.HasValue)
         {
-            var fiscalPeriod = await uow.Repository<FiscalPeriod>()
-                .GetByIdAsync(fiscalPeriodId.Value, cancellationToken);
-
+            var fiscalPeriod = await uow.Repository<FiscalPeriod>().GetByIdAsync(fiscalPeriodId.Value, cancellationToken);
             if (fiscalPeriod is null)
                 return BadRequest("FiscalPeriodId is invalid.");
 

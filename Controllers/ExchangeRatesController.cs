@@ -4,18 +4,21 @@ using LedgerCore.Core.Models.Common;
 using LedgerCore.Core.Models.Master;
 using LedgerCore.Core.ViewModels.Masters;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace LedgerCore.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/v1/[controller]")]
 public class ExchangeRatesController(IUnitOfWork uow, IMapper mapper) : ControllerBase
 {
     [HttpGet("{id:int}")]
     public async Task<ActionResult<ExchangeRateDto>> Get(int id, CancellationToken cancellationToken)
     {
         var entity = await uow.Repository<ExchangeRate>()
-            .GetByIdAsync(id, cancellationToken);
+            .Query()
+            .Include(x => x.Currency)
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
         if (entity is null)
             return NotFound();
@@ -31,9 +34,16 @@ public class ExchangeRatesController(IUnitOfWork uow, IMapper mapper) : Controll
         var result = await uow.Repository<ExchangeRate>()
             .GetAllAsync(paging, cancellationToken);
 
-        var items = result.Items
-            .Select(mapper.Map<ExchangeRateDto>)
-            .ToList();
+        var ids = result.Items.Select(x => x.Id).ToList();
+
+        var fullItems = await uow.Repository<ExchangeRate>()
+            .Query()
+            .Include(x => x.Currency)
+            .Where(x => ids.Contains(x.Id))
+            .OrderByDescending(x => x.RateDate)
+            .ToListAsync(cancellationToken);
+
+        var items = fullItems.Select(mapper.Map<ExchangeRateDto>).ToList();
 
         return Ok(new PagedResult<ExchangeRateDto>(
             items,
@@ -58,7 +68,9 @@ public class ExchangeRatesController(IUnitOfWork uow, IMapper mapper) : Controll
         await uow.SaveChangesAsync(cancellationToken);
 
         var saved = await uow.Repository<ExchangeRate>()
-            .GetByIdAsync(entity.Id, cancellationToken);
+            .Query()
+            .Include(x => x.Currency)
+            .FirstAsync(x => x.Id == entity.Id, cancellationToken);
 
         return CreatedAtAction(nameof(Get), new { id = entity.Id }, mapper.Map<ExchangeRateDto>(saved));
     }
@@ -84,7 +96,10 @@ public class ExchangeRatesController(IUnitOfWork uow, IMapper mapper) : Controll
         repo.Update(entity);
         await uow.SaveChangesAsync(cancellationToken);
 
-        var saved = await repo.GetByIdAsync(entity.Id, cancellationToken);
+        var saved = await uow.Repository<ExchangeRate>()
+            .Query()
+            .Include(x => x.Currency)
+            .FirstAsync(x => x.Id == entity.Id, cancellationToken);
 
         return Ok(mapper.Map<ExchangeRateDto>(saved));
     }
