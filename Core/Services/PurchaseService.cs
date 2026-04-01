@@ -71,6 +71,159 @@ public class PurchaseService(
         var branchId = currentBranch.GetRequiredBranchId();
         return uow.Invoices.GetPurchaseInvoiceWithLinesAsync(id, branchId, cancellationToken);
     }
+    
+    public async Task<PurchaseReturn?> GetPurchaseReturnAsync(
+        int id,
+        CancellationToken cancellationToken = default)
+    {
+        var branchId = currentBranch.GetRequiredBranchId();
+
+        var doc = await uow.Invoices.GetPurchaseReturnWithLinesAsync(id, cancellationToken);
+        return doc is not null && doc.BranchId == branchId ? doc : null;
+    }
+    
+    public async Task<PurchaseReturn> CreatePurchaseReturnAsync(
+        PurchaseReturn document,
+        CancellationToken cancellationToken = default)
+    {
+        var currentBranchId = currentBranch.GetRequiredBranchId();
+
+        if (document.BranchId == 0)
+            document.BranchId = currentBranchId;
+        else if (document.BranchId != currentBranchId)
+            throw new InvalidOperationException("BranchId is not valid for current branch scope.");
+
+        await uow.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            _ = await GetOpenFiscalPeriodIdAsync(document.Date, cancellationToken);
+            ValidateInvoiceDates(document.Date, document.DueDate);
+
+            await ValidateSupplierAsync(document.SupplierId, cancellationToken);
+            await ValidateWarehouseIfSetAsync(document.WarehouseId, document.BranchId, cancellationToken);
+
+            await CalculatePurchaseReturnLinesAndTotalsAsync(document, cancellationToken);
+
+            if (string.IsNullOrWhiteSpace(document.Number))
+            {
+                document.Number = await numberSeries.NextAsync(
+                    NumberSeriesKeys.PurchaseReturn,
+                    document.BranchId,
+                    cancellationToken);
+            }
+
+            document.Status = DocumentStatus.Draft;
+
+            await uow.Invoices.AddPurchaseReturnAsync(document, cancellationToken);
+            await uow.SaveChangesAsync(cancellationToken);
+
+            await uow.CommitTransactionAsync(cancellationToken);
+            return document;
+        }
+        catch
+        {
+            await uow.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
+    }
+    
+    public async Task<PurchaseReturn> UpdatePurchaseReturnAsync(
+        PurchaseReturn document,
+        CancellationToken cancellationToken = default)
+    {
+        var branchId = currentBranch.GetRequiredBranchId();
+
+        var existing = await uow.Invoices.GetPurchaseReturnWithLinesAsync(document.Id, cancellationToken);
+        if (existing is null || existing.BranchId != branchId)
+            throw new InvalidOperationException($"PurchaseReturn with id={document.Id} not found.");
+
+        if (existing.Status != DocumentStatus.Draft)
+            throw new InvalidOperationException("Only draft purchase returns can be updated.");
+
+        _ = await GetOpenFiscalPeriodIdAsync(document.Date, cancellationToken);
+        ValidateInvoiceDates(document.Date, document.DueDate);
+
+        existing.Date = document.Date;
+        existing.DueDate = document.DueDate;
+        existing.SupplierId = document.SupplierId;
+
+        if (document.BranchId != 0 && document.BranchId != branchId)
+            throw new InvalidOperationException("BranchId cannot be changed across branches.");
+
+        existing.WarehouseId = document.WarehouseId;
+        existing.CurrencyId = document.CurrencyId;
+        existing.FxRate = document.FxRate;
+
+        existing.Lines.Clear();
+        foreach (var line in document.Lines)
+        {
+            existing.Lines.Add(new InvoiceLine
+            {
+                LineNumber = line.LineNumber,
+                Description = line.Description,
+                ProductId = line.ProductId,
+                Quantity = line.Quantity,
+                UnitPrice = line.UnitPrice,
+                Discount = line.Discount,
+                TaxRateId = line.TaxRateId
+            });
+        }
+
+        await CalculatePurchaseReturnLinesAndTotalsAsync(existing, cancellationToken);
+        await ValidateWarehouseIfSetAsync(existing.WarehouseId, existing.BranchId, cancellationToken);
+
+        uow.Invoices.UpdatePurchaseReturn(existing);
+        await uow.SaveChangesAsync(cancellationToken);
+
+        return existing;
+    }
+    public async Task PostPurchaseReturnAsync(
+        int documentId,
+        CancellationToken cancellationToken = default)
+    {
+        var branchId = currentBranch.GetRequiredBranchId();
+
+        await uow.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            var document = await uow.Invoices.GetPurchaseReturnWithLinesAsync(documentId, cancellationToken);
+            if (document is null || document.BranchId != branchId)
+                throw new InvalidOperationException($"PurchaseReturn with id={documentId} not found.");
+
+            if (document.Status == DocumentStatus.Posted)
+                return;
+
+            if (document.Status == DocumentStatus.Cancelled)
+                throw new InvalidOperationException("Cancelled purchase return cannot be posted.");
+
+            if (document.Status == DocumentStatus.Pending)
+                throw new InvalidOperationException("Pending purchase return must be approved before posting.");
+
+            if (document.Status != DocumentStatus.Approved)
+                throw new InvalidOperationException("Only approved purchase returns can be posted.");
+
+            _ = await GetOpenFiscalPeriodIdAsync(document.Date, cancellationToken);
+            ValidateInvoiceDates(document.Date, document.DueDate);
+
+            await PostPurchaseReturnToInventoryAsync(document, cancellationToken);
+            var journal = await PostPurchaseReturnToAccountingAsync(document, cancellationToken);
+
+            document.Status = DocumentStatus.Posted;
+            document.JournalVoucherId = journal.Id;
+
+            uow.Invoices.UpdatePurchaseReturn(document);
+            await uow.SaveChangesAsync(cancellationToken);
+
+            await uow.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await uow.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
+    }
 
     public async Task<PurchaseInvoice> UpdatePurchaseInvoiceAsync(
         PurchaseInvoice invoice,
@@ -299,6 +452,49 @@ public class PurchaseService(
         invoice.TotalTaxAmount = totalTax;
         invoice.TotalAmount = totalNet + totalTax;
     }
+    
+    private async Task CalculatePurchaseReturnLinesAndTotalsAsync(
+        PurchaseReturn document,
+        CancellationToken cancellationToken)
+    {
+        decimal totalNet = 0m;
+        decimal totalDiscount = 0m;
+        decimal totalTax = 0m;
+
+        var taxRateRepo = uow.Repository<TaxRate>();
+        var productRepo = uow.Products;
+
+        foreach (var line in document.Lines)
+        {
+            var product = await productRepo.GetByIdAsync(line.ProductId, cancellationToken)
+                          ?? throw new InvalidOperationException($"Product with id={line.ProductId} not found.");
+
+            if (line.TaxRateId is null && product.DefaultTaxRateId is not null)
+                line.TaxRateId = product.DefaultTaxRateId;
+
+            decimal taxPercent = 0m;
+            if (line.TaxRateId is not null)
+            {
+                var taxRate = await taxRateRepo.GetByIdAsync(line.TaxRateId.Value, cancellationToken)
+                              ?? throw new InvalidOperationException($"TaxRate with id={line.TaxRateId} not found.");
+                taxPercent = taxRate.RatePercent;
+            }
+
+            var gross = line.Quantity * line.UnitPrice;
+            line.NetAmount = gross - line.Discount;
+            line.TaxAmount = Math.Round(line.NetAmount * taxPercent / 100m, 2);
+            line.TotalAmount = line.NetAmount + line.TaxAmount;
+
+            totalNet += line.NetAmount;
+            totalDiscount += line.Discount;
+            totalTax += line.TaxAmount;
+        }
+
+        document.TotalNetAmount = totalNet;
+        document.TotalDiscount = totalDiscount;
+        document.TotalTaxAmount = totalTax;
+        document.TotalAmount = totalNet + totalTax;
+    }
 
     /// <summary>
     /// افزایش موجودی انبار و محاسبه‌ی متوسط قیمت تمام‌شده.
@@ -361,6 +557,43 @@ public class PurchaseService(
         }
     }
 
+    private async Task PostPurchaseReturnToInventoryAsync(
+        PurchaseReturn document,
+        CancellationToken cancellationToken)
+    {
+        if (document.WarehouseId is null)
+            return;
+
+        foreach (var line in document.Lines)
+        {
+            var stockItem = await uow.Stock.GetStockItemAsync(document.WarehouseId.Value, line.ProductId, cancellationToken);
+            if (stockItem is null)
+                throw new InvalidOperationException(
+                    $"StockItem not found (warehouseId={document.WarehouseId.Value}, productId={line.ProductId}).");
+
+            if (stockItem.OnHand < line.Quantity)
+                throw new InvalidOperationException(
+                    $"Insufficient stock for productId={line.ProductId} in warehouseId={document.WarehouseId.Value}.");
+
+            stockItem.OnHand -= line.Quantity;
+            uow.Stock.UpdateStockItem(stockItem);
+
+            var move = new StockMove
+            {
+                Date = document.Date,
+                WarehouseId = document.WarehouseId.Value,
+                ProductId = line.ProductId,
+                MoveType = StockMoveType.Outbound,
+                Quantity = line.Quantity,
+                UnitCost = stockItem.AverageCost,
+                RefDocumentType = "PurchaseReturn",
+                RefDocumentId = document.Id,
+                RefDocumentLineId = line.Id
+            };
+
+            await uow.Stock.AddStockMoveAsync(move, cancellationToken);
+        }
+    }
     private async Task<JournalVoucher> PostToAccountingAsync(
         PurchaseInvoice invoice,
         CancellationToken cancellationToken)
@@ -381,6 +614,36 @@ public class PurchaseService(
             date: invoice.Date,
             refDocumentId: invoice.Id,
             refDocumentNumber: invoice.Number,
+            context: context,
+            cancellationToken: cancellationToken);
+
+        await uow.Journals.AddAsync(journal, cancellationToken);
+        await uow.SaveChangesAsync(cancellationToken);
+
+        return journal;
+    }
+    
+    private async Task<JournalVoucher> PostPurchaseReturnToAccountingAsync(
+        PurchaseReturn document,
+        CancellationToken cancellationToken)
+    {
+        var context = new PostingContext
+        {
+            Total = document.TotalAmount,
+            Net = document.TotalNetAmount,
+            Tax = document.TotalTaxAmount,
+            PartyId = document.SupplierId,
+            CurrencyId = document.CurrencyId,
+            FxRate = document.FxRate,
+            Description = $"Posting Purchase Return {document.Number}"
+        };
+
+        var journal = await postingEngine.BuildJournalAsync(
+            documentType: "PurchaseReturn",
+            branchId: document.BranchId,
+            date: document.Date,
+            refDocumentId: document.Id,
+            refDocumentNumber: document.Number,
             context: context,
             cancellationToken: cancellationToken);
 

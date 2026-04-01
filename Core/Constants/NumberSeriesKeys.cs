@@ -8,6 +8,8 @@ public static class NumberSeriesKeys
 
     public const string SalesInvoice = "SalesInvoice";
     public const string PurchaseInvoice = "PurchaseInvoice";
+    public const string SalesReturn = "SalesReturn";
+    public const string PurchaseReturn = "PurchaseReturn";
     public const string Receipt = "Receipt";
     public const string Payment = "Payment";
     public const string InventoryAdjustment = "InventoryAdjustment";

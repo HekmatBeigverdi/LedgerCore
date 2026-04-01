@@ -35,6 +35,21 @@ public class SalesService(
             throw new InvalidOperationException($"Sales invoice with id={id} not found.");
         return inv;
     }
+    
+    private async Task<SalesReturn?> GetSalesReturnScopedAsync(int id, CancellationToken ct)
+    {
+        var branchId = GetBranchIdOrThrow();
+        var doc = await uow.Invoices.GetSalesReturnWithLinesAsync(id, ct);
+        return doc;
+    }
+
+    private async Task<SalesReturn> GetSalesReturnScopedOrThrowAsync(int id, CancellationToken ct)
+    {
+        var doc = await GetSalesReturnScopedAsync(id, ct);
+        if (doc is null)
+            throw new InvalidOperationException($"Sales return with id={id} not found.");
+        return doc;
+    }
 
     public async Task<SalesInvoice> CreateSalesInvoiceAsync(
         SalesInvoice invoice,
@@ -85,6 +100,143 @@ public class SalesService(
         CancellationToken cancellationToken = default)
     {
         return GetSalesInvoiceScopedAsync(id, cancellationToken);
+    }
+    
+    public async Task<SalesReturn> CreateSalesReturnAsync(
+        SalesReturn document,
+        CancellationToken cancellationToken = default)
+    {
+        await uow.BeginTransactionAsync(cancellationToken);
+
+        var currentBranchId = GetBranchIdOrThrow();
+
+        if (document.BranchId == 0)
+            document.BranchId = currentBranchId;
+        else if (document.BranchId != currentBranchId)
+            throw new InvalidOperationException("BranchId is not valid for current branch scope.");
+
+        try
+        {
+            await ValidateCustomerAsync(document.CustomerId, cancellationToken);
+            await ValidateWarehouseAsync(document.WarehouseId, document.BranchId, cancellationToken);
+            await CalculateSalesReturnLinesAndTotalsAsync(document, cancellationToken);
+
+            if (string.IsNullOrWhiteSpace(document.Number))
+            {
+                document.Number = await numberSeries.NextAsync(
+                    NumberSeriesKeys.SalesReturn,
+                    document.BranchId,
+                    cancellationToken);
+            }
+
+            document.Status = DocumentStatus.Draft;
+
+            await uow.Invoices.AddSalesReturnAsync(document, cancellationToken);
+            await uow.SaveChangesAsync(cancellationToken);
+
+            await uow.CommitTransactionAsync(cancellationToken);
+            return document;
+        }
+        catch
+        {
+            await uow.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    public Task<SalesReturn?> GetSalesReturnAsync(
+        int id,
+        CancellationToken cancellationToken = default)
+    {
+        return GetSalesReturnScopedAsync(id, cancellationToken);
+    }
+
+    public async Task<SalesReturn> UpdateSalesReturnAsync(
+        SalesReturn document,
+        CancellationToken cancellationToken = default)
+    {
+        var existing = await GetSalesReturnScopedOrThrowAsync(document.Id, cancellationToken);
+
+        if (existing.Status != DocumentStatus.Draft)
+            throw new InvalidOperationException("Only draft sales returns can be updated.");
+
+        var currentBranchId = GetBranchIdOrThrow();
+
+        if (existing.BranchId != currentBranchId)
+            throw new InvalidOperationException("SalesReturn is not accessible in current branch scope.");
+
+        if (document.BranchId != 0 && document.BranchId != currentBranchId)
+            throw new InvalidOperationException("BranchId cannot be changed across branches.");
+
+        existing.Date = document.Date;
+        existing.DueDate = document.DueDate;
+        existing.CustomerId = document.CustomerId;
+        existing.WarehouseId = document.WarehouseId;
+        existing.CurrencyId = document.CurrencyId;
+        existing.FxRate = document.FxRate;
+
+        existing.Lines.Clear();
+        foreach (var line in document.Lines)
+        {
+            existing.Lines.Add(new InvoiceLine
+            {
+                LineNumber = line.LineNumber,
+                Description = line.Description,
+                ProductId = line.ProductId,
+                Quantity = line.Quantity,
+                UnitPrice = line.UnitPrice,
+                Discount = line.Discount,
+                TaxRateId = line.TaxRateId
+            });
+        }
+
+        await CalculateSalesReturnLinesAndTotalsAsync(existing, cancellationToken);
+        await ValidateWarehouseAsync(existing.WarehouseId, existing.BranchId, cancellationToken);
+
+        uow.Invoices.UpdateSalesReturn(existing);
+        await uow.SaveChangesAsync(cancellationToken);
+
+        return existing;
+    }
+
+    public async Task PostSalesReturnAsync(
+        int documentId,
+        CancellationToken cancellationToken = default)
+    {
+        await uow.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            var document = await GetSalesReturnScopedOrThrowAsync(documentId, cancellationToken);
+
+            if (document.Status == DocumentStatus.Posted)
+                return;
+
+            if (document.Status == DocumentStatus.Cancelled)
+                throw new InvalidOperationException("Cancelled sales return cannot be posted.");
+
+            if (document.Status == DocumentStatus.Pending)
+                throw new InvalidOperationException("Pending sales return must be approved before posting.");
+
+            if (document.Status != DocumentStatus.Approved)
+                throw new InvalidOperationException("Only approved sales returns can be posted.");
+
+            await PostSalesReturnToInventoryAsync(document, cancellationToken);
+            var journal = await PostSalesReturnToAccountingAsync(document, cancellationToken);
+
+            document.Status = DocumentStatus.Posted;
+            document.JournalVoucherId = journal.Id;
+
+            uow.Invoices.UpdateSalesReturn(document);
+            await uow.SaveChangesAsync(cancellationToken);
+
+            await uow.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await uow.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
     }
 
     public async Task<SalesInvoice> UpdateSalesInvoiceAsync(
@@ -350,6 +502,47 @@ public class SalesService(
         invoice.TotalAmount = totalNet + totalTax;
     }
 
+    private async Task CalculateSalesReturnLinesAndTotalsAsync(
+        SalesReturn document,
+        CancellationToken cancellationToken)
+    {
+        decimal totalNet = 0m;
+        decimal totalDiscount = 0m;
+        decimal totalTax = 0m;
+
+        foreach (var line in document.Lines)
+        {
+            var product = await uow.Products.GetByIdAsync(line.ProductId, cancellationToken)
+                          ?? throw new InvalidOperationException($"Product with id={line.ProductId} not found.");
+
+            if (line.TaxRateId is null && product.DefaultTaxRateId is not null)
+            {
+                line.TaxRateId = product.DefaultTaxRateId;
+            }
+
+            decimal taxPercent = 0m;
+            if (line.TaxRateId is not null)
+            {
+                var taxRate = await uow.TaxRates.GetByIdAsync(line.TaxRateId.Value, cancellationToken)
+                              ?? throw new InvalidOperationException($"TaxRate with id={line.TaxRateId} not found.");
+                taxPercent = taxRate.RatePercent;
+            }
+
+            var gross = line.Quantity * line.UnitPrice;
+            line.NetAmount = gross - line.Discount;
+            line.TaxAmount = Math.Round(line.NetAmount * taxPercent / 100m, 2);
+            line.TotalAmount = line.NetAmount + line.TaxAmount;
+
+            totalNet += line.NetAmount;
+            totalDiscount += line.Discount;
+            totalTax += line.TaxAmount;
+        }
+
+        document.TotalNetAmount = totalNet;
+        document.TotalDiscount = totalDiscount;
+        document.TotalTaxAmount = totalTax;
+        document.TotalAmount = totalNet + totalTax;
+    }
     /// <summary>
     /// برداشت موجودی از انبار و ثبت حرکت StockMove.
     /// </summary>
@@ -407,6 +600,51 @@ public class SalesService(
         }
     }
 
+    private async Task PostSalesReturnToInventoryAsync(
+        SalesReturn document,
+        CancellationToken cancellationToken)
+    {
+        if (document.WarehouseId is null)
+            throw new InvalidOperationException("WarehouseId is required to post inventory.");
+
+        int wid = document.WarehouseId.Value;
+
+        foreach (var line in document.Lines)
+        {
+            var stockItem = await uow.Stock.GetStockItemAsync(wid, line.ProductId, cancellationToken);
+
+            if (stockItem is null)
+            {
+                stockItem = new StockItem
+                {
+                    WarehouseId = wid,
+                    ProductId = line.ProductId,
+                    OnHand = 0,
+                    Reserved = 0,
+                    AverageCost = 0
+                };
+                await uow.Stock.AddStockItemAsync(stockItem, cancellationToken);
+            }
+
+            stockItem.OnHand += line.Quantity;
+            uow.Stock.UpdateStockItem(stockItem);
+
+            var move = new StockMove
+            {
+                Date = document.Date,
+                WarehouseId = wid,
+                ProductId = line.ProductId,
+                MoveType = StockMoveType.Inbound,
+                Quantity = line.Quantity,
+                UnitCost = stockItem.AverageCost,
+                RefDocumentType = "SalesReturn",
+                RefDocumentId = document.Id,
+                RefDocumentLineId = line.Id
+            };
+
+            await uow.Stock.AddStockMoveAsync(move, cancellationToken);
+        }
+    }
     /// <summary>
     /// ساخت سند حسابداری از روی فاکتور فروش بر اساس PostingRule.
     /// </summary>
@@ -436,6 +674,37 @@ public class SalesService(
             date: invoice.Date,
             refDocumentId: invoice.Id,
             refDocumentNumber: invoice.Number,
+            context: context,
+            cancellationToken: cancellationToken);
+
+        await uow.Journals.AddAsync(journal, cancellationToken);
+        await uow.SaveChangesAsync(cancellationToken);
+
+        return journal;
+    }
+    
+    private async Task<JournalVoucher> PostSalesReturnToAccountingAsync(
+        SalesReturn document,
+        CancellationToken cancellationToken)
+    {
+        var context = new PostingContext
+        {
+            Total = document.TotalAmount,
+            Net = document.TotalNetAmount + document.TotalDiscount,
+            Discount = document.TotalDiscount,
+            Tax = document.TotalTaxAmount,
+            PartyId = document.CustomerId,
+            CurrencyId = document.CurrencyId,
+            FxRate = document.FxRate,
+            Description = $"Posting Sales Return {document.Number}"
+        };
+
+        var journal = await postingEngine.BuildJournalAsync(
+            documentType: "SalesReturn",
+            branchId: document.BranchId,
+            date: document.Date,
+            refDocumentId: document.Id,
+            refDocumentNumber: document.Number,
             context: context,
             cancellationToken: cancellationToken);
 

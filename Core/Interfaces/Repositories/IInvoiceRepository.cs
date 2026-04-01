@@ -35,13 +35,11 @@ public interface IInvoiceRepository
     void UpdateSalesReturn(SalesReturn document);
     void UpdatePurchaseReturn(PurchaseReturn document);
 
-    Task<PagedResult<SalesReturn>> QuerySalesReturnsAsync(
-        PagingParams? paging = null,
+    Task<PagedResult<SalesReturn>> QuerySalesReturnsAsync(PagingParams? paging = null,
         Expression<Func<SalesReturn, bool>>? predicate = null,
         CancellationToken cancellationToken = default);
 
-    Task<PagedResult<PurchaseReturn>> QueryPurchaseReturnsAsync(
-        PagingParams? paging = null,
+    Task<PagedResult<PurchaseReturn>> QueryPurchaseReturnsAsync(PagingParams? paging = null,
         Expression<Func<PurchaseReturn, bool>>? predicate = null,
         CancellationToken cancellationToken = default);
 }
