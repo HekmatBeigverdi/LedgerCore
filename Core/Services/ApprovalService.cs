@@ -1,5 +1,6 @@
 using LedgerCore.Core.Interfaces;
 using LedgerCore.Core.Interfaces.Services;
+using LedgerCore.Core.Models.Accounting;
 using LedgerCore.Core.Models.Documents;
 using LedgerCore.Core.Models.Enums;
 using LedgerCore.Core.Models.Workflow;
@@ -271,6 +272,42 @@ public class ApprovalService(
                 break;
             }
 
+            case "Receipt":
+            {
+                var entity = await uow.Repository<Receipt>()
+                    .GetByIdAsync(entityId, cancellationToken);
+
+                if (entity is null || entity.BranchId != branchId)
+                    throw new InvalidOperationException(
+                        $"Receipt with id={entityId} not found in current branch.");
+
+                break;
+            }
+
+            case "Payment":
+            {
+                var entity = await uow.Repository<Payment>()
+                    .GetByIdAsync(entityId, cancellationToken);
+
+                if (entity is null || entity.BranchId != branchId)
+                    throw new InvalidOperationException(
+                        $"Payment with id={entityId} not found in current branch.");
+
+                break;
+            }
+
+            case "JournalVoucher":
+            {
+                var entity = await uow.Repository<JournalVoucher>()
+                    .GetByIdAsync(entityId, cancellationToken);
+
+                if (entity is null || entity.BranchId != branchId)
+                    throw new InvalidOperationException(
+                        $"JournalVoucher with id={entityId} not found in current branch.");
+
+                break;
+            }
+
             default:
                 throw new InvalidOperationException(
                     $"Approval is not supported for entityType '{entityType}'.");
@@ -297,7 +334,8 @@ public class ApprovalService(
                     cancellationToken);
 
                 if (entity is null)
-                    throw new InvalidOperationException($"SalesInvoice with id={entityId} not found in current branch.");
+                    throw new InvalidOperationException(
+                        $"SalesInvoice with id={entityId} not found in current branch.");
 
                 return entity.Status;
             }
@@ -310,7 +348,44 @@ public class ApprovalService(
                     cancellationToken);
 
                 if (entity is null)
-                    throw new InvalidOperationException($"PurchaseInvoice with id={entityId} not found in current branch.");
+                    throw new InvalidOperationException(
+                        $"PurchaseInvoice with id={entityId} not found in current branch.");
+
+                return entity.Status;
+            }
+
+            case "Receipt":
+            {
+                var entity = await uow.Repository<Receipt>()
+                    .GetByIdAsync(entityId, cancellationToken);
+
+                if (entity is null || entity.BranchId != branchId)
+                    throw new InvalidOperationException(
+                        $"Receipt with id={entityId} not found in current branch.");
+
+                return entity.Status;
+            }
+
+            case "Payment":
+            {
+                var entity = await uow.Repository<Payment>()
+                    .GetByIdAsync(entityId, cancellationToken);
+
+                if (entity is null || entity.BranchId != branchId)
+                    throw new InvalidOperationException(
+                        $"Payment with id={entityId} not found in current branch.");
+
+                return entity.Status;
+            }
+
+            case "JournalVoucher":
+            {
+                var entity = await uow.Repository<JournalVoucher>()
+                    .GetByIdAsync(entityId, cancellationToken);
+
+                if (entity is null || entity.BranchId != branchId)
+                    throw new InvalidOperationException(
+                        $"JournalVoucher with id={entityId} not found in current branch.");
 
                 return entity.Status;
             }
@@ -357,11 +432,57 @@ public class ApprovalService(
                 break;
             }
 
-            // می‌توانی بعداً کیس‌های دیگری مثل JournalVoucher, Payment, Receipt, PayrollDocument و ... را اضافه کنی
+            case "Receipt":
+            {
+                var entity = await uow.Repository<Receipt>()
+                    .GetByIdAsync(entityId, cancellationToken)
+                    ?? throw new InvalidOperationException(
+                        $"Receipt with id={entityId} not found in current branch.");
+
+                if (entity.BranchId != branchId)
+                    throw new InvalidOperationException(
+                        $"Receipt with id={entityId} not found in current branch.");
+
+                entity.Status = newStatus;
+                uow.Repository<Receipt>().Update(entity);
+                break;
+            }
+
+            case "Payment":
+            {
+                var entity = await uow.Repository<Payment>()
+                    .GetByIdAsync(entityId, cancellationToken)
+                    ?? throw new InvalidOperationException(
+                        $"Payment with id={entityId} not found in current branch.");
+
+                if (entity.BranchId != branchId)
+                    throw new InvalidOperationException(
+                        $"Payment with id={entityId} not found in current branch.");
+
+                entity.Status = newStatus;
+                uow.Repository<Payment>().Update(entity);
+                break;
+            }
+
+            case "JournalVoucher":
+            {
+                var entity = await uow.Repository<JournalVoucher>()
+                    .GetByIdAsync(entityId, cancellationToken)
+                    ?? throw new InvalidOperationException(
+                        $"JournalVoucher with id={entityId} not found in current branch.");
+
+                if (entity.BranchId != branchId)
+                    throw new InvalidOperationException(
+                        $"JournalVoucher with id={entityId} not found in current branch.");
+
+                entity.Status = newStatus;
+                uow.Repository<JournalVoucher>().Update(entity);
+                break;
+            }
 
             default:
-                // برای entityTypeهای ناشناخته فعلاً فقط ApprovalRequest را آپدیت می‌کنیم و به سند اصلی کاری نداریم
-                break;
+                throw new InvalidOperationException(
+                    $"Approval is not supported for entityType '{entityType}'.");
         }
     }
 }
