@@ -4,6 +4,7 @@ using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Common;
 using LedgerCore.Core.Models.Documents;
 using LedgerCore.Core.Models.Security;
+using LedgerCore.Core.Models.Workflow;
 using LedgerCore.Core.ViewModels.Documents;
 using LedgerCore.Core.ViewModels.ReceiptsPayments;
 using Microsoft.AspNetCore.Authorization;
@@ -16,6 +17,7 @@ namespace LedgerCore.Controllers;
 [Authorize]
 public class PaymentsController(
     IAccountingService accountingService,
+    IApprovalService approvalService,
     IUnitOfWork uow,
     IMapper mapper,
     ICurrentBranchService currentBranch)
@@ -53,6 +55,24 @@ public class PaymentsController(
             result.PageSize);
 
         return Ok(dtoPage);
+    }
+    
+    [HttpPost("{id:int}/submit")]
+    [HasPermission(PermissionCodes.Approval_Request_Create)]
+    public async Task<ActionResult<ApprovalRequest>> Submit(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var payment = await accountingService.GetPaymentAsync(id, cancellationToken);
+        if (payment is null)
+            return NotFound();
+
+        var request = await approvalService.CreateApprovalRequestAsync(
+            "Payment",
+            id,
+            cancellationToken);
+
+        return Ok(request);
     }
 
     // POST api/v1/payments
