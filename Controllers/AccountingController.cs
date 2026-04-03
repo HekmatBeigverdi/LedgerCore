@@ -5,6 +5,7 @@ using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Accounting;
 using LedgerCore.Core.Models.Common;
 using LedgerCore.Core.Models.Security;
+using LedgerCore.Core.Models.Workflow;
 using LedgerCore.Core.ViewModels.Accounting;
 using Microsoft.AspNetCore.Mvc;
 
@@ -15,6 +16,7 @@ namespace LedgerCore.Controllers;
 [Route("api/v1/[controller]")]
 public class AccountingController(
     IAccountingService accountingService,
+    IApprovalService approvalService,
     IUnitOfWork uow,
     IMapper mapper,
     ICurrentBranchService currentBranch)
@@ -68,6 +70,24 @@ public class AccountingController(
 
         var dto = mapper.Map<JournalVoucherDto>(journal);
         return Ok(dto);
+    }
+    
+    [HttpPost("journals/{id:int}/submit")]
+    [HasPermission("Approval.Request.Create")]
+    public async Task<ActionResult<ApprovalRequest>> SubmitJournal(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var journal = await accountingService.GetJournalAsync(id, cancellationToken);
+        if (journal is null)
+            return NotFound();
+
+        var request = await approvalService.CreateApprovalRequestAsync(
+            "JournalVoucher",
+            id,
+            cancellationToken);
+
+        return Ok(request);
     }
 
     /// <summary>
