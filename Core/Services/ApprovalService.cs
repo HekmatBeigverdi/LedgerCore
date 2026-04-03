@@ -199,7 +199,7 @@ public class ApprovalService(
                 request.EntityType,
                 request.EntityId,
                 request.BranchId,
-                DocumentStatus.Cancelled,
+                DocumentStatus.Draft,
                 cancellationToken);
 
             await uow.SaveChangesAsync(cancellationToken);
