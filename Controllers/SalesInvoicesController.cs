@@ -5,6 +5,7 @@ using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Common;
 using LedgerCore.Core.Models.Documents;
 using LedgerCore.Core.Models.Security;
+using LedgerCore.Core.Models.Workflow;
 using LedgerCore.Core.ViewModels.Documents;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,6 +15,7 @@ namespace LedgerCore.Controllers;
 [Route("api/v1/[controller]")]
 public class SalesInvoicesController(
     ISalesService salesService,
+    IApprovalService approvalService,
     IUnitOfWork uow,
     IMapper mapper,
     ICurrentBranchService currentBranch)
@@ -51,6 +53,23 @@ public class SalesInvoicesController(
         // For better display, include navigations (if needed) or re-read from UoW
         var dto = mapper.Map<SalesInvoiceDto>(invoice);
         return Ok(dto);
+    }
+    [HttpPost("{id:int}/submit")]
+    [HasPermission(PermissionCodes.Approval_Request_Create)]
+    public async Task<ActionResult<ApprovalRequest>> Submit(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var invoice = await salesService.GetSalesInvoiceAsync(id, cancellationToken);
+        if (invoice is null)
+            return NotFound();
+
+        var request = await approvalService.CreateApprovalRequestAsync(
+            "SalesInvoice",
+            id,
+            cancellationToken);
+
+        return Ok(request);
     }
 
     [HttpPost]
