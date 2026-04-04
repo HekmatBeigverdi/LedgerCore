@@ -8,6 +8,7 @@ using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Enums;
 using LedgerCore.Core.Models.Inventory;
 using LedgerCore.Core.Models.Security;
+using LedgerCore.Core.Models.Workflow;
 using LedgerCore.Core.ViewModels.Inventory;
 using LedgerCore.Persistence;
 using Microsoft.AspNetCore.Mvc;
@@ -20,6 +21,7 @@ namespace LedgerCore.Controllers;
 public class InventoryController(
     IInventoryService inventoryService,
     IAccountingService accountingService,
+    IApprovalService approvalService,
     IUnitOfWork unitOfWork,
     INumberSeriesService numberSeries,
     LedgerCoreDbContext dbContext,
@@ -92,6 +94,24 @@ public class InventoryController(
             return NotFound();
 
         return Ok(item);
+    }
+    
+    [HttpPost("adjustments/{id:int}/submit")]
+    [HasPermission(PermissionCodes.Approval_Request_Create)]
+    public async Task<ActionResult<ApprovalRequest>> SubmitAdjustment(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var adjustment = await GetAdjustmentTrackedScopedAsync(id, cancellationToken);
+        if (adjustment is null)
+            return NotFound();
+
+        var request = await approvalService.CreateApprovalRequestAsync(
+            "InventoryAdjustment",
+            id,
+            cancellationToken);
+
+        return Ok(request);
     }
 
     // ===================== Inventory Adjustment =====================
