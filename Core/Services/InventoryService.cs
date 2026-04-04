@@ -201,7 +201,7 @@ public class InventoryService(
             }
 
             dbAdjustment.TotalDifferenceValue = totalDifferenceValue;
-            dbAdjustment.Status = DocumentStatus.Approved;
+            // dbAdjustment.Status = DocumentStatus.Approved;
             dbAdjustment.ModifiedAt = DateTime.UtcNow;
 
             await _db.SaveChangesAsync(cancellationToken);
