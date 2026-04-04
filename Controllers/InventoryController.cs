@@ -252,9 +252,9 @@ public class InventoryController(
         if (adjustment is null)
             return NotFound();
 
-        if (adjustment.Status == DocumentStatus.Draft)
+        if (adjustment.Status != DocumentStatus.Approved)
         {
-            return BadRequest("Adjustment must be processed before posting to accounting.");
+            return BadRequest("Only approved inventory adjustments can be posted.");
         }
 
         await accountingService.PostInventoryAdjustmentAsync(id, cancellationToken);
