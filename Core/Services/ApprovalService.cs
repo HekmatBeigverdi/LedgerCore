@@ -330,7 +330,18 @@ public class ApprovalService(
                         $"InventoryAdjustment with id={entityId} not found in current branch.");
 
                 break;
-            }            
+            }
+            case "SalesReturn":
+            {
+                var entity = await uow.Invoices
+                    .GetSalesReturnWithLinesAsync(entityId, cancellationToken);
+
+                if (entity is null || entity.BranchId != branchId)
+                    throw new InvalidOperationException(
+                        $"SalesReturn with id={entityId} not found in current branch.");
+
+                break;
+            }
 
             default:
                 throw new InvalidOperationException(
@@ -433,6 +444,17 @@ public class ApprovalService(
                 if (entity is null || entity.BranchId != branchId)
                     throw new InvalidOperationException(
                         $"InventoryAdjustment with id={entityId} not found in current branch.");
+
+                return entity.Status;
+            }
+            case "SalesReturn":
+            {
+                var entity = await uow.Invoices
+                    .GetSalesReturnWithLinesAsync(entityId, cancellationToken);
+
+                if (entity is null || entity.BranchId != branchId)
+                    throw new InvalidOperationException(
+                        $"SalesReturn with id={entityId} not found in current branch.");
 
                 return entity.Status;
             }
@@ -555,6 +577,21 @@ public class ApprovalService(
 
                 entity.Status = newStatus;
                 uow.Repository<InventoryAdjustment>().Update(entity);
+                break;
+            }
+            case "SalesReturn":
+            {
+                var entity = await uow.Invoices
+                                 .GetSalesReturnWithLinesAsync(entityId, cancellationToken)
+                             ?? throw new InvalidOperationException(
+                                 $"SalesReturn with id={entityId} not found in current branch.");
+
+                if (entity.BranchId != branchId)
+                    throw new InvalidOperationException(
+                        $"SalesReturn with id={entityId} not found in current branch.");
+
+                entity.Status = newStatus;
+                uow.Invoices.UpdateSalesReturn(entity);
                 break;
             }
 
