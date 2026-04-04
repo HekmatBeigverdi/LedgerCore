@@ -3,6 +3,7 @@ using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Accounting;
 using LedgerCore.Core.Models.Documents;
 using LedgerCore.Core.Models.Enums;
+using LedgerCore.Core.Models.Inventory;
 using LedgerCore.Core.Models.Workflow;
 
 namespace LedgerCore.Core.Services;
@@ -319,6 +320,17 @@ public class ApprovalService(
 
                 break;
             }
+            case "InventoryAdjustment":
+            {
+                var entity = await uow.Repository<InventoryAdjustment>()
+                    .GetByIdAsync(entityId, cancellationToken);
+
+                if (entity is null || entity.BranchId != branchId)
+                    throw new InvalidOperationException(
+                        $"InventoryAdjustment with id={entityId} not found in current branch.");
+
+                break;
+            }            
 
             default:
                 throw new InvalidOperationException(
@@ -410,6 +422,17 @@ public class ApprovalService(
                 if (entity is null || entity.BranchId != branchId)
                     throw new InvalidOperationException(
                         $"CashTransfer with id={entityId} not found in current branch.");
+
+                return entity.Status;
+            }
+            case "InventoryAdjustment":
+            {
+                var entity = await uow.Repository<InventoryAdjustment>()
+                    .GetByIdAsync(entityId, cancellationToken);
+
+                if (entity is null || entity.BranchId != branchId)
+                    throw new InvalidOperationException(
+                        $"InventoryAdjustment with id={entityId} not found in current branch.");
 
                 return entity.Status;
             }
@@ -517,6 +540,21 @@ public class ApprovalService(
 
                 entity.Status = newStatus;
                 uow.Repository<CashTransfer>().Update(entity);
+                break;
+            }
+            case "InventoryAdjustment":
+            {
+                var entity = await uow.Repository<InventoryAdjustment>()
+                                 .GetByIdAsync(entityId, cancellationToken)
+                             ?? throw new InvalidOperationException(
+                                 $"InventoryAdjustment with id={entityId} not found in current branch.");
+
+                if (entity.BranchId != branchId)
+                    throw new InvalidOperationException(
+                        $"InventoryAdjustment with id={entityId} not found in current branch.");
+
+                entity.Status = newStatus;
+                uow.Repository<InventoryAdjustment>().Update(entity);
                 break;
             }
 
