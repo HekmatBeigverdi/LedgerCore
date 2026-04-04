@@ -62,7 +62,11 @@ public static class PermissionStructure
                     new PermissionDefinition { Code = PermissionCodes.Sales_Invoice_View, Name = "مشاهده فاکتورهای فروش" },
                     new PermissionDefinition { Code = PermissionCodes.Sales_Invoice_Create, Name = "ایجاد فاکتور فروش" },
                     new PermissionDefinition { Code = PermissionCodes.Sales_Invoice_Edit, Name = "ویرایش فاکتور فروش" },
-                    new PermissionDefinition { Code = PermissionCodes.Sales_Invoice_Post, Name = "پست فاکتور فروش" }
+                    new PermissionDefinition { Code = PermissionCodes.Sales_Invoice_Post, Name = "پست فاکتور فروش" },
+                    new PermissionDefinition { Code = PermissionCodes.Sales_Return_View, Name = "مشاهده برگشت فروش" },
+                    new PermissionDefinition { Code = PermissionCodes.Sales_Return_Create, Name = "ایجاد برگشت فروش" },
+                    new PermissionDefinition { Code = PermissionCodes.Sales_Return_Edit, Name = "ویرایش برگشت فروش" },
+                    new PermissionDefinition { Code = PermissionCodes.Sales_Return_Post, Name = "پست برگشت فروش" },
                 }
             },
             
@@ -75,7 +79,11 @@ public static class PermissionStructure
                     new PermissionDefinition { Code = PermissionCodes.Purchase_Invoice_View, Name = "مشاهده فاکتورهای خرید" },
                     new PermissionDefinition { Code = PermissionCodes.Purchase_Invoice_Create, Name = "ایجاد فاکتور خرید" },
                     new PermissionDefinition { Code = PermissionCodes.Purchase_Invoice_Edit, Name = "ویرایش فاکتور خرید" },
-                    new PermissionDefinition { Code = PermissionCodes.Purchase_Invoice_Post, Name = "پست فاکتور خرید" }
+                    new PermissionDefinition { Code = PermissionCodes.Purchase_Invoice_Post, Name = "پست فاکتور خرید" },
+                    new PermissionDefinition { Code = PermissionCodes.Purchase_Return_View, Name = "مشاهده برگشت خرید" },
+                    new PermissionDefinition { Code = PermissionCodes.Purchase_Return_Create, Name = "ایجاد برگشت خرید" },
+                    new PermissionDefinition { Code = PermissionCodes.Purchase_Return_Edit, Name = "ویرایش برگشت خرید" },
+                    new PermissionDefinition { Code = PermissionCodes.Purchase_Return_Post, Name = "پست برگشت خرید" },
                 }
             },
 

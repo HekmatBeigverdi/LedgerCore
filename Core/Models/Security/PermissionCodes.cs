@@ -11,6 +11,10 @@ public static class PermissionCodes
     public const string Sales_Invoice_Create = "Sales.Invoice.Create";
     public const string Sales_Invoice_Edit = "Sales.Invoice.Edit";
     public const string Sales_Invoice_Post = "Sales.Invoice.Post";
+    public const string Sales_Return_View = "Sales.Return.View";
+    public const string Sales_Return_Create = "Sales.Return.Create";
+    public const string Sales_Return_Edit = "Sales.Return.Edit";
+    public const string Sales_Return_Post = "Sales.Return.Post";
 
     // ========== Inventory ==========
     public const string Inventory_StockItem_View = "Inventory.StockItem.View";
@@ -78,6 +82,10 @@ public static class PermissionCodes
     public const string Purchase_Invoice_Create = "Purchase.Invoice.Create";
     public const string Purchase_Invoice_Edit = "Purchase.Invoice.Edit";
     public const string Purchase_Invoice_Post = "Purchase.Invoice.Post";
+    public const string Purchase_Return_View = "Purchase.Return.View";
+    public const string Purchase_Return_Create = "Purchase.Return.Create";
+    public const string Purchase_Return_Edit = "Purchase.Return.Edit";
+    public const string Purchase_Return_Post = "Purchase.Return.Post";
 
     // ========== Receipts ==========
     public const string Receipt_View = "Receipt.View";

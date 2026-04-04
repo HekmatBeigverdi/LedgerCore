@@ -31,6 +31,30 @@ public static class PermissionSeedData
                 Name = "مشاهده فاکتورهای فروش",
                 Description = "امکان مشاهده لیست و جزئیات فاکتورهای فروش"
             },
+            new()
+            {
+                Code = PermissionCodes.Sales_Return_View,
+                Name = "مشاهده برگشت فروش",
+                Description = "امکان مشاهده لیست و جزئیات اسناد برگشت فروش"
+            },
+            new()
+            {
+                Code = PermissionCodes.Sales_Return_Create,
+                Name = "ایجاد برگشت فروش",
+                Description = "امکان ثبت سند برگشت فروش"
+            },
+            new()
+            {
+                Code = PermissionCodes.Sales_Return_Edit,
+                Name = "ویرایش برگشت فروش",
+                Description = "امکان ویرایش سند برگشت فروش"
+            },
+            new()
+            {
+                Code = PermissionCodes.Sales_Return_Post,
+                Name = "پست برگشت فروش",
+                Description = "امکان پست‌کردن سند برگشت فروش"
+            },
 
             // ================= Inventory =================
             new()
@@ -137,8 +161,7 @@ public static class PermissionSeedData
                 Name = "گزارش ریز حقوق و دستمزد",
                 Description = "مشاهده گزارش Details حقوق و دستمزد"
             },
-
-
+            
             // ================= Approval =================
             new()
             {
@@ -292,7 +315,7 @@ public static class PermissionSeedData
                 Name = "پست استهلاک",
                 Description = "پست سند استهلاک به حسابداری"
             },
-                        // ================= Purchase =================
+            // ================= Purchase =================
             new()
             {
                 Code = PermissionCodes.Purchase_Invoice_View,
@@ -316,6 +339,30 @@ public static class PermissionSeedData
                 Code = PermissionCodes.Purchase_Invoice_Post,
                 Name = "پست فاکتور خرید",
                 Description = "امکان پست‌کردن فاکتور خرید"
+            },
+            new()
+            {
+                Code = PermissionCodes.Purchase_Return_View,
+                Name = "مشاهده برگشت خرید",
+                Description = "امکان مشاهده لیست و جزئیات اسناد برگشت خرید"
+            },
+            new()
+            {
+                Code = PermissionCodes.Purchase_Return_Create,
+                Name = "ایجاد برگشت خرید",
+                Description = "امکان ثبت سند برگشت خرید"
+            },
+            new()
+            {
+                Code = PermissionCodes.Purchase_Return_Edit,
+                Name = "ویرایش برگشت خرید",
+                Description = "امکان ویرایش سند برگشت خرید"
+            },
+            new()
+            {
+                Code = PermissionCodes.Purchase_Return_Post,
+                Name = "پست برگشت خرید",
+                Description = "امکان پست‌کردن سند برگشت خرید"
             },
 
             // ================= Receipts =================
@@ -597,5 +644,6 @@ public static class PermissionSeedData
                 Name = "مدیریت قواعد ثبت خودکار",
                 Description = "امکان ایجاد، ویرایش و مدیریت قواعد ثبت خودکار"
             },
+            
         };
 }
