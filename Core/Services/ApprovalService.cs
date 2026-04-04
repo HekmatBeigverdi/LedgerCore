@@ -307,6 +307,18 @@ public class ApprovalService(
 
                 break;
             }
+            
+            case "CashTransfer":
+            {
+                var entity = await uow.Repository<CashTransfer>()
+                    .GetByIdAsync(entityId, cancellationToken);
+
+                if (entity is null || entity.BranchId != branchId)
+                    throw new InvalidOperationException(
+                        $"CashTransfer with id={entityId} not found in current branch.");
+
+                break;
+            }
 
             default:
                 throw new InvalidOperationException(
@@ -386,6 +398,18 @@ public class ApprovalService(
                 if (entity is null || entity.BranchId != branchId)
                     throw new InvalidOperationException(
                         $"JournalVoucher with id={entityId} not found in current branch.");
+
+                return entity.Status;
+            }
+            
+            case "CashTransfer":
+            {
+                var entity = await uow.Repository<CashTransfer>()
+                    .GetByIdAsync(entityId, cancellationToken);
+
+                if (entity is null || entity.BranchId != branchId)
+                    throw new InvalidOperationException(
+                        $"CashTransfer with id={entityId} not found in current branch.");
 
                 return entity.Status;
             }
@@ -477,6 +501,22 @@ public class ApprovalService(
 
                 entity.Status = newStatus;
                 uow.Repository<JournalVoucher>().Update(entity);
+                break;
+            }
+            
+            case "CashTransfer":
+            {
+                var entity = await uow.Repository<CashTransfer>()
+                                 .GetByIdAsync(entityId, cancellationToken)
+                             ?? throw new InvalidOperationException(
+                                 $"CashTransfer with id={entityId} not found in current branch.");
+
+                if (entity.BranchId != branchId)
+                    throw new InvalidOperationException(
+                        $"CashTransfer with id={entityId} not found in current branch.");
+
+                entity.Status = newStatus;
+                uow.Repository<CashTransfer>().Update(entity);
                 break;
             }
 
