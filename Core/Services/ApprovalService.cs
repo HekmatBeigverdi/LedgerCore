@@ -342,6 +342,17 @@ public class ApprovalService(
 
                 break;
             }
+            case "PurchaseReturn":
+            {
+                var entity = await uow.Invoices
+                    .GetPurchaseReturnWithLinesAsync(entityId, cancellationToken);
+
+                if (entity is null || entity.BranchId != branchId)
+                    throw new InvalidOperationException(
+                        $"PurchaseReturn with id={entityId} not found in current branch.");
+
+                break;
+            }
 
             default:
                 throw new InvalidOperationException(
@@ -455,6 +466,17 @@ public class ApprovalService(
                 if (entity is null || entity.BranchId != branchId)
                     throw new InvalidOperationException(
                         $"SalesReturn with id={entityId} not found in current branch.");
+
+                return entity.Status;
+            }
+            case "PurchaseReturn":
+            {
+                var entity = await uow.Invoices
+                    .GetPurchaseReturnWithLinesAsync(entityId, cancellationToken);
+
+                if (entity is null || entity.BranchId != branchId)
+                    throw new InvalidOperationException(
+                        $"PurchaseReturn with id={entityId} not found in current branch.");
 
                 return entity.Status;
             }
@@ -592,6 +614,21 @@ public class ApprovalService(
 
                 entity.Status = newStatus;
                 uow.Invoices.UpdateSalesReturn(entity);
+                break;
+            }
+            case "PurchaseReturn":
+            {
+                var entity = await uow.Invoices
+                                 .GetPurchaseReturnWithLinesAsync(entityId, cancellationToken)
+                             ?? throw new InvalidOperationException(
+                                 $"PurchaseReturn with id={entityId} not found in current branch.");
+
+                if (entity.BranchId != branchId)
+                    throw new InvalidOperationException(
+                        $"PurchaseReturn with id={entityId} not found in current branch.");
+
+                entity.Status = newStatus;
+                uow.Invoices.UpdatePurchaseReturn(entity);
                 break;
             }
 
