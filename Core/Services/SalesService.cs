@@ -40,7 +40,7 @@ public class SalesService(
     {
         var branchId = GetBranchIdOrThrow();
         var doc = await uow.Invoices.GetSalesReturnWithLinesAsync(id, ct);
-        return doc;
+        return doc is not null && doc.BranchId == branchId ? doc : null;
     }
 
     private async Task<SalesReturn> GetSalesReturnScopedOrThrowAsync(int id, CancellationToken ct)
