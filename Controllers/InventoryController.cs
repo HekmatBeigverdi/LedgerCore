@@ -227,6 +227,9 @@ public class InventoryController(
         if (adjustment is null)
             return NotFound();
 
+        if (adjustment.Status == DocumentStatus.Pending)
+            return BadRequest("Pending adjustment cannot be processed again.");
+
         if (adjustment.Status == DocumentStatus.Approved ||
             adjustment.Status == DocumentStatus.Posted)
         {
