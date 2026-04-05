@@ -1,5 +1,6 @@
 using AutoMapper;
 using LedgerCore.Core.Interfaces;
+using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Assets;
 using LedgerCore.Core.Models.Common;
 using LedgerCore.Core.ViewModels.Assets;
@@ -9,7 +10,7 @@ namespace LedgerCore.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
-public class DepreciationMethodsController(IUnitOfWork uow, IMapper mapper) : ControllerBase
+public class DepreciationMethodsController(IUnitOfWork uow, IMapper mapper, ISecurityActivityLogService activityLog) : ControllerBase
 {
     [HttpGet("{id:int}")]
     public async Task<ActionResult<DepreciationMethodDto>> Get(int id, CancellationToken cancellationToken)
@@ -100,6 +101,14 @@ public class DepreciationMethodsController(IUnitOfWork uow, IMapper mapper) : Co
         entity.IsActive = false;
         repo.Update(entity);
         await uow.SaveChangesAsync(cancellationToken);
+        await activityLog.LogAsync(
+            action: "DepreciationMethod.Deleted",
+            entityType: nameof(DepreciationMethod),
+            entityId: entity.Id,
+            actorUserId: null,
+            actorUserName: User?.Identity?.Name,
+            details: $"Depreciation '{entity.Code} - {entity.Name}' soft-deleted.",
+            cancellationToken: cancellationToken);
 
         return NoContent();
     }
