@@ -16,5 +16,7 @@ public class ExchangeRateConfiguration : IEntityTypeConfiguration<ExchangeRate>
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasIndex(x => new { x.CurrencyId, x.RateDate }).IsUnique();
+        
+        builder.HasQueryFilter(x => !x.IsDeleted);
     }
 }

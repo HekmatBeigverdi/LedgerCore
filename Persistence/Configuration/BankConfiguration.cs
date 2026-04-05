@@ -10,8 +10,7 @@ public class BankConfiguration : IEntityTypeConfiguration<Bank>
     {
         builder.ToTable("Banks");
 
-        builder.Property(x => x.Name)
-            .HasMaxLength(200)
-            .IsRequired();
+        builder.Property(x => x.Name).HasMaxLength(200).IsRequired();
+        builder.HasQueryFilter(x => !x.IsDeleted);
     }
 }

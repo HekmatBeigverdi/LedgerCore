@@ -19,5 +19,7 @@ public class EmployeeConfiguration : IEntityTypeConfiguration<Employee>
             .IsRequired();
 
         builder.HasIndex(x => x.PersonnelCode).IsUnique();
+        
+        builder.HasQueryFilter(x => !x.IsDeleted);
     }
 }

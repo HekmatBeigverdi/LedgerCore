@@ -22,5 +22,7 @@ public class PartyCategoryConfiguration : IEntityTypeConfiguration<PartyCategory
             .HasMaxLength(500);
 
         builder.HasIndex(x => x.Code).IsUnique();
+        
+        builder.HasQueryFilter(x => !x.IsDeleted);
     }
 }

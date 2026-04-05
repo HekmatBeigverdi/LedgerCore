@@ -33,5 +33,7 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
 
 
         builder.HasQueryFilter(u => u.Status == UserStatus.Active && !u.IsDeleted);
+        
+        builder.HasQueryFilter(x => !x.IsDeleted);
     }
 }

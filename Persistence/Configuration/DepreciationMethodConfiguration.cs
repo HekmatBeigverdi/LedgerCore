@@ -19,5 +19,7 @@ public class DepreciationMethodConfiguration : IEntityTypeConfiguration<Deprecia
             .IsRequired();
 
         builder.HasIndex(x => x.Code).IsUnique();
+        
+        builder.HasQueryFilter(x => !x.IsDeleted);
     }
 }

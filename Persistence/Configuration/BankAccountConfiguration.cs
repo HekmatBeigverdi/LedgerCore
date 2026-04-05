@@ -23,5 +23,7 @@ public class BankAccountConfiguration : IEntityTypeConfiguration<BankAccount>
             .WithMany()
             .HasForeignKey(x => x.CurrencyId)
             .OnDelete(DeleteBehavior.Restrict);
+        
+        builder.HasQueryFilter(x => !x.IsDeleted);
     }
 }

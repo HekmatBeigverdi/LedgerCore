@@ -21,5 +21,7 @@ public class PermissionConfiguration : IEntityTypeConfiguration<Permission>
         builder.HasIndex(x => x.Code).IsUnique();
 
         builder.HasQueryFilter(x => !x.IsDeleted);
+        
+        builder.HasQueryFilter(x => !x.IsDeleted);
     }
 }
