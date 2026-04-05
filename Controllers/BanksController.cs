@@ -92,7 +92,9 @@ public class BanksController(IUnitOfWork uow, IMapper mapper) : ControllerBase
         if (hasAccounts)
             return BadRequest("This bank has bank accounts and cannot be deleted.");
 
-        repo.Remove(entity);
+        entity.IsDeleted = true;
+
+        repo.Update(entity);
         await uow.SaveChangesAsync(cancellationToken);
         return NoContent();
     }
