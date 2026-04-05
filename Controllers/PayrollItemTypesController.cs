@@ -1,5 +1,6 @@
 using AutoMapper;
 using LedgerCore.Core.Interfaces;
+using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Common;
 using LedgerCore.Core.Models.Payroll;
 using LedgerCore.Core.ViewModels.Payroll;
@@ -9,7 +10,7 @@ namespace LedgerCore.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
-public class PayrollItemTypesController(IUnitOfWork uow, IMapper mapper) : ControllerBase
+public class PayrollItemTypesController(IUnitOfWork uow, IMapper mapper, ISecurityActivityLogService activityLog) : ControllerBase
 {
     [HttpGet("{id:int}")]
     public async Task<ActionResult<PayrollItemTypeDto>> Get(int id, CancellationToken cancellationToken)
@@ -93,6 +94,14 @@ public class PayrollItemTypesController(IUnitOfWork uow, IMapper mapper) : Contr
         repo.Update(entity);
 
         await uow.SaveChangesAsync(cancellationToken);
+        await activityLog.LogAsync(
+            action: "PayrollItemType.Deleted",
+            entityType: nameof(PayrollItemType),
+            entityId: entity.Id,
+            actorUserId: null,
+            actorUserName: User?.Identity?.Name,
+            details: $"PayrollItemType '{entity.Code} - {entity.Name}' soft-deleted.",
+            cancellationToken: cancellationToken);
         return NoContent();
     }
 
