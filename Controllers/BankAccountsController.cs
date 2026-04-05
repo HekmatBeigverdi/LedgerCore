@@ -131,6 +131,7 @@ public class BankAccountsController(IUnitOfWork uow, IMapper mapper) : Controlle
         if (entity is null)
             return NotFound();
 
+        entity.IsDeleted = true;
         entity.IsActive = false;
         repo.Update(entity);
         await uow.SaveChangesAsync(cancellationToken);
