@@ -139,15 +139,9 @@ public class EmployeesController(IUnitOfWork uow, IMapper mapper) : ControllerBa
         var isUsed = await uow.Repository<PayrollLine>()
             .AnyAsync(x => x.EmployeeId == id, cancellationToken);
 
-        if (isUsed)
-        {
-            entity.IsActive = false;
-            repo.Update(entity);
-        }
-        else
-        {
-            repo.Remove(entity);
-        }
+        entity.IsDeleted = true;
+        entity.IsActive = false;
+        repo.Update(entity);
 
         await uow.SaveChangesAsync(cancellationToken);
         return NoContent();
