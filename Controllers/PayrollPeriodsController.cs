@@ -132,24 +132,9 @@ public class PayrollPeriodsController(IUnitOfWork uow, IMapper mapper) : Control
     }
 
     [HttpDelete("{id:int}")]
-    public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
+    public IActionResult Delete(int id)
     {
-        var repo = uow.Repository<PayrollPeriod>();
-        var entity = await repo.GetByIdAsync(id, cancellationToken);
-        if (entity is null)
-            return NotFound();
-
-        var isUsed = await uow.Repository<PayrollDocument>()
-            .AnyAsync(x => x.PayrollPeriodId == id, cancellationToken);
-
-        if (isUsed)
-            return BadRequest("This payroll period is used by payroll documents and cannot be deleted.");
-
-        entity.IsDeleted = true;
-
-        repo.Update(entity);
-        await uow.SaveChangesAsync(cancellationToken);
-        return NoContent();
+        return BadRequest("Deleting payroll periods is not allowed.");
     }
 
     private async Task<ActionResult?> ValidateAsync(
