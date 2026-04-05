@@ -131,12 +131,9 @@ public class AccountingController(
     /// </summary>
     [HttpDelete("journals/{id:int}")]
     [HasPermission("Accounting.Journal.Delete")]
-    public async Task<IActionResult> DeleteJournal(
-        int id,
-        CancellationToken cancellationToken)
+    public IActionResult DeleteJournal(int id)
     {
-        await accountingService.DeleteJournalAsync(id, cancellationToken);
-        return NoContent();
+        return BadRequest("Deleting journal vouchers is not allowed. Use reverse for posted journals.");
     }
 
     /// <summary>
