@@ -1,4 +1,5 @@
 using LedgerCore.Core.Interfaces;
+using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Master;
 using LedgerCore.Core.Models.Security;
 using LedgerCore.Core.Models.Settings;
@@ -10,7 +11,7 @@ namespace LedgerCore.Controllers;
 [ApiController]
 [Route("api/v1/[controller]")]
 [Authorize]
-public class NumberSeriesController(IUnitOfWork uow) : ControllerBase
+public class NumberSeriesController(IUnitOfWork uow, ISecurityActivityLogService activityLog) : ControllerBase
 {
     [HttpGet]
     [HasPermission(PermissionCodes.Master_NumberSeries_View)]
@@ -141,6 +142,15 @@ public class NumberSeriesController(IUnitOfWork uow) : ControllerBase
         repo.Update(entity);
 
         await uow.SaveChangesAsync(cancellationToken);
+        
+        await activityLog.LogAsync(
+            action: "NumberSeries.Deleted",
+            entityType: nameof(NumberSeries),
+            entityId: entity.Id,
+            actorUserId: null,
+            actorUserName: User?.Identity?.Name,
+            details: $"NumberSeries '{entity.Code} - {entity.BranchId}' soft-deleted.",
+            cancellationToken: cancellationToken);
         return NoContent();
     }
 
