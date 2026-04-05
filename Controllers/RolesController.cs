@@ -197,6 +197,7 @@ public class RolesController : ControllerBase
 
         await _uow.SaveChangesAsync(cancellationToken);
         return NoContent();
+        
     }
     // POST api/roles/{roleId}/permissions/assign
     [HttpPost("{roleId:int}/permissions/assign")]
