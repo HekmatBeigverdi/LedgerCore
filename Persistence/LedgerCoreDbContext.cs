@@ -1,5 +1,6 @@
 using LedgerCore.Core.Models.Accounting;
 using LedgerCore.Core.Models.Assets;
+using LedgerCore.Core.Models.Common;
 using LedgerCore.Core.Models.Documents;
 using LedgerCore.Core.Models.Enums;
 using LedgerCore.Core.Models.Inventory;
@@ -159,9 +160,55 @@ public class LedgerCoreDbContext(DbContextOptions<LedgerCoreDbContext> options) 
                 j.FiscalPeriodId = period.Id;
         }
     }  
+    private void ApplyAuditInfo()
+    {
+        var utcNow = DateTime.UtcNow;
+        const string systemUser = "System";
+
+        var entries = ChangeTracker.Entries<AuditableEntity>()
+            .Where(e =>
+                e.State == EntityState.Added ||
+                e.State == EntityState.Modified ||
+                e.State == EntityState.Deleted)
+            .ToList();
+
+        foreach (var entry in entries)
+        {
+            switch (entry.State)
+            {
+                case EntityState.Added:
+                    if (entry.Entity.CreatedAt == default)
+                        entry.Entity.CreatedAt = utcNow;
+
+                    if (string.IsNullOrWhiteSpace(entry.Entity.CreatedBy))
+                        entry.Entity.CreatedBy = systemUser;
+
+                    entry.Entity.ModifiedAt = null;
+                    entry.Entity.ModifiedBy = null;
+                    break;
+
+                case EntityState.Modified:
+                    entry.Entity.ModifiedAt = utcNow;
+
+                    if (string.IsNullOrWhiteSpace(entry.Entity.ModifiedBy))
+                        entry.Entity.ModifiedBy = systemUser;
+                    break;
+
+                case EntityState.Deleted:
+                    entry.State = EntityState.Modified;
+                    entry.Entity.IsDeleted = true;
+                    entry.Entity.ModifiedAt = utcNow;
+
+                    if (string.IsNullOrWhiteSpace(entry.Entity.ModifiedBy))
+                        entry.Entity.ModifiedBy = systemUser;
+                    break;
+            }
+        }
+    }
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         await ValidateFiscalLocksAsync(cancellationToken);
+        ApplyAuditInfo();
         return await base.SaveChangesAsync(cancellationToken);
     }
 }
