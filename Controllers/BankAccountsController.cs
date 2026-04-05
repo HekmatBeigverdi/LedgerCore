@@ -1,5 +1,6 @@
 using AutoMapper;
 using LedgerCore.Core.Interfaces;
+using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Common;
 using LedgerCore.Core.Models.Master;
 using LedgerCore.Core.ViewModels.Masters;
@@ -10,7 +11,7 @@ namespace LedgerCore.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
-public class BankAccountsController(IUnitOfWork uow, IMapper mapper) : ControllerBase
+public class BankAccountsController(IUnitOfWork uow, IMapper mapper, ISecurityActivityLogService activityLog) : ControllerBase
 {
     [HttpGet("{id:int}")]
     public async Task<ActionResult<BankAccountDto>> Get(int id, CancellationToken cancellationToken)
@@ -135,6 +136,14 @@ public class BankAccountsController(IUnitOfWork uow, IMapper mapper) : Controlle
         entity.IsActive = false;
         repo.Update(entity);
         await uow.SaveChangesAsync(cancellationToken);
+        await activityLog.LogAsync(
+            action: "BankAccount.Deleted",
+            entityType: nameof(BankAccount),
+            entityId: entity.Id,
+            actorUserId: null,
+            actorUserName: User?.Identity?.Name,
+            details: $"BankAccount '{entity.BankId} - {entity.Bank!.Name}' soft-deleted.",
+            cancellationToken: cancellationToken);
         return NoContent();
     }
 
