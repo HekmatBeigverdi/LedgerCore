@@ -29,11 +29,32 @@ public class RepositoryBase<TEntity>(LedgerCoreDbContext context)
 
     public virtual void Remove(TEntity entity)
     {
+        if (entity is AuditableEntity auditable)
+        {
+            auditable.IsDeleted = true;
+            DbSet.Update(entity);
+            return;
+        }
+
         DbSet.Remove(entity);
     }
 
     public virtual void RemoveRange(IEnumerable<TEntity> entities)
     {
-        DbSet.RemoveRange(entities);
+        var list = entities.ToList();
+
+        if (typeof(AuditableEntity).IsAssignableFrom(typeof(TEntity)))
+        {
+            foreach (var entity in list)
+            {
+                if (entity is AuditableEntity auditable)
+                    auditable.IsDeleted = true;
+            }
+
+            DbSet.UpdateRange(list);
+            return;
+        }
+
+        DbSet.RemoveRange(list);
     }
 }
