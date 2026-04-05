@@ -96,7 +96,9 @@ public class ProductCategoriesController(IUnitOfWork uow, IMapper mapper) : Cont
         if (isUsed)
             return BadRequest("This category is used by products and cannot be deleted.");
 
-        repo.Remove(entity);
+        entity.IsDeleted = true;
+
+        repo.Update(entity);
         await uow.SaveChangesAsync(cancellationToken);
         return NoContent();
     }
