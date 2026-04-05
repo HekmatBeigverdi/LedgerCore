@@ -96,7 +96,9 @@ public class CurrenciesController(IUnitOfWork uow, IMapper mapper) : ControllerB
         if (hasRates)
             return BadRequest("This currency has exchange rates and cannot be deleted.");
 
-        repo.Remove(entity);
+        entity.IsDeleted = true;
+
+        repo.Update(entity);
         await uow.SaveChangesAsync(cancellationToken);
         return NoContent();
     }
