@@ -105,18 +105,9 @@ public class ExchangeRatesController(IUnitOfWork uow, IMapper mapper) : Controll
     }
 
     [HttpDelete("{id:int}")]
-    public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
+    public IActionResult Delete(int id)
     {
-        var repo = uow.Repository<ExchangeRate>();
-        var entity = await repo.GetByIdAsync(id, cancellationToken);
-        if (entity is null)
-            return NotFound();
-
-        entity.IsDeleted = true;
-
-        repo.Update(entity);
-        await uow.SaveChangesAsync(cancellationToken);
-        return NoContent();
+        return BadRequest("Deleting exchange rates is not allowed.");
     }
 
     private async Task<ActionResult?> ValidateAsync(
