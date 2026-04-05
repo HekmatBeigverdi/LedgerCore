@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using LedgerCore.Core.Interfaces;
+using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Common;
 using LedgerCore.Core.Models.Enums;
 using LedgerCore.Core.Models.Security;
@@ -17,7 +18,7 @@ namespace LedgerCore.Controllers;
 [ApiController]
 [Route("api/v1/[controller]")]
 [Authorize(Roles = "Admin")]
-public class UsersController(IUnitOfWork uow) : ControllerBase
+public class UsersController(IUnitOfWork uow, ISecurityActivityLogService activityLog) : ControllerBase
 {
     // helper to unwrap possible paged/wrapper results
     private static IEnumerable<T> Unwrap<T>(object raw)
@@ -204,6 +205,15 @@ public class UsersController(IUnitOfWork uow) : ControllerBase
         user.Status = UserStatus.Inactive;
 
         await uow.SaveChangesAsync(cancellationToken);
+        
+        await activityLog.LogAsync(
+            action: "User.Deleted",
+            entityType: nameof(User),
+            entityId: user.Id,
+            actorUserId: null,
+            actorUserName: User?.Identity?.Name,
+            details: $"User '{user.Id} - {user.DisplayName}' soft-deleted.",
+            cancellationToken: cancellationToken);
 
         return NoContent();
     }
