@@ -1,5 +1,6 @@
 using AutoMapper;
 using LedgerCore.Core.Interfaces;
+using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Common;
 using LedgerCore.Core.Models.Master;
 using LedgerCore.Core.Models.Payroll;
@@ -11,7 +12,7 @@ namespace LedgerCore.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
-public class EmployeesController(IUnitOfWork uow, IMapper mapper) : ControllerBase
+public class EmployeesController(IUnitOfWork uow, IMapper mapper, ISecurityActivityLogService activityLog) : ControllerBase
 {
     [HttpGet("{id:int}")]
     public async Task<ActionResult<EmployeeDto>> Get(int id, CancellationToken cancellationToken)
@@ -144,6 +145,15 @@ public class EmployeesController(IUnitOfWork uow, IMapper mapper) : ControllerBa
         repo.Update(entity);
 
         await uow.SaveChangesAsync(cancellationToken);
+        
+        await activityLog.LogAsync(
+            action: "Employee.Deleted",
+            entityType: nameof(Employee),
+            entityId: entity.Id,
+            actorUserId: null,
+            actorUserName: User?.Identity?.Name,
+            details: $"Employee '{entity.NationalId} - {entity.FullName}' soft-deleted.",
+            cancellationToken: cancellationToken);
         return NoContent();
     }
 
