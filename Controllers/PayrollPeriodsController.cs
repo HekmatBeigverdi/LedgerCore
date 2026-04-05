@@ -145,7 +145,9 @@ public class PayrollPeriodsController(IUnitOfWork uow, IMapper mapper) : Control
         if (isUsed)
             return BadRequest("This payroll period is used by payroll documents and cannot be deleted.");
 
-        repo.Remove(entity);
+        entity.IsDeleted = true;
+
+        repo.Update(entity);
         await uow.SaveChangesAsync(cancellationToken);
         return NoContent();
     }
