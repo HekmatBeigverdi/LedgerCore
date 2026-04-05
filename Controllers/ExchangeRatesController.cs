@@ -112,7 +112,9 @@ public class ExchangeRatesController(IUnitOfWork uow, IMapper mapper) : Controll
         if (entity is null)
             return NotFound();
 
-        repo.Remove(entity);
+        entity.IsDeleted = true;
+
+        repo.Update(entity);
         await uow.SaveChangesAsync(cancellationToken);
         return NoContent();
     }
