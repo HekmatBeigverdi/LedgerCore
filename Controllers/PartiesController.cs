@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using LedgerCore.Core.Interfaces;
+using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Master;
 using LedgerCore.Core.Models.Security;
 using LedgerCore.Core.ViewModels.Masters;
@@ -16,7 +17,7 @@ namespace LedgerCore.Controllers;
 [ApiController]
 [Route("api/v1/[controller]")]
 [Authorize]
-public class PartiesController(IUnitOfWork uow) : ControllerBase
+public class PartiesController(IUnitOfWork uow, ISecurityActivityLogService activityLog) : ControllerBase
 {
     private static IEnumerable<T> Unwrap<T>(object raw)
     {
@@ -212,6 +213,14 @@ public class PartiesController(IUnitOfWork uow) : ControllerBase
         entity.IsActive = false;
 
         await uow.SaveChangesAsync(cancellationToken);
+        await activityLog.LogAsync(
+            action: "Parties.Deleted",
+            entityType: nameof(Party),
+            entityId: entity.Id,
+            actorUserId: null,
+            actorUserName: User?.Identity?.Name,
+            details: $"Party '{entity.Code} - {entity.Name}' soft-deleted.",
+            cancellationToken: cancellationToken);
         return NoContent();
     }
 }
