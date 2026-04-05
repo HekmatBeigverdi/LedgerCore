@@ -1,4 +1,5 @@
 using LedgerCore.Core.Interfaces;
+using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Accounting;
 using LedgerCore.Core.Models.Enums;
 using LedgerCore.Core.Models.Master;
@@ -12,7 +13,7 @@ namespace LedgerCore.Controllers;
 [ApiController]
 [Route("api/v1/[controller]")]
 [Authorize]
-public class PostingRulesController(IUnitOfWork uow) : ControllerBase
+public class PostingRulesController(IUnitOfWork uow, ISecurityActivityLogService activityLog) : ControllerBase
 {
     [HttpGet]
     [HasPermission(PermissionCodes.Master_PostingRules_View)]
@@ -260,6 +261,14 @@ public class PostingRulesController(IUnitOfWork uow) : ControllerBase
         }
 
         await uow.SaveChangesAsync(cancellationToken);
+        await activityLog.LogAsync(
+            action: "PostingRule.Deleted",
+            entityType: nameof(PostingRule),
+            entityId: entity.Id,
+            actorUserId: null,
+            actorUserName: User?.Identity?.Name,
+            details: $"PostingRule '{entity.Code} - {entity.Name}' soft-deleted.",
+            cancellationToken: cancellationToken);
         return NoContent();
     }
 
