@@ -96,6 +96,7 @@ public class DepreciationMethodsController(IUnitOfWork uow, IMapper mapper) : Co
         if (isUsed)
             return BadRequest("This depreciation method is used by fixed assets and cannot be deleted.");
 
+        entity.IsDeleted = true;
         entity.IsActive = false;
         repo.Update(entity);
         await uow.SaveChangesAsync(cancellationToken);
