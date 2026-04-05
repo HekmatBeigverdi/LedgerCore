@@ -88,6 +88,7 @@ public class PayrollItemTypesController(IUnitOfWork uow, IMapper mapper) : Contr
         if (entity is null)
             return NotFound();
 
+        entity.IsDeleted = true;
         entity.IsActive = false;
         repo.Update(entity);
 
