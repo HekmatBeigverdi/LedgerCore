@@ -97,7 +97,6 @@ public class AssetCategoriesController(IUnitOfWork uow, IMapper mapper) : Contro
             return BadRequest("This asset category is used by fixed assets and cannot be deleted.");
 
         entity.IsDeleted = true;
-
         repo.Update(entity);
         await uow.SaveChangesAsync(cancellationToken);
         return NoContent();
