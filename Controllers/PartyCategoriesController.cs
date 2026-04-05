@@ -96,7 +96,9 @@ public class PartyCategoriesController(IUnitOfWork uow, IMapper mapper) : Contro
         if (isUsed)
             return BadRequest("This category is used by parties and cannot be deleted.");
 
-        repo.Remove(entity);
+        entity.IsDeleted = true;
+
+        repo.Update(entity);
         await uow.SaveChangesAsync(cancellationToken);
         return NoContent();
     }
