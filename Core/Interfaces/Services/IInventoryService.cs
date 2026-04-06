@@ -17,4 +17,23 @@ public interface IInventoryService
     Task ProcessInventoryAdjustmentAsync(
         InventoryAdjustment adjustment,
         CancellationToken cancellationToken = default);
+    
+    Task<WarehouseTransfer> CreateWarehouseTransferAsync(
+        WarehouseTransfer transfer,
+        IReadOnlyList<WarehouseTransferLine> lines,
+        CancellationToken cancellationToken = default);
+
+    Task<WarehouseTransfer?> GetWarehouseTransferAsync(
+        int id,
+        CancellationToken cancellationToken = default);
+
+    Task<WarehouseTransfer> UpdateWarehouseTransferAsync(
+        int id,
+        WarehouseTransfer transfer,
+        IReadOnlyList<WarehouseTransferLine> lines,
+        CancellationToken cancellationToken = default);
+
+    Task PostWarehouseTransferAsync(
+        int id,
+        CancellationToken cancellationToken = default);
 }
