@@ -93,6 +93,30 @@ public static class PermissionSeedData
                 Name = "پست سند تعدیل",
                 Description = "امکان پست‌کردن سند تعدیل انبار به حسابداری"
             },
+            new()
+            {
+                Code = PermissionCodes.Inventory_Transfer_View,
+                Name = "مشاهده انتقال بین انبارها",
+                Description = "امکان مشاهده اسناد انتقال کالا بین انبارها"
+            },
+            new()
+            {
+                Code = PermissionCodes.Inventory_Transfer_Create,
+                Name = "ایجاد انتقال بین انبارها",
+                Description = "امکان ثبت سند انتقال کالا بین دو انبار"
+            },
+            new()
+            {
+                Code = PermissionCodes.Inventory_Transfer_Edit,
+                Name = "ویرایش انتقال بین انبارها",
+                Description = "امکان ویرایش سند انتقال کالا تا قبل از ثبت نهایی"
+            },
+            new()
+            {
+                Code = PermissionCodes.Inventory_Transfer_Post,
+                Name = "پست انتقال بین انبارها",
+                Description = "امکان ثبت نهایی سند انتقال بین انبارها و اعمال روی موجودی"
+            },
 
             // ================= Reports =================
             new()
