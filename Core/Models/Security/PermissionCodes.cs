@@ -23,6 +23,10 @@ public static class PermissionCodes
     public const string Inventory_Adjustment_Create = "Inventory.Adjustment.Create";
     public const string Inventory_Adjustment_Process = "Inventory.Adjustment.Process";
     public const string Inventory_Adjustment_Post = "Inventory.Adjustment.Post";
+    public const string Inventory_Transfer_View = "Inventory.Transfer.View";
+    public const string Inventory_Transfer_Create = "Inventory.Transfer.Create";
+    public const string Inventory_Transfer_Edit = "Inventory.Transfer.Edit";
+    public const string Inventory_Transfer_Post = "Inventory.Transfer.Post";
 
     // ========== Reports ==========
     public const string Reports_Sales_View = "Reports.Sales.View";
