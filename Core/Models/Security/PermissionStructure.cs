@@ -98,7 +98,11 @@ public static class PermissionStructure
                     new PermissionDefinition { Code = PermissionCodes.Inventory_Adjustment_View, Name = "مشاهده تعدیلات انبار" },
                     new PermissionDefinition { Code = PermissionCodes.Inventory_Adjustment_Create, Name = "ایجاد تعدیل انبار" },
                     new PermissionDefinition { Code = PermissionCodes.Inventory_Adjustment_Process, Name = "پردازش تعدیل انبار" },
-                    new PermissionDefinition { Code = PermissionCodes.Inventory_Adjustment_Post, Name = "پست تعدیل انبار" }
+                    new PermissionDefinition { Code = PermissionCodes.Inventory_Adjustment_Post, Name = "پست تعدیل انبار" },
+                    new PermissionDefinition { Code = PermissionCodes.Inventory_Transfer_View, Name = "مشاهده انتقال بین انبارها" },
+                    new PermissionDefinition { Code = PermissionCodes.Inventory_Transfer_Create, Name = "ایجاد انتقال بین انبارها" },
+                    new PermissionDefinition { Code = PermissionCodes.Inventory_Transfer_Edit, Name = "ویرایش انتقال بین انبارها" },
+                    new PermissionDefinition { Code = PermissionCodes.Inventory_Transfer_Post, Name = "پست انتقال بین انبارها" },                    
                 }
             },
 
