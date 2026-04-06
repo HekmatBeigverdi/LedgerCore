@@ -264,6 +264,103 @@ public class InventoryController(
 
         return NoContent();
     }
+    
+    [HttpPost("transfers")]
+    [HasPermission(PermissionCodes.Inventory_Transfer_Create)]
+    public async Task<ActionResult<WarehouseTransferDto>> CreateTransfer(
+        [FromBody] WarehouseTransferCreateDto dto,
+        CancellationToken cancellationToken)
+    {
+        if (dto.Lines == null || dto.Lines.Count == 0)
+            return BadRequest("At least one transfer line is required.");
+
+        var entity = new WarehouseTransfer
+        {
+            Number = dto.Number ?? string.Empty,
+            Date = dto.Date,
+            FromWarehouseId = dto.FromWarehouseId,
+            ToWarehouseId = dto.ToWarehouseId,
+            BranchId = dto.BranchId ?? 0,
+            Description = dto.Description
+        };
+
+        var lines = dto.Lines.Select((x, index) => new WarehouseTransferLine
+        {
+            LineNumber = index + 1,
+            ProductId = x.ProductId,
+            Quantity = x.Quantity,
+            Description = x.Description
+        }).ToList();
+
+        var created = await inventoryService.CreateWarehouseTransferAsync(
+            entity,
+            lines,
+            cancellationToken);
+
+        var result = await MapTransferToDtoAsync(created.Id, cancellationToken);
+        return CreatedAtAction(nameof(GetTransferById), new { id = created.Id }, result);
+    }
+    [HttpGet("transfers/{id:int}")]
+    [HasPermission(PermissionCodes.Inventory_Transfer_View)]
+    public async Task<ActionResult<WarehouseTransferDto>> GetTransferById(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var dto = await MapTransferToDtoAsync(id, cancellationToken);
+        if (dto is null)
+            return NotFound();
+
+        return Ok(dto);
+    }
+    [HttpPut("transfers/{id:int}")]
+    [HasPermission(PermissionCodes.Inventory_Transfer_Edit)]
+    public async Task<ActionResult<WarehouseTransferDto>> UpdateTransfer(
+        int id,
+        [FromBody] WarehouseTransferCreateDto dto,
+        CancellationToken cancellationToken)
+    {
+        if (dto.Lines == null || dto.Lines.Count == 0)
+            return BadRequest("At least one transfer line is required.");
+
+        var existing = await GetTransferTrackedScopedAsync(id, cancellationToken);
+        if (existing is null)
+            return NotFound();
+
+        var request = new WarehouseTransfer
+        {
+            Date = dto.Date,
+            FromWarehouseId = dto.FromWarehouseId,
+            ToWarehouseId = dto.ToWarehouseId,
+            BranchId = dto.BranchId ?? existing.BranchId,
+            Description = dto.Description
+        };
+
+        var lines = dto.Lines.Select((x, index) => new WarehouseTransferLine
+        {
+            LineNumber = index + 1,
+            ProductId = x.ProductId,
+            Quantity = x.Quantity,
+            Description = x.Description
+        }).ToList();
+
+        await inventoryService.UpdateWarehouseTransferAsync(
+            id,
+            request,
+            lines,
+            cancellationToken);
+
+        var result = await MapTransferToDtoAsync(id, cancellationToken);
+        return Ok(result);
+    }
+    [HttpPost("transfers/{id:int}/post")]
+    [HasPermission(PermissionCodes.Inventory_Transfer_Post)]
+    public async Task<IActionResult> PostTransfer(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        await inventoryService.PostWarehouseTransferAsync(id, cancellationToken);
+        return NoContent();
+    }
 
     // ===================== Helpers =====================
 
@@ -321,5 +418,63 @@ public class InventoryController(
         };
 
         return dto;
+    }
+    private async Task<WarehouseTransfer?> GetTransferScopedAsync(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var branchId = currentBranch.GetRequiredBranchId();
+
+        return await dbContext.WarehouseTransfers
+            .AsNoTracking()
+            .Include(x => x.Lines.OrderBy(l => l.LineNumber))
+            .FirstOrDefaultAsync(x => x.Id == id && x.BranchId == branchId, cancellationToken);
+    }
+
+    private async Task<WarehouseTransfer?> GetTransferTrackedScopedAsync(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var branchId = currentBranch.GetRequiredBranchId();
+
+        return await dbContext.WarehouseTransfers
+            .Include(x => x.Lines.OrderBy(l => l.LineNumber))
+            .FirstOrDefaultAsync(x => x.Id == id && x.BranchId == branchId, cancellationToken);
+    }
+    private async Task<WarehouseTransferDto?> MapTransferToDtoAsync(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var branchId = currentBranch.GetRequiredBranchId();
+
+        var transfer = await dbContext.WarehouseTransfers
+            .AsNoTracking()
+            .Include(x => x.Lines.OrderBy(l => l.LineNumber))
+            .FirstOrDefaultAsync(x => x.Id == id && x.BranchId == branchId, cancellationToken);
+
+        if (transfer is null)
+            return null;
+
+        return new WarehouseTransferDto
+        {
+            Id = transfer.Id,
+            Number = transfer.Number,
+            Date = transfer.Date,
+            FromWarehouseId = transfer.FromWarehouseId,
+            ToWarehouseId = transfer.ToWarehouseId,
+            BranchId = transfer.BranchId,
+            Description = transfer.Description,
+            Status = transfer.Status,
+            Lines = transfer.Lines
+                .OrderBy(x => x.LineNumber)
+                .Select(x => new WarehouseTransferLineDto
+                {
+                    ProductId = x.ProductId,
+                    Quantity = x.Quantity,
+                    UnitCost = x.UnitCost,
+                    Description = x.Description
+                })
+                .ToList()
+        };
     }
 }
