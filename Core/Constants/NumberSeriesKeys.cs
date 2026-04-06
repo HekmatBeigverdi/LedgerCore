@@ -14,5 +14,6 @@ public static class NumberSeriesKeys
     public const string Payment = "Payment";
     public const string InventoryAdjustment = "InventoryAdjustment";
     public const string CashTransfer = "CashTransfer";
+    public const string WarehouseTransfer = "WarehouseTransfer";
     public const string Payroll = "Payroll";
 }
