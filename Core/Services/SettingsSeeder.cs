@@ -26,6 +26,7 @@ public static class SettingsSeeder
         await EnsureSeriesAsync(seriesRepo, NumberSeriesKeys.Receipt, NumberSeriesKeys.Receipt, "RC-", 6, "", cancellationToken);
         await EnsureSeriesAsync(seriesRepo, NumberSeriesKeys.Payment, NumberSeriesKeys.Payment, "PY-", 6, "", cancellationToken);
         await EnsureSeriesAsync(seriesRepo, NumberSeriesKeys.InventoryAdjustment, NumberSeriesKeys.InventoryAdjustment, "IA-", 6, "", cancellationToken);
+        await EnsureSeriesAsync(seriesRepo, NumberSeriesKeys.WarehouseTransfer, NumberSeriesKeys.WarehouseTransfer, "WT-", 6, "", cancellationToken);
         await EnsureSeriesAsync(seriesRepo, NumberSeriesKeys.CashTransfer, NumberSeriesKeys.CashTransfer, "CT-", 6, "", cancellationToken);
         await EnsureSeriesAsync(seriesRepo, NumberSeriesKeys.Payroll, NumberSeriesKeys.Payroll, "PR-", 6, "", cancellationToken);
         await EnsureSeriesAsync(seriesRepo, NumberSeriesKeys.OpeningJournal, NumberSeriesKeys.OpeningJournal, "OPN-", 6, "", cancellationToken);
