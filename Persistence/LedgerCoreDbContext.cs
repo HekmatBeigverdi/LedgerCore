@@ -45,6 +45,8 @@ public class LedgerCoreDbContext(DbContextOptions<LedgerCoreDbContext> options) 
     public DbSet<StockItem> StockItems => Set<StockItem>();
     public DbSet<StockMove> StockMoves => Set<StockMove>();
     public DbSet<InventoryAdjustment> InventoryAdjustments => Set<InventoryAdjustment>();
+    public DbSet<WarehouseTransfer> WarehouseTransfers => Set<WarehouseTransfer>();
+    public DbSet<WarehouseTransferLine> WarehouseTransferLines => Set<WarehouseTransferLine>();
 
     // Documents
     public DbSet<SalesInvoice> SalesInvoices => Set<SalesInvoice>();
