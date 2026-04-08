@@ -308,6 +308,17 @@ public class AccountingController(
         var entity = mapper.Map<FiscalYear>(request);
         await repo.AddAsync(entity, cancellationToken);
         await uow.SaveChangesAsync(cancellationToken);
+        
+        await activityLog.LogAsync(
+            action: "FiscalYear.Created",
+            entityType: nameof(FiscalYear),
+            entityId: entity.Id,
+            actorUserId: null,
+            actorUserName: User?.Identity?.Name,
+            details:
+            $"Name={entity.Name}, StartDate={entity.StartDate:yyyy-MM-dd}, " +
+            $"EndDate={entity.EndDate:yyyy-MM-dd}",
+            cancellationToken: cancellationToken);
 
         var dto = mapper.Map<FiscalYearDto>(entity);
 
@@ -337,6 +348,17 @@ public class AccountingController(
 
         repo.Update(existing);
         await uow.SaveChangesAsync(cancellationToken);
+        
+        await activityLog.LogAsync(
+            action: "FiscalYear.Updated",
+            entityType: nameof(FiscalYear),
+            entityId: existing.Id,
+            actorUserId: null,
+            actorUserName: User?.Identity?.Name,
+            details:
+            $"Name={existing.Name}, StartDate={existing.StartDate:yyyy-MM-dd}, " +
+            $"EndDate={existing.EndDate:yyyy-MM-dd}, IsClosed={existing.IsClosed}",
+            cancellationToken: cancellationToken);
 
         var dto = mapper.Map<FiscalYearDto>(existing);
         return Ok(dto);
@@ -407,6 +429,17 @@ public class AccountingController(
 
         await periodRepo.AddAsync(period, cancellationToken);
         await uow.SaveChangesAsync(cancellationToken);
+        
+        await activityLog.LogAsync(
+            action: "FiscalPeriod.Created",
+            entityType: nameof(FiscalPeriod),
+            entityId: period.Id,
+            actorUserId: null,
+            actorUserName: User?.Identity?.Name,
+            details:
+            $"FiscalYearId={period.FiscalYearId}, Name={period.Name}, " +
+            $"StartDate={period.StartDate:yyyy-MM-dd}, EndDate={period.EndDate:yyyy-MM-dd}",
+            cancellationToken: cancellationToken);
 
         var dto = mapper.Map<FiscalPeriodDto>(period);
         return CreatedAtAction(nameof(GetFiscalPeriod), new { id = dto.Id }, dto);
@@ -443,6 +476,18 @@ public class AccountingController(
 
         periodRepo.Update(existing);
         await uow.SaveChangesAsync(cancellationToken);
+        
+        await activityLog.LogAsync(
+            action: "FiscalPeriod.Updated",
+            entityType: nameof(FiscalPeriod),
+            entityId: existing.Id,
+            actorUserId: null,
+            actorUserName: User?.Identity?.Name,
+            details:
+            $"FiscalYearId={existing.FiscalYearId}, Name={existing.Name}, " +
+            $"StartDate={existing.StartDate:yyyy-MM-dd}, EndDate={existing.EndDate:yyyy-MM-dd}, " +
+            $"IsClosed={existing.IsClosed}",
+            cancellationToken: cancellationToken);
 
         var dto = mapper.Map<FiscalPeriodDto>(existing);
         return Ok(dto);
