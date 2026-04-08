@@ -5,6 +5,7 @@ using LedgerCore.Core.Interfaces.Repositories;
 using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Security;
 using LedgerCore.Core.Services;
+using LedgerCore.Helpers;
 using LedgerCore.Mapping;
 using LedgerCore.Persistence;
 using LedgerCore.Persistence.Repository;
@@ -171,6 +172,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.UseHttpsRedirection();
 
