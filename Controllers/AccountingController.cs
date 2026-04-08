@@ -19,6 +19,7 @@ public class AccountingController(
     IApprovalService approvalService,
     IUnitOfWork uow,
     IMapper mapper,
+    ISecurityActivityLogService activityLog,
     ICurrentBranchService currentBranch)
     : ControllerBase
 {
@@ -184,6 +185,17 @@ public class AccountingController(
             request.CreateOpeningForNextYear,
             cancellationToken);
 
+        await activityLog.LogAsync(
+            action: "FiscalYear.Closed",
+            entityType: nameof(FiscalYear),
+            entityId: request.FiscalYearId,
+            actorUserId: null,
+            actorUserName: User?.Identity?.Name,
+            details:
+            $"ProfitAndLossAccountId={request.ProfitAndLossAccountId}, " +
+            $"CreateOpeningForNextYear={request.CreateOpeningForNextYear}",
+            cancellationToken: cancellationToken);
+
         return Ok(new { message = "Fiscal year closed successfully." });
     }
 
@@ -200,6 +212,15 @@ public class AccountingController(
             request.FiscalPeriodId,
             request.ProfitAndLossAccountId,
             cancellationToken);
+
+        await activityLog.LogAsync(
+            action: "FiscalPeriod.Closed",
+            entityType: nameof(FiscalPeriod),
+            entityId: request.FiscalPeriodId,
+            actorUserId: null,
+            actorUserName: User?.Identity?.Name,
+            details: $"ProfitAndLossAccountId={request.ProfitAndLossAccountId}",
+            cancellationToken: cancellationToken);
 
         return NoContent();
     }
@@ -220,15 +241,22 @@ public class AccountingController(
             return NotFound();
 
         if (!period.IsClosed)
-            return NoContent(); // عملاً باز است
+            return NoContent();
 
-        // اگر بخواهی سخت‌گیر باشیم، می‌توانیم چک کنیم که آیا JournalClosing برای این دوره وجود دارد یا نه.
-        // فعلاً فقط فلگ را برمی‌گردانیم:
         period.IsClosed = false;
         period.ClosedAt = null;
 
         periodRepo.Update(period);
         await uow.SaveChangesAsync(cancellationToken);
+
+        await activityLog.LogAsync(
+            action: "FiscalPeriod.Opened",
+            entityType: nameof(FiscalPeriod),
+            entityId: period.Id,
+            actorUserId: null,
+            actorUserName: User?.Identity?.Name,
+            details: $"FiscalPeriod '{period.Name}' reopened.",
+            cancellationToken: cancellationToken);
 
         return NoContent();
     }
