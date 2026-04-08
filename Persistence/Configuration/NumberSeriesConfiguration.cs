@@ -37,5 +37,7 @@ public class NumberSeriesConfiguration : IEntityTypeConfiguration<NumberSeries>
         builder.HasIndex("Code", "BranchScopeId")
             .IsUnique()
             .HasDatabaseName("UX_NumberSeries_Code_BranchScope");
+        
+        builder.HasQueryFilter(x => !x.IsDeleted);
     }
 }
