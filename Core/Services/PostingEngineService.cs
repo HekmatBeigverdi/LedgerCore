@@ -21,6 +21,7 @@ public class PostingEngineService(
         CancellationToken cancellationToken = default)
     {
         var ruleRepo = uow.Repository<PostingRule>();
+        var lineRepo = uow.Repository<PostingRuleLine>();
 
         var page = await ruleRepo.FindAsync(
             x => x.DocumentType == documentType
@@ -30,13 +31,17 @@ public class PostingEngineService(
             cancellationToken);
 
         var rule = page.Items
-            .OrderByDescending(x => x.BranchId.HasValue)
-            .ThenByDescending(x => x.Priority)
-            .FirstOrDefault()
-            ?? throw new InvalidOperationException($"No posting rule defined for documentType={documentType}.");
+                       .OrderByDescending(x => x.BranchId.HasValue)
+                       .ThenByDescending(x => x.Priority)
+                       .FirstOrDefault()
+                   ?? throw new InvalidOperationException($"No posting rule defined for documentType={documentType}.");
 
-        var lines = rule.Lines
-            .Where(x => x.IsActive)
+        var linePage = await lineRepo.FindAsync(
+            x => x.PostingRuleId == rule.Id && x.IsActive,
+            null,
+            cancellationToken);
+
+        var lines = linePage.Items
             .OrderBy(x => x.LineNumber)
             .ToList();
 
