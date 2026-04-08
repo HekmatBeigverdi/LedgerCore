@@ -88,6 +88,17 @@ public class NumberSeriesController(IUnitOfWork uow, ISecurityActivityLogService
 
         await repo.AddAsync(entity, cancellationToken);
         await uow.SaveChangesAsync(cancellationToken);
+        
+        await activityLog.LogAsync(
+            action: "NumberSeries.Created",
+            entityType: nameof(NumberSeries),
+            entityId: entity.Id,
+            actorUserId: null,
+            actorUserName: User?.Identity?.Name,
+            details:
+            $"Code={entity.Code}, EntityType={entity.EntityType}, BranchId={entity.BranchId}, " +
+            $"Prefix={entity.Prefix}, CurrentNumber={entity.CurrentNumber}, IsActive={entity.IsActive}",
+            cancellationToken: cancellationToken);
 
         request.Id = entity.Id;
         request.EntityType = entity.EntityType;
@@ -125,6 +136,17 @@ public class NumberSeriesController(IUnitOfWork uow, ISecurityActivityLogService
 
         repo.Update(entity);
         await uow.SaveChangesAsync(cancellationToken);
+
+        await activityLog.LogAsync(
+            action: "NumberSeries.Updated",
+            entityType: nameof(NumberSeries),
+            entityId: entity.Id,
+            actorUserId: null,
+            actorUserName: User?.Identity?.Name,
+            details:
+            $"Code={entity.Code}, EntityType={entity.EntityType}, BranchId={entity.BranchId}, " +
+            $"Prefix={entity.Prefix}, CurrentNumber={entity.CurrentNumber}, IsActive={entity.IsActive}",
+            cancellationToken: cancellationToken);
 
         return NoContent();
     }
