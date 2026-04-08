@@ -1,5 +1,6 @@
 using System.Linq;
 using LedgerCore.Core.Interfaces;
+using LedgerCore.Core.Interfaces.Services;
 using LedgerCore.Core.Models.Accounting;
 using LedgerCore.Core.Models.Master;
 using LedgerCore.Core.Models.Security;
@@ -12,7 +13,9 @@ namespace LedgerCore.Controllers;
 [ApiController]
 [Route("api/v1/[controller]")]
 [Authorize]
-public class AccountingSettingsController(IUnitOfWork uow) : ControllerBase
+public class AccountingSettingsController(
+    IUnitOfWork uow,
+    ISecurityActivityLogService activityLog) : ControllerBase
 {
     [HttpGet]
     [HasPermission(PermissionCodes.Master_AccountingSettings_View)]
@@ -61,6 +64,7 @@ public class AccountingSettingsController(IUnitOfWork uow) : ControllerBase
         var repo = uow.Repository<AccountingSettings>();
         var raw = await repo.GetAllAsync(cancellationToken: cancellationToken);
         var entity = raw.Items.FirstOrDefault();
+        var isCreate = entity is null;
 
         if (entity is null)
         {
@@ -111,6 +115,22 @@ public class AccountingSettingsController(IUnitOfWork uow) : ControllerBase
         }
 
         await uow.SaveChangesAsync(cancellationToken);
+
+        await activityLog.LogAsync(
+            action: isCreate ? "AccountingSettings.Created" : "AccountingSettings.Updated",
+            entityType: nameof(AccountingSettings),
+            entityId: entity.Id,
+            actorUserId: null,
+            actorUserName: User?.Identity?.Name,
+            details:
+                $"Receivable={entity.ReceivableAccountId}, " +
+                $"Payable={entity.PayableAccountId}, " +
+                $"SalesRevenue={entity.SalesRevenueAccountId}, " +
+                $"Purchase={entity.PurchaseAccountId}, " +
+                $"Inventory={entity.InventoryAccountId}, " +
+                $"COGS={entity.CogsAccountId}",
+            cancellationToken: cancellationToken);
+
         return NoContent();
     }
 
