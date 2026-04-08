@@ -32,8 +32,6 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .OnDelete(DeleteBehavior.Restrict);
 
 
-        builder.HasQueryFilter(u => u.Status == UserStatus.Active && !u.IsDeleted);
-        
-        builder.HasQueryFilter(x => !x.IsDeleted);
+        builder.HasQueryFilter(u => !u.IsDeleted);
     }
 }
