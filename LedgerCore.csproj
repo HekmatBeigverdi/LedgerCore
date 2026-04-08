@@ -39,7 +39,6 @@
         <Folder Include="Core\Storage\" />
         <Folder Include="Core\ViewModels\Common\" />
         <Folder Include="Extentions\" />
-        <Folder Include="Helpers\" />
         <Folder Include="Migrations\" />
     </ItemGroup>
 
