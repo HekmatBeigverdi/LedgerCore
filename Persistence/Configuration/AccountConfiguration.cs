@@ -32,5 +32,7 @@ public class AccountConfiguration : IEntityTypeConfiguration<Account>
         builder.Property(x => x.AllowedPartyType)
             .HasConversion<int>()      // اگر ترجیح می‌دهی string ذخیره شود، پایین توضیح داده‌ام
             .IsRequired(false);
+        
+        builder.HasQueryFilter(x => !x.IsDeleted);
     }
 }

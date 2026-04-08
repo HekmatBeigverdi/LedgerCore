@@ -19,5 +19,7 @@ public class BranchConfiguration : IEntityTypeConfiguration<Branch>
             .IsRequired();
 
         builder.HasIndex(x => x.Code).IsUnique();
+        
+        builder.HasQueryFilter(x => !x.IsDeleted);
     }
 }

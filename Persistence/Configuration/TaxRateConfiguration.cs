@@ -13,5 +13,7 @@ public class TaxRateConfiguration : IEntityTypeConfiguration<TaxRate>
         builder.Property(x => x.Name)
             .HasMaxLength(200)
             .IsRequired();
+        
+        builder.HasQueryFilter(x => !x.IsDeleted);
     }
 }

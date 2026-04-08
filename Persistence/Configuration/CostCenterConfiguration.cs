@@ -19,5 +19,7 @@ public class CostCenterConfiguration : IEntityTypeConfiguration<CostCenter>
             .IsRequired();
 
         builder.HasIndex(x => x.Code).IsUnique();
+        
+        builder.HasQueryFilter(x => !x.IsDeleted);
     }
 }

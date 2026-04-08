@@ -28,5 +28,7 @@ public class WarehouseConfiguration : IEntityTypeConfiguration<Warehouse>
 
         builder.HasIndex(x => new { x.BranchId, x.Code })
             .IsUnique();
+        
+        builder.HasQueryFilter(x => !x.IsDeleted);
     }
 }
