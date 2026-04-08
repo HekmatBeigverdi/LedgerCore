@@ -141,6 +141,18 @@ public class PostingRulesController(IUnitOfWork uow, ISecurityActivityLogService
         }
 
         await uow.SaveChangesAsync(cancellationToken);
+        
+        await activityLog.LogAsync(
+            action: "PostingRule.Created",
+            entityType: nameof(PostingRule),
+            entityId: entity.Id,
+            actorUserId: null,
+            actorUserName: User?.Identity?.Name,
+            details:
+            $"Code={entity.Code}, Name={entity.Name}, DocumentType={entity.DocumentType}, " +
+            $"BranchId={entity.BranchId}, Priority={entity.Priority}, AutoPost={entity.AutoPost}, " +
+            $"LinesCount={request.Lines.Count}",
+            cancellationToken: cancellationToken);
 
         var response = new PostingRuleDto
         {
@@ -233,6 +245,19 @@ public class PostingRulesController(IUnitOfWork uow, ISecurityActivityLogService
         }
 
         await uow.SaveChangesAsync(cancellationToken);
+
+        await activityLog.LogAsync(
+            action: "PostingRule.Updated",
+            entityType: nameof(PostingRule),
+            entityId: entity.Id,
+            actorUserId: null,
+            actorUserName: User?.Identity?.Name,
+            details:
+            $"Code={entity.Code}, Name={entity.Name}, DocumentType={entity.DocumentType}, " +
+            $"BranchId={entity.BranchId}, Priority={entity.Priority}, AutoPost={entity.AutoPost}, " +
+            $"LinesCount={request.Lines.Count}",
+            cancellationToken: cancellationToken);
+
         return NoContent();
     }
 
