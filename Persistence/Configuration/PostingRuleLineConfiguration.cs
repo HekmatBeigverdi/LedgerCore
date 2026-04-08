@@ -39,5 +39,7 @@ public class PostingRuleLineConfiguration : IEntityTypeConfiguration<PostingRule
             .IsUnique();
 
         builder.HasIndex(x => x.AccountId);
+        
+        builder.HasQueryFilter(x => !x.IsDeleted);
     }
 }
