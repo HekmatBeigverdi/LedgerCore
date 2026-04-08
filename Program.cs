@@ -163,7 +163,7 @@ var app = builder.Build();
 await using (var scope = app.Services.CreateAsyncScope())
 {
     var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-    await SeedPermissionsAsyncSecuritySeeder.SeedAsync(uow);
+    await SeedPermissionsAsyncSecuritySeeder.SeedAsync(uow, builder.Configuration);
     await SettingsSeeder.SeedAsync(uow);
 }
 

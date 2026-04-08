@@ -12,6 +12,7 @@ public static class SeedPermissionsAsyncSecuritySeeder
 {
     public static async Task SeedAsync(
         IUnitOfWork uow,
+        IConfiguration configuration,
         CancellationToken cancellationToken = default)
     {
         await SeedPermissionsAsync(uow, cancellationToken);
@@ -19,9 +20,19 @@ public static class SeedPermissionsAsyncSecuritySeeder
         await SeedRolePermissionsAsync(uow, cancellationToken); // Admin = all permissions
         await SeedRolePermissionForCustomRoles(uow, cancellationToken); // نقش‌های جدید
         var defaultBranch = await EnsureHeadOfficeBranchAsync(uow, cancellationToken);
-        await SeedAdminUserAsync(uow, defaultBranch.Id, cancellationToken: cancellationToken);
+        
+        var adminUserName = configuration["BootstrapAdmin:UserName"] ?? "admin";
+        var adminPassword = configuration["BootstrapAdmin:Password"];
 
-        await SeedAdminUserAsync(uow, defaultBranch.Id, cancellationToken: cancellationToken);
+        if (string.IsNullOrWhiteSpace(adminPassword))
+            throw new InvalidOperationException("BootstrapAdmin:Password is not configured.");
+        
+        await SeedAdminUserAsync(
+            uow,
+            defaultBranch.Id,
+            adminUserName: adminUserName,
+            defaultPassword: adminPassword,
+            cancellationToken: cancellationToken);
     }
 
     public static async Task SeedPermissionsAsync(
