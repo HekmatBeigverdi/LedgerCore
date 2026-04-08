@@ -2977,7 +2977,7 @@ namespace LedgerCore.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("SecurityActivityLogs");
+                    b.ToTable("SecurityActivityLogs", (string)null);
                 });
 
             modelBuilder.Entity("LedgerCore.Core.Models.Security.User", b =>

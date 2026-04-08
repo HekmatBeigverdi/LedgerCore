@@ -68,6 +68,8 @@ public class SalesService(
 
         try
         {
+            
+            _ = await GetOpenFiscalPeriodIdAsync(invoice.Date, cancellationToken);
             await ValidateCustomerAsync(invoice.CustomerId, cancellationToken);
             await ValidateWarehouseAsync(invoice.WarehouseId, invoice.BranchId, cancellationToken);
 
@@ -117,6 +119,8 @@ public class SalesService(
 
         try
         {
+            _ = await GetOpenFiscalPeriodIdAsync(document.Date, cancellationToken);
+            
             await ValidateCustomerAsync(document.CustomerId, cancellationToken);
             await ValidateWarehouseAsync(document.WarehouseId, document.BranchId, cancellationToken);
             await CalculateSalesReturnLinesAndTotalsAsync(document, cancellationToken);
@@ -189,6 +193,8 @@ public class SalesService(
                 TaxRateId = line.TaxRateId
             });
         }
+        
+        _ = await GetOpenFiscalPeriodIdAsync(document.Date, cancellationToken);
 
         await CalculateSalesReturnLinesAndTotalsAsync(existing, cancellationToken);
         await ValidateWarehouseAsync(existing.WarehouseId, existing.BranchId, cancellationToken);
@@ -283,6 +289,8 @@ public class SalesService(
                 TaxRateId = line.TaxRateId
             });
         }
+        
+        _ = await GetOpenFiscalPeriodIdAsync(invoice.Date, cancellationToken);
 
         await CalculateInvoiceLinesAndTotalsAsync(existing, cancellationToken);
         await ValidateWarehouseAsync(existing.WarehouseId, existing.BranchId, cancellationToken);
@@ -785,6 +793,36 @@ public class SalesService(
         await uow.SaveChangesAsync(cancellationToken);
 
         return reversed;
+    }
+    
+    private async Task<int> GetOpenFiscalPeriodIdAsync(DateTime date, CancellationToken ct)
+    {
+        var fyRepo = uow.Repository<FiscalYear>();
+        var fyPage = await fyRepo.FindAsync(y => y.StartDate <= date && y.EndDate >= date, null, ct);
+
+        var year = fyPage.Items
+                       .OrderByDescending(y => y.StartDate)
+                       .FirstOrDefault()
+                   ?? throw new InvalidOperationException($"No fiscal year found for date={date:yyyy-MM-dd}.");
+
+        if (year.IsClosed)
+            throw new InvalidOperationException($"Fiscal year '{year.Name}' is closed.");
+
+        var fpRepo = uow.Repository<FiscalPeriod>();
+        var fpPage = await fpRepo.FindAsync(
+            p => p.FiscalYearId == year.Id && p.StartDate <= date && p.EndDate >= date,
+            null,
+            ct);
+
+        var period = fpPage.Items
+                         .OrderByDescending(p => p.StartDate)
+                         .FirstOrDefault()
+                     ?? throw new InvalidOperationException($"No fiscal period found for date={date:yyyy-MM-dd}.");
+
+        if (period.IsClosed)
+            throw new InvalidOperationException($"Fiscal period '{period.Name}' is closed.");
+
+        return period.Id;
     }
 
     #endregion
